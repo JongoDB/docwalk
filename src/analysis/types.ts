@@ -236,6 +236,9 @@ export interface AnalysisManifest {
     summary: string;
     generatedAt: string;
   }>;
+
+  /** Code improvement insights from static analysis */
+  insights?: Insight[];
 }
 
 export interface ProjectMeta {
@@ -248,6 +251,7 @@ export interface ProjectMeta {
   framework?: string;
   license?: string;
   repository?: string;
+  projectType?: "library" | "application" | "unknown";
 }
 
 export interface AnalysisStats {
@@ -306,6 +310,21 @@ export interface GeneratedPage {
 
   /** Navigation order weight */
   navOrder: number;
+
+  /** Audience for this page when audience separation is enabled */
+  audience?: "user" | "developer" | "both";
+}
+
+// ─── Insight Types ──────────────────────────────────────────────────────────
+
+export interface Insight {
+  id: string;
+  category: "documentation" | "architecture" | "code-quality" | "security" | "performance";
+  severity: "info" | "warning" | "critical";
+  title: string;
+  description: string;
+  affectedFiles: string[];
+  suggestion: string;
 }
 
 export interface NavigationItem {

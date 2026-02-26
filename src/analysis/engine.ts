@@ -168,6 +168,20 @@ export async function analyzeCodebase(
   const projectMeta = computeProjectMeta(finalModules, repoRoot, source);
   const stats = computeStats(finalModules, skippedFiles, startTime);
 
+  // ── Step 9: Static code insights ─────────────────────────────────────
+  let insights: import("./types.js").Insight[] | undefined;
+  try {
+    const { runStaticInsights } = await import("./insights.js");
+    const tempManifest = {
+      modules: finalModules,
+      dependencyGraph,
+      projectMeta,
+    } as import("./types.js").AnalysisManifest;
+    insights = runStaticInsights(tempManifest);
+  } catch {
+    // Insights module not available — skip
+  }
+
   const manifest: AnalysisManifest = {
     docwalkVersion: "0.1.0",
     repo: source.repo,
@@ -179,6 +193,7 @@ export async function analyzeCodebase(
     projectMeta,
     stats,
     summaryCache,
+    insights,
   };
 
   // ── Post-analyze hooks ──────────────────────────────────────────────────

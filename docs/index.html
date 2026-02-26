@@ -1192,6 +1192,7 @@
     <a href="#deploy">Deploy</a>
     <a href="#config">Config</a>
     <a href="#themes">Themes</a>
+    <a href="#insights">Insights</a>
     <a href="#try">Try It</a>
     <a href="#pricing">Pricing</a>
     <a href="#specs">Specs</a>
@@ -1857,6 +1858,76 @@
   </div>
 </section>
 
+<!-- ═══ AI INSIGHTS ═══ -->
+<section id="insights" class="fade-in">
+  <div class="section-label">Code Intelligence</div>
+  <h2 class="section-title">AI-powered code insights. Not just docs — <em>understanding.</em></h2>
+  <p class="section-desc">
+    DocWalk doesn't just document your code — it analyzes it. 8 built-in static analyzers find missing docs, circular dependencies, and architectural issues. Pro adds AI-powered deep analysis.
+  </p>
+
+  <div class="features-grid" style="grid-template-columns: repeat(2, 1fr); margin-top: 48px;">
+    <div class="feature-card">
+      <div class="feature-icon icon-analyze">&#128269;</div>
+      <h3>Static Analyzers (Free)</h3>
+      <p>8 built-in detectors that scan every codebase:</p>
+      <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 8px;">
+        <span style="font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+          <span style="color: var(--accent); font-weight: 700;">&#10003;</span> Undocumented exports
+        </span>
+        <span style="font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+          <span style="color: var(--accent); font-weight: 700;">&#10003;</span> Circular dependencies
+        </span>
+        <span style="font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+          <span style="color: var(--accent); font-weight: 700;">&#10003;</span> Oversized & god modules
+        </span>
+        <span style="font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+          <span style="color: var(--accent); font-weight: 700;">&#10003;</span> Orphan modules (dead code)
+        </span>
+        <span style="font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+          <span style="color: var(--accent); font-weight: 700;">&#10003;</span> Missing types & inconsistent naming
+        </span>
+      </div>
+    </div>
+    <div class="feature-card" style="border-color: var(--accent); position: relative;">
+      <span class="badge" style="position: absolute; top: 12px; right: 12px; background: var(--accent); color: #0a0a0c; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Pro</span>
+      <div class="feature-icon icon-theme">&#129302;</div>
+      <h3>AI-Powered Analysis (Pro)</h3>
+      <p>Deep code review powered by LLMs:</p>
+      <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 8px;">
+        <span style="font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+          <span style="color: var(--accent-purple); font-weight: 700;">&#10003;</span> Architecture review & reorganization suggestions
+        </span>
+        <span style="font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+          <span style="color: var(--accent-purple); font-weight: 700;">&#10003;</span> API design consistency analysis
+        </span>
+        <span style="font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+          <span style="color: var(--accent-purple); font-weight: 700;">&#10003;</span> Security vulnerability scanning
+        </span>
+        <span style="font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+          <span style="color: var(--accent-purple); font-weight: 700;">&#10003;</span> Actionable improvement suggestions
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mock insight cards -->
+  <div style="margin-top: 48px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+    <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 20px; border-left: 3px solid var(--accent-tertiary);">
+      <div style="font-size: 28px; font-weight: 700; color: var(--accent-tertiary); margin-bottom: 4px;">12</div>
+      <div style="font-size: 13px; color: var(--text-secondary);">Undocumented exports</div>
+    </div>
+    <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 20px; border-left: 3px solid var(--accent-warn);">
+      <div style="font-size: 28px; font-weight: 700; color: var(--accent-warn); margin-bottom: 4px;">2</div>
+      <div style="font-size: 13px; color: var(--text-secondary);">Circular dependencies</div>
+    </div>
+    <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 20px; border-left: 3px solid var(--accent-purple);">
+      <div style="font-size: 28px; font-weight: 700; color: var(--accent-purple); margin-bottom: 4px;">3</div>
+      <div style="font-size: 13px; color: var(--text-secondary);">Architecture suggestions</div>
+    </div>
+  </div>
+</section>
+
 <!-- ═══ PRICING ═══ -->
 <section id="pricing" class="fade-in">
   <div class="section-label">Pricing</div>
@@ -1875,6 +1946,7 @@
         <li>1 deploy provider</li>
         <li>Git-diff smart sync</li>
         <li>Full MkDocs Material theming</li>
+        <li>Basic code insights (8 static analyzers)</li>
         <li>Custom domain (1)</li>
         <li>Community support</li>
       </ul>
@@ -1889,6 +1961,9 @@
         <li>All deploy providers</li>
         <li>All 6 theme presets (incl. API Reference & Knowledge Base)</li>
         <li>AI-powered summaries & descriptions</li>
+        <li>AI-powered improvement suggestions</li>
+        <li>Architecture review & security scan</li>
+        <li>User/Developer doc separation</li>
         <li>Versioned documentation (per tag/branch)</li>
         <li>Custom domains (10) + subpath routing</li>
         <li>Priority support + Slack</li>

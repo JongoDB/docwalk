@@ -106,6 +106,12 @@ function makeConfig(overrides: Partial<DocWalkConfig["analysis"]> = {}): DocWalk
       usage_guide_page: true,
       max_file_size: 500000,
       concurrency: 4,
+      audience: "auto",
+      architecture_tiers: true,
+      sbom: true,
+      source_links: true,
+      insights: true,
+      insights_ai: false,
       ...overrides,
     },
     sync: { trigger: "on_push", diff_strategy: "incremental", impact_analysis: true, state_file: ".docwalk/state.json", auto_commit: false, commit_message: "docs: update" },
@@ -208,7 +214,8 @@ describe("New Page Generators", () => {
       await generateDocs({ manifest, config, outputDir: OUTPUT_DIR });
 
       const depsContent = await readFile(path.join(OUTPUT_DIR, "docs", "dependencies.md"), "utf-8");
-      expect(depsContent).toContain("# Dependencies");
+      // With sbom: true (default), the page title is "Software Bill of Materials"
+      expect(depsContent).toContain("Software Bill of Materials");
       expect(depsContent).toContain("express");
       expect(depsContent).toContain("zod");
       expect(depsContent).toContain("@types/node");
@@ -261,6 +268,216 @@ describe("New Page Generators", () => {
       expect(guideContent).toContain("Dark / Light Mode");
       expect(guideContent).toContain("Search");
       expect(guideContent).toContain("1 files");
+    });
+  });
+
+  describe("SBOM Page", () => {
+    it("generates SBOM page with categorized dependencies", async () => {
+      const modules = [
+        makeModule({
+          filePath: "src/app.ts",
+          imports: [
+            { source: "express", specifiers: [{ name: "Express", isDefault: true, isNamespace: false }], isTypeOnly: false },
+            { source: "zod", specifiers: [{ name: "z", isDefault: false, isNamespace: false }], isTypeOnly: false },
+            { source: "@types/node", specifiers: [], isTypeOnly: true },
+          ],
+        }),
+      ];
+
+      const manifest = makeManifest(modules);
+      const config = makeConfig({ sbom: true });
+
+      await generateDocs({ manifest, config, outputDir: OUTPUT_DIR });
+
+      const depsContent = await readFile(path.join(OUTPUT_DIR, "docs", "dependencies.md"), "utf-8");
+      expect(depsContent).toContain("Software Bill of Materials");
+      expect(depsContent).toContain("Runtime Dependencies");
+      expect(depsContent).toContain("Dev / Type-only Dependencies");
+      expect(depsContent).toContain("express");
+      expect(depsContent).toContain("@types/node");
+    });
+  });
+
+  describe("Tiered Architecture", () => {
+    it("generates architecture index and package detail pages", async () => {
+      const modules = [
+        makeModule({ filePath: "src/core/engine.ts" }),
+        makeModule({ filePath: "src/core/parser.ts" }),
+        makeModule({ filePath: "src/api/routes.ts" }),
+      ];
+
+      const manifest = makeManifest(modules);
+      manifest.dependencyGraph.edges = [
+        { from: "src/api/routes.ts", to: "src/core/engine.ts", imports: ["Engine"], isTypeOnly: false },
+      ];
+
+      const config = makeConfig({ architecture_tiers: true });
+
+      await generateDocs({ manifest, config, outputDir: OUTPUT_DIR });
+
+      // Should have architecture index
+      expect(existsSync(path.join(OUTPUT_DIR, "docs", "architecture", "index.md"))).toBe(true);
+      const archContent = await readFile(path.join(OUTPUT_DIR, "docs", "architecture", "index.md"), "utf-8");
+      expect(archContent).toContain("System Overview");
+      expect(archContent).toContain("Packages");
+    });
+  });
+
+  describe("Source Citations", () => {
+    it("adds source links to module pages when source_links enabled", async () => {
+      const modules = [
+        makeModule({
+          filePath: "src/test.ts",
+          symbols: [
+            makeSymbol({
+              name: "myFunc",
+              kind: "function",
+              exported: true,
+              location: { file: "src/test.ts", line: 10, column: 0, endLine: 20, endColumn: 1 },
+            }),
+          ],
+        }),
+      ];
+
+      const manifest = makeManifest(modules);
+      const config = makeConfig({ source_links: true });
+
+      await generateDocs({ manifest, config, outputDir: OUTPUT_DIR });
+
+      const moduleContent = await readFile(path.join(OUTPUT_DIR, "docs", "api", "src-test.md"), "utf-8");
+      expect(moduleContent).toContain("View source");
+      expect(moduleContent).toContain("github.com/owner/repo/blob/main/src/test.ts");
+      expect(moduleContent).toContain("Relevant source files");
+    });
+  });
+
+  describe("Richer Symbol Rendering", () => {
+    it("renders async and generator badges", async () => {
+      const modules = [
+        makeModule({
+          filePath: "src/test.ts",
+          symbols: [
+            makeSymbol({
+              name: "fetchData",
+              kind: "function",
+              exported: true,
+              async: true,
+              signature: "async function fetchData(): Promise<void>",
+            }),
+          ],
+        }),
+      ];
+
+      const manifest = makeManifest(modules);
+      const config = makeConfig();
+
+      await generateDocs({ manifest, config, outputDir: OUTPUT_DIR });
+
+      const moduleContent = await readFile(path.join(OUTPUT_DIR, "docs", "api", "src-test.md"), "utf-8");
+      expect(moduleContent).toContain(":material-sync: async");
+    });
+
+    it("renders class hierarchy diagrams", async () => {
+      const modules = [
+        makeModule({
+          filePath: "src/test.ts",
+          symbols: [
+            makeSymbol({
+              name: "MyClass",
+              kind: "class",
+              exported: true,
+              extends: "BaseClass",
+              implements: ["IService"],
+            }),
+          ],
+        }),
+      ];
+
+      const manifest = makeManifest(modules);
+      const config = makeConfig();
+
+      await generateDocs({ manifest, config, outputDir: OUTPUT_DIR });
+
+      const moduleContent = await readFile(path.join(OUTPUT_DIR, "docs", "api", "src-test.md"), "utf-8");
+      expect(moduleContent).toContain("classDiagram");
+      expect(moduleContent).toContain("BaseClass");
+      expect(moduleContent).toContain("IService");
+    });
+
+    it("renders example blocks from docs", async () => {
+      const modules = [
+        makeModule({
+          filePath: "src/test.ts",
+          symbols: [
+            makeSymbol({
+              name: "helper",
+              kind: "function",
+              exported: true,
+              docs: { summary: "A helper function", examples: ["const result = helper();"] },
+            }),
+          ],
+        }),
+      ];
+
+      const manifest = makeManifest(modules);
+      const config = makeConfig();
+
+      await generateDocs({ manifest, config, outputDir: OUTPUT_DIR });
+
+      const moduleContent = await readFile(path.join(OUTPUT_DIR, "docs", "api", "src-test.md"), "utf-8");
+      expect(moduleContent).toContain("Example:");
+      expect(moduleContent).toContain("const result = helper();");
+    });
+
+    it("renders decorator badges", async () => {
+      const modules = [
+        makeModule({
+          filePath: "src/test.ts",
+          symbols: [
+            makeSymbol({
+              name: "myFunc",
+              kind: "function",
+              exported: true,
+              decorators: ["experimental"],
+            }),
+          ],
+        }),
+      ];
+
+      const manifest = makeManifest(modules);
+      const config = makeConfig();
+
+      await generateDocs({ manifest, config, outputDir: OUTPUT_DIR });
+
+      const moduleContent = await readFile(path.join(OUTPUT_DIR, "docs", "api", "src-test.md"), "utf-8");
+      expect(moduleContent).toContain("@experimental");
+    });
+  });
+
+  describe("Insights Page", () => {
+    it("generates insights page when insights are present", async () => {
+      const modules = [makeModule({ filePath: "src/index.ts" })];
+      const manifest = makeManifest(modules);
+      manifest.insights = [
+        {
+          id: "test-insight",
+          category: "documentation",
+          severity: "warning",
+          title: "Test Insight",
+          description: "This is a test insight",
+          affectedFiles: ["src/index.ts"],
+          suggestion: "Fix the issue",
+        },
+      ];
+      const config = makeConfig({ insights: true });
+
+      await generateDocs({ manifest, config, outputDir: OUTPUT_DIR });
+
+      expect(existsSync(path.join(OUTPUT_DIR, "docs", "insights.md"))).toBe(true);
+      const insightsContent = await readFile(path.join(OUTPUT_DIR, "docs", "insights.md"), "utf-8");
+      expect(insightsContent).toContain("Code Insights");
+      expect(insightsContent).toContain("Test Insight");
+      expect(insightsContent).toContain("Fix the issue");
     });
   });
 

@@ -412,6 +412,42 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
 [data-md-color-scheme="slate"] .md-footer {
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
+
+/* ── Source Links ── */
+.md-typeset a[href*="github.com"][href*="/blob/"] {
+  font-size: 0.78rem;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+.md-typeset a[href*="github.com"][href*="/blob/"]:hover {
+  opacity: 1;
+}
+
+/* ── Insight Cards ── */
+.md-typeset .admonition.danger,
+.md-typeset details.danger {
+  border-color: #ef4444;
+}
+.md-typeset .admonition.danger .admonition-title,
+.md-typeset details.danger summary {
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+/* ── Diagram Containers ── */
+.md-typeset .mermaid {
+  cursor: zoom-in;
+  transition: transform 0.2s;
+}
+.md-typeset .mermaid:hover {
+  transform: scale(1.01);
+}
+
+/* ── Badge Styles ── */
+.md-typeset h3 code + .twemoji,
+.md-typeset h3 code ~ em {
+  font-size: 0.72rem;
+  opacity: 0.6;
+}
 `,
   },
 

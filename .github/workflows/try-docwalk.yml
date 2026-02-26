@@ -75,7 +75,7 @@ jobs:
         run: npm ci
 
       - name: Install MkDocs
-        run: pip install mkdocs-material mkdocs-minify-plugin
+        run: pip install mkdocs-material mkdocs-minify-plugin mkdocs-glightbox
 
       - name: Initialize DocWalk config
         working-directory: target-repo

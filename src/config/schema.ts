@@ -121,6 +121,24 @@ export const AnalysisSchema = z.object({
 
   /** Parallelism for analysis workers */
   concurrency: z.number().int().positive().default(4),
+
+  /** Audience separation: auto-detect library vs app, split into user/dev tabs, or unified */
+  audience: z.enum(["auto", "unified", "split"]).default("auto"),
+
+  /** Multi-level architecture pages (system → package → module) */
+  architecture_tiers: z.boolean().default(true),
+
+  /** Generate Software Bill of Materials page */
+  sbom: z.boolean().default(true),
+
+  /** Add GitHub source links on symbols */
+  source_links: z.boolean().default(true),
+
+  /** Generate code insights page (static analyzers) */
+  insights: z.boolean().default(true),
+
+  /** Enable AI-powered insights (requires license + API key) */
+  insights_ai: z.boolean().default(false),
 });
 
 // ─── Sync Configuration ─────────────────────────────────────────────────────
