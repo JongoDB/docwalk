@@ -82,10 +82,12 @@ export function getAvailableProviders(): DeployProvider[] {
   return [...providers.values()];
 }
 
-// ─── Barrel Exports for Providers ───────────────────────────────────────────
-// TODO: Import and register each provider:
-// import { GitHubPagesProvider } from "./providers/github-pages.js";
-// import { CloudflareProvider } from "./providers/cloudflare.js";
-// import { VercelProvider } from "./providers/vercel.js";
-// import { NetlifyProvider } from "./providers/netlify.js";
-// import { S3Provider } from "./providers/s3.js";
+// ─── Auto-register built-in providers ───────────────────────────────────────
+
+import { GitHubPagesProvider } from "./providers/github-pages.js";
+import { CloudflareProvider } from "./providers/cloudflare.js";
+import { VercelProvider } from "./providers/vercel.js";
+
+registerProvider(new GitHubPagesProvider());
+registerProvider(new CloudflareProvider());
+registerProvider(new VercelProvider());

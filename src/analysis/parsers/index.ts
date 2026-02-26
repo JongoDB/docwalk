@@ -58,15 +58,9 @@ export function getRegisteredLanguages(): LanguageId[] {
 }
 
 // ─── Auto-register built-in parsers ─────────────────────────────────────────
-// These will be implemented as separate files and imported here.
-// For now, we export the registration mechanism so parsers can self-register.
 
-// TODO: Import and register each parser:
-// import { TypeScriptParser } from "./typescript.js";
-// import { PythonParser } from "./python.js";
-// import { GoParser } from "./go.js";
-// ...etc
-//
-// registerParser(new TypeScriptParser());
-// registerParser(new PythonParser());
-// registerParser(new GoParser());
+import { TypeScriptParser } from "./typescript.js";
+import { JavaScriptParser } from "./javascript.js";
+
+registerParser(new TypeScriptParser());
+registerParser(new JavaScriptParser());
