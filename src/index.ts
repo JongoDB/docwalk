@@ -67,6 +67,20 @@ export type { SyncOptions } from "./sync/index.js";
 export { generateDocs } from "./generators/index.js";
 export type { GenerateOptions } from "./generators/index.js";
 
+// ─── Theme Presets ──────────────────────────────────────────────────────────
+export {
+  resolvePreset,
+  getPresetIds,
+  getFreePresetIds,
+  getPremiumPresetIds,
+  isPremiumPreset,
+  registerPresets,
+  loadPremiumPresets,
+  FREE_PRESET_IDS,
+  PREMIUM_PRESET_IDS,
+} from "./generators/index.js";
+export type { ThemePreset } from "./generators/index.js";
+
 // ─── Deploy ─────────────────────────────────────────────────────────────────
 export {
   getProvider,

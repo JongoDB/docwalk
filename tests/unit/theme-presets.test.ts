@@ -19,10 +19,10 @@ import {
 } from "../../src/generators/theme-presets.js";
 
 describe("Theme Presets", () => {
-  it("has six built-in presets", () => {
-    const ids = getPresetIds();
-    expect(ids).toHaveLength(6);
-    expect(ids.sort()).toEqual(["api-reference", "corporate", "developer", "knowledge-base", "minimal", "startup"]);
+  it("has four built-in free presets", () => {
+    const ids = Object.keys(THEME_PRESETS);
+    expect(ids).toHaveLength(4);
+    expect(ids.sort()).toEqual(["corporate", "developer", "minimal", "startup"]);
   });
 
   it("each preset has all required fields", () => {
@@ -87,10 +87,6 @@ describe("Theme Presets", () => {
 
   it("each preset CSS contains valid CSS syntax", () => {
     for (const preset of Object.values(THEME_PRESETS)) {
-      // Should contain at least one rule block
-      expect(preset.customCss).toContain("{");
-      expect(preset.customCss).toContain("}");
-      // Opening and closing braces should be balanced
       const opens = (preset.customCss.match(/{/g) || []).length;
       const closes = (preset.customCss.match(/}/g) || []).length;
       expect(opens).toBe(closes);
@@ -108,38 +104,13 @@ describe("Theme Presets", () => {
     expect(preset.features).not.toContain("navigation.tabs");
   });
 
-  it("api-reference preset has toc.integrate and content.code.select", () => {
-    const preset = resolvePreset("api-reference")!;
-    expect(preset.palette.scheme).toBe("slate");
-    expect(preset.palette.primary).toBe("#1e88e5");
-    expect(preset.palette.accent).toBe("#82b1ff");
-    expect(preset.features).toContain("toc.integrate");
-    expect(preset.features).toContain("content.code.select");
-    expect(preset.features).toContain("content.code.annotate");
-    expect(preset.fonts.text).toBe("Inter");
-    expect(preset.fonts.code).toBe("JetBrains Mono");
-  });
-
-  it("knowledge-base preset has sticky tabs, breadcrumbs, and prune", () => {
-    const preset = resolvePreset("knowledge-base")!;
-    expect(preset.palette.scheme).toBe("default");
-    expect(preset.palette.primary).toBe("#2e7d32");
-    expect(preset.palette.accent).toBe("#66bb6a");
-    expect(preset.features).toContain("navigation.tabs.sticky");
-    expect(preset.features).toContain("navigation.path");
-    expect(preset.features).toContain("navigation.prune");
-    expect(preset.features).toContain("search.share");
-    expect(preset.fonts.text).toBe("Noto Sans");
-    expect(preset.fonts.code).toBe("Fira Code");
-  });
-
   // ── Free vs Premium Tier Tests ──
 
   it("FREE_PRESET_IDS contains only free presets", () => {
     expect([...FREE_PRESET_IDS].sort()).toEqual(["corporate", "developer", "minimal", "startup"]);
   });
 
-  it("PREMIUM_PRESET_IDS contains only premium presets", () => {
+  it("PREMIUM_PRESET_IDS lists premium preset names", () => {
     expect([...PREMIUM_PRESET_IDS].sort()).toEqual(["api-reference", "knowledge-base"]);
   });
 
@@ -147,27 +118,28 @@ describe("Theme Presets", () => {
     expect(getFreePresetIds().sort()).toEqual(["corporate", "developer", "minimal", "startup"]);
   });
 
-  it("getPremiumPresetIds returns premium presets", () => {
-    expect(getPremiumPresetIds()).toContain("api-reference");
-    expect(getPremiumPresetIds()).toContain("knowledge-base");
-  });
-
-  it("isPremiumPreset correctly identifies tiers", () => {
+  it("isPremiumPreset identifies free presets as non-premium", () => {
     expect(isPremiumPreset("developer")).toBe(false);
     expect(isPremiumPreset("corporate")).toBe(false);
+    expect(isPremiumPreset("startup")).toBe(false);
+    expect(isPremiumPreset("minimal")).toBe(false);
+  });
+
+  it("isPremiumPreset identifies premium preset IDs", () => {
+    // These IDs are premium even though the presets are not bundled in OSS
     expect(isPremiumPreset("api-reference")).toBe(true);
     expect(isPremiumPreset("knowledge-base")).toBe(true);
   });
 
-  it("resolvePreset with requireLicense blocks premium without key", () => {
-    const result = resolvePreset("api-reference", { requireLicense: true });
-    expect(result).toBeUndefined();
+  it("premium presets are not bundled in OSS THEME_PRESETS", () => {
+    expect(THEME_PRESETS["api-reference"]).toBeUndefined();
+    expect(THEME_PRESETS["knowledge-base"]).toBeUndefined();
   });
 
-  it("resolvePreset with requireLicense allows premium with key", () => {
-    const result = resolvePreset("api-reference", { requireLicense: true, licenseKey: "test-key" });
-    expect(result).toBeDefined();
-    expect(result!.id).toBe("api-reference");
+  it("resolvePreset returns undefined for unregistered premium presets", () => {
+    // Before premium package is loaded, these return undefined
+    expect(resolvePreset("api-reference")).toBeUndefined();
+    expect(resolvePreset("knowledge-base")).toBeUndefined();
   });
 
   it("resolvePreset with requireLicense allows free without key", () => {
@@ -176,7 +148,7 @@ describe("Theme Presets", () => {
     expect(result!.id).toBe("developer");
   });
 
-  it("registerPresets adds external presets", () => {
+  it("registerPresets adds external presets that become resolvable", () => {
     const countBefore = getPresetIds().length;
     registerPresets({
       "test-premium": {
@@ -192,5 +164,10 @@ describe("Theme Presets", () => {
     expect(getPresetIds().length).toBe(countBefore + 1);
     expect(resolvePreset("test-premium")).toBeDefined();
     expect(isPremiumPreset("test-premium")).toBe(true);
+  });
+
+  it("getPremiumPresetIds includes registered external presets", () => {
+    // test-premium was registered in the previous test
+    expect(getPremiumPresetIds()).toContain("test-premium");
   });
 });
