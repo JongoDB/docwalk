@@ -46,6 +46,12 @@ export interface DeployProvider {
     domain: DomainConfig
   ): Promise<DeployResult>;
 
+  /** Remove a deployment and clean up provider resources */
+  undeploy(
+    deploy: DeployConfig,
+    domain: DomainConfig
+  ): Promise<{ success: boolean; message: string }>;
+
   /** Configure custom domain and SSL */
   configureDomain(
     domain: DomainConfig,
@@ -54,6 +60,12 @@ export interface DeployProvider {
 
   /** Generate CI/CD configuration file (GitHub Actions, etc.) */
   generateCIConfig(
+    deploy: DeployConfig,
+    domain: DomainConfig
+  ): Promise<{ path: string; content: string }>;
+
+  /** Generate PR preview deployment workflow */
+  generatePreviewCIConfig(
     deploy: DeployConfig,
     domain: DomainConfig
   ): Promise<{ path: string; content: string }>;

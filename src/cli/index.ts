@@ -10,7 +10,8 @@
  *   generate  Analyze codebase and generate docs
  *   sync      Incremental sync via git-diff
  *   deploy    Deploy to hosting provider
- *   dev       Local preview server
+ *   undeploy  Remove deployment from hosting provider
+ *   dev       Local preview server (with --watch support)
  *   status    Show sync state and project info
  */
 
@@ -89,6 +90,20 @@ program
     await deployCommand(options);
   });
 
+// ─── UNDEPLOY ────────────────────────────────────────────────────────────────
+
+program
+  .command("undeploy")
+  .description("Remove deployment from hosting provider")
+  .option("-c, --config <path>", "Config file path")
+  .option("-p, --provider <provider>", "Override deploy provider")
+  .option("--force", "Skip confirmation prompt")
+  .option("-v, --verbose", "Verbose output")
+  .action(async (options) => {
+    const { undeployCommand } = await import("./commands/undeploy.js");
+    await undeployCommand(options);
+  });
+
 // ─── DEV ────────────────────────────────────────────────────────────────────
 
 program
@@ -97,6 +112,8 @@ program
   .option("-c, --config <path>", "Config file path")
   .option("--port <port>", "Port number", "8000")
   .option("--host <host>", "Host to bind to", "127.0.0.1")
+  .option("-w, --watch", "Watch source files and auto-regenerate docs")
+  .option("-v, --verbose", "Verbose output")
   .action(async (options) => {
     const { devCommand } = await import("./commands/dev.js");
     await devCommand(options);
@@ -120,6 +137,7 @@ program
   .description("Generate CI/CD pipeline configuration for your provider")
   .option("-c, --config <path>", "Config file path")
   .option("-p, --provider <provider>", "Override deploy provider")
+  .option("--preview", "Also generate PR preview deployment workflow")
   .action(async (options) => {
     const { ciSetupCommand } = await import("./commands/ci-setup.js");
     await ciSetupCommand(options);
