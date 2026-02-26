@@ -1,0 +1,108 @@
+# Try DocWalk — Ephemeral docs generation for public repos
+#
+# Triggered via workflow_dispatch. Clones a public repo,
+# runs DocWalk analysis + generation, builds with MkDocs,
+# and publishes to gh-pages under /try/{slug}/.
+
+name: Try DocWalk
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo_url:
+        description: "Public GitHub repo URL (https://github.com/owner/repo)"
+        required: true
+        type: string
+      branch:
+        description: "Branch to analyze"
+        required: false
+        default: "main"
+        type: string
+
+concurrency:
+  group: try-${{ github.event.inputs.repo_url }}
+  cancel-in-progress: true
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: Parse repo URL
+        id: parse
+        run: |
+          REPO_URL="${{ github.event.inputs.repo_url }}"
+          # Extract owner/repo from URL
+          SLUG=$(echo "$REPO_URL" | sed -E 's|https?://github\.com/||' | sed 's|/$||' | tr '/' '-')
+          OWNER_REPO=$(echo "$REPO_URL" | sed -E 's|https?://github\.com/||' | sed 's|/$||')
+          echo "slug=$SLUG" >> "$GITHUB_OUTPUT"
+          echo "owner_repo=$OWNER_REPO" >> "$GITHUB_OUTPUT"
+
+      - name: Clone target repo
+        run: |
+          git clone --depth 1 --branch "${{ github.event.inputs.branch }}" \
+            "${{ github.event.inputs.repo_url }}" target-repo
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          npm install -g docwalk
+          pip install mkdocs-material mkdocs-minify-plugin
+
+      - name: Initialize DocWalk
+        working-directory: target-repo
+        run: |
+          npx docwalk init --no-interactive --repo "${{ steps.parse.outputs.owner_repo }}"
+
+      - name: Generate documentation
+        working-directory: target-repo
+        run: |
+          npx docwalk generate
+
+      - name: Build MkDocs site
+        working-directory: target-repo/docwalk-output
+        run: |
+          mkdocs build
+
+      - name: Deploy to gh-pages
+        run: |
+          SLUG="${{ steps.parse.outputs.slug }}"
+          mkdir -p gh-pages/try/${SLUG}
+          cp -r target-repo/docwalk-output/site/* gh-pages/try/${SLUG}/
+
+          cd gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add try/${SLUG}
+          git commit -m "try: generate docs for ${SLUG}" || echo "No changes to commit"
+          git push
+
+      - name: Prune old results
+        run: |
+          cd gh-pages
+          # Remove try/ subdirectories older than 7 days
+          find try/ -mindepth 1 -maxdepth 1 -type d -mtime +7 -exec rm -rf {} + 2>/dev/null || true
+          git add -A
+          git diff --cached --quiet || git commit -m "try: prune results older than 7 days"
+          git push || true
+
+      - name: Output result URL
+        run: |
+          SLUG="${{ steps.parse.outputs.slug }}"
+          echo "Documentation available at:"
+          echo "https://jongodb.github.io/docwalk/try/${SLUG}/"
