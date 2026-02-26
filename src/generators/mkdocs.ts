@@ -717,9 +717,11 @@ function generateMkdocsConfig(
   config: DocWalkConfig,
   navigation: NavigationItem[]
 ): string {
-  const siteName = manifest.projectMeta.name;
+  const rawName = manifest.projectMeta.name;
+  const siteName = rawName === "." ? path.basename(process.cwd()) : rawName;
   const theme = config.theme;
   const preset = resolvePreset(theme.preset ?? "developer");
+  const isGitHubRepo = config.source.repo.includes("/");
 
   const navYaml = renderNavYaml(navigation, 0);
 
@@ -748,7 +750,7 @@ function generateMkdocsConfig(
       accent: custom
       toggle:
         icon: material/brightness-${toggleScheme === "slate" ? "4" : "7"}
-        name: Switch to ${toggleScheme === "slate" ? "dark" : "light"} mode`;
+        name: Switch to ${scheme === "slate" ? "dark" : "light"} mode`;
   } else {
     paletteYaml = `  palette:
     - scheme: ${scheme}
@@ -774,7 +776,7 @@ function generateMkdocsConfig(
   // Build extra_css list
   const extraCss: string[] = [];
   if (preset) {
-    extraCss.push("docs/stylesheets/preset.css");
+    extraCss.push("stylesheets/preset.css");
   }
   if (theme.custom_css) {
     extraCss.push(...theme.custom_css);
@@ -817,8 +819,7 @@ site_name: "${siteName} Documentation"
 site_description: "Auto-generated documentation for ${siteName}"
 site_url: "${config.domain.custom ? `https://${config.domain.custom}${config.domain.base_path}` : ""}"
 
-repo_url: "https://github.com/${config.source.repo}"
-repo_name: "${config.source.repo}"
+${isGitHubRepo ? `repo_url: "https://github.com/${config.source.repo}"\nrepo_name: "${config.source.repo}"` : `# repo_url: configure with your repository URL`}
 
 theme:
   name: material

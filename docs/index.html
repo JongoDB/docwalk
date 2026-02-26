@@ -437,8 +437,8 @@
   /* ─── DEPLOY PROVIDERS ─── */
   .providers-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
     margin-top: 64px;
   }
 
@@ -743,7 +743,8 @@
   /* ─── RESPONSIVE ─── */
   @media (max-width: 900px) {
     section { padding: 80px 20px; }
-    .features-grid, .providers-grid, .pricing-grid { grid-template-columns: 1fr; }
+    .features-grid, .pricing-grid { grid-template-columns: 1fr; }
+    .providers-grid { grid-template-columns: repeat(2, 1fr); }
     .config-grid, .diff-showcase { grid-template-columns: 1fr; }
     .arch-flow { flex-direction: column; }
     .arch-step:first-child { border-radius: var(--radius) var(--radius) 0 0; }
@@ -873,6 +874,7 @@
     <a href="#config">Config</a>
     <a href="#pricing">Pricing</a>
     <a href="#specs">Specs</a>
+    <a href="docs/" style="color:var(--accent); font-weight:600;">Documentation</a>
   </div>
 </nav>
 
@@ -887,8 +889,8 @@
     DocWalk analyzes any repository and generates a full MkDocs Material documentation site — API references, architecture guides, navigation trees — then keeps it in sync with every commit via intelligent git-diff analysis. Deploy anywhere in one command.
   </p>
   <div class="hero-actions">
-    <a href="#how-it-works" class="btn-primary">See How It Works ↓</a>
-    <a href="#config" class="btn-secondary">View Sample Config</a>
+    <a href="docs/" class="btn-primary">Read the Docs →</a>
+    <a href="#how-it-works" class="btn-secondary">See How It Works ↓</a>
   </div>
 
   <!-- Terminal Demo -->
@@ -942,8 +944,8 @@
     </div>
     <div class="feature-card">
       <div class="feature-icon icon-deploy">▲</div>
-      <h3>Multi-Provider Deploy</h3>
-      <p>One-command deployment to GitHub Pages, Cloudflare Pages, Vercel, Netlify, or any S3-compatible bucket. Built-in CI/CD with GitHub Actions, Wrangler, and Vercel CLI.</p>
+      <h3>5-Provider Deploy</h3>
+      <p>One-command deployment to GitHub Pages, Cloudflare Pages, Vercel, Netlify, or any S3-compatible bucket. Each provider includes CI/CD generation and PR preview deployments.</p>
     </div>
     <div class="feature-card">
       <div class="feature-icon icon-domain">◎</div>
@@ -952,13 +954,13 @@
     </div>
     <div class="feature-card">
       <div class="feature-icon icon-theme">◆</div>
-      <h3>MkDocs Material Themes</h3>
-      <p>Ships with MkDocs Material out of the box. Full theme customization — colors, logos, fonts, navigation structure, search, versioning, and localization.</p>
+      <h3>Theme Presets & Customization</h3>
+      <p>Four built-in presets (Developer, Corporate, Startup, Minimal) with custom palettes, fonts, and CSS. Full MkDocs Material theming — colors, logos, navigation, search, versioning.</p>
     </div>
     <div class="feature-card">
       <div class="feature-icon icon-ci">⛓</div>
       <h3>Zero-Config CI/CD</h3>
-      <p>Auto-generates GitHub Actions workflows, Cloudflare Wrangler configs, and Vercel project settings. Installs webhooks, provisions tokens, and handles secrets injection.</p>
+      <p>Auto-generates GitHub Actions workflows for all 5 providers — GitHub Pages, Cloudflare, Vercel, Netlify, and S3. Includes PR preview deployments and production pipelines.</p>
     </div>
   </div>
 </section>
@@ -1098,15 +1100,14 @@
         <br>
         <span class="y-comment"># ─── Theme ───</span><br>
         <span class="y-key">theme:</span><br>
-        &nbsp;&nbsp;<span class="y-key">palette:</span> <span class="y-str">slate</span><br>
-        &nbsp;&nbsp;<span class="y-key">accent:</span> <span class="y-str">"#5de4c7"</span><br>
+        &nbsp;&nbsp;<span class="y-key">preset:</span> <span class="y-str">developer</span> <span class="y-comment"># developer | corporate | startup | minimal | custom</span><br>
         &nbsp;&nbsp;<span class="y-key">logo:</span> <span class="y-str">./assets/logo.svg</span><br>
         &nbsp;&nbsp;<span class="y-key">favicon:</span> <span class="y-str">./assets/favicon.png</span><br>
-        &nbsp;&nbsp;<span class="y-key">features:</span><br>
-        &nbsp;&nbsp;&nbsp;&nbsp;- <span class="y-str">navigation.tabs</span><br>
-        &nbsp;&nbsp;&nbsp;&nbsp;- <span class="y-str">navigation.sections</span><br>
-        &nbsp;&nbsp;&nbsp;&nbsp;- <span class="y-str">search.suggest</span><br>
-        &nbsp;&nbsp;&nbsp;&nbsp;- <span class="y-str">content.code.copy</span><br>
+        <br>
+        <span class="y-comment"># ─── Hooks ───</span><br>
+        <span class="y-key">hooks:</span><br>
+        &nbsp;&nbsp;<span class="y-key">pre_build:</span> <span class="y-str">["npm run lint:docs"]</span><br>
+        &nbsp;&nbsp;<span class="y-key">post_deploy:</span> <span class="y-str">["curl -X POST $SLACK_WEBHOOK"]</span><br>
       </div>
     </div>
   </div>
@@ -1193,12 +1194,31 @@
     <div class="provider-card">
       <div class="provider-logo">▲</div>
       <h3>Vercel</h3>
-      <p>Instant deployments via Vercel API. Generates <code>vercel.json</code>, links to your project, and configures domain routing and redirects.</p>
+      <p>Instant deployments via Vercel API. Generates <code>vercel.json</code>, links to your project, and configures domain routing.</p>
       <div class="provider-features">
         <span>Vercel CLI + API integration</span>
         <span>Instant rollbacks</span>
         <span>Branch preview URLs</span>
-        <span>Edge functions for dynamic routes</span>
+      </div>
+    </div>
+    <div class="provider-card">
+      <div class="provider-logo">◈</div>
+      <h3>Netlify</h3>
+      <p>Deploy with Netlify CLI. Auto-generates GitHub Actions workflow with PR preview deployments and production deploys.</p>
+      <div class="provider-features">
+        <span>Netlify CLI integration</span>
+        <span>PR preview deployments</span>
+        <span>Custom domain + SSL</span>
+      </div>
+    </div>
+    <div class="provider-card">
+      <div class="provider-logo">⬢</div>
+      <h3>AWS S3</h3>
+      <p>Direct upload to any S3-compatible bucket with optional CloudFront CDN invalidation. Full CI/CD via GitHub Actions.</p>
+      <div class="provider-features">
+        <span>S3 sync + CloudFront CDN</span>
+        <span>IAM-scoped credentials</span>
+        <span>PR preview to separate paths</span>
       </div>
     </div>
   </div>
@@ -1310,7 +1330,7 @@
     </div>
     <div class="specs-row">
       <div class="specs-key">Language Support</div>
-      <div class="specs-val">TypeScript, JavaScript, Python, Go, Rust, Java, C#, C/C++, Ruby, PHP, Swift, Kotlin, Scala, Elixir, Dart, Lua, Zig, Haskell. Plugin API for custom language parsers. Uses tree-sitter for AST extraction across all languages.</div>
+      <div class="specs-val"><strong>Supported now:</strong> TypeScript, JavaScript, Python, Go, Rust, Java, C#, Ruby, PHP (9 languages with full AST parsing via tree-sitter). <strong>Roadmap:</strong> Swift, Kotlin, Scala, Elixir, Dart, Lua, Zig, Haskell, C/C++. Plugin API planned for custom language parsers.</div>
     </div>
     <div class="specs-row">
       <div class="specs-key">Analysis Engine</div>
@@ -1346,7 +1366,7 @@
     </div>
     <div class="specs-row">
       <div class="specs-key">Extensibility</div>
-      <div class="specs-val">Plugin API for custom analyzers (e.g., OpenAPI spec ingest, database schema docs, Terraform module docs). Hook system: pre-analyze, post-analyze, pre-build, post-build, pre-deploy, post-deploy. Custom Markdown generators can inject content into any doc section. MkDocs plugin ecosystem fully supported.</div>
+      <div class="specs-val">Hook system with 6 lifecycle hooks: pre-analyze, post-analyze, pre-build, post-build, pre-deploy, post-deploy. Run shell commands at each stage (linting, notifications, custom transforms). Plugin API for custom analyzers planned for future release. MkDocs plugin ecosystem fully supported.</div>
     </div>
     <div class="specs-row">
       <div class="specs-key">Monorepo Support</div>
