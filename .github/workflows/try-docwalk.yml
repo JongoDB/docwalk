@@ -47,8 +47,10 @@ jobs:
         id: parse
         run: |
           REPO_URL="${{ github.event.inputs.repo_url }}"
-          SLUG=$(echo "$REPO_URL" | sed -E 's|https?://github\.com/||' | sed 's|/$||' | tr '/' '-')
+          OWNER_REPO=$(echo "$REPO_URL" | sed -E 's|https?://github\.com/||' | sed 's|/$||')
+          SLUG=$(echo "$OWNER_REPO" | tr '/' '-')
           echo "slug=$SLUG" >> "$GITHUB_OUTPUT"
+          echo "owner_repo=$OWNER_REPO" >> "$GITHUB_OUTPUT"
 
       - name: Clone target repo
         run: |
@@ -77,12 +79,12 @@ jobs:
       - name: Initialize DocWalk config
         working-directory: target-repo
         run: |
-          npx -y tsx ../docwalk-src/src/cli/index.ts init --no-interactive
+          npx -y tsx ../docwalk-src/src/cli/index.ts init --no-interactive --repo "${{ steps.parse.outputs.owner_repo }}"
 
       - name: Generate documentation
         working-directory: target-repo
         run: |
-          npx -y tsx ../docwalk-src/src/cli/index.ts generate
+          npx -y tsx ../docwalk-src/src/cli/index.ts generate -v
 
       - name: Build MkDocs site
         working-directory: target-repo/docwalk-output

@@ -270,17 +270,17 @@ export async function initCommand(options: InitOptions): Promise<void> {
     source: {
       repo: repoAnswers.repo,
       branch,
-      include: ["src/**", "lib/**", "api/**", "app/**"],
+      include: [
+        "**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx",
+        "**/*.py", "**/*.go", "**/*.rs", "**/*.java", "**/*.rb", "**/*.php",
+      ],
       exclude: [
-        "node_modules/**",
-        "dist/**",
-        "build/**",
-        ".git/**",
-        "**/*.test.*",
-        "**/*.spec.*",
-        "**/__tests__/**",
-        "coverage/**",
-        ".docwalk/**",
+        "node_modules/**", "dist/**", "build/**", "out/**",
+        ".git/**", ".next/**", "vendor/**", "__pycache__/**",
+        "venv/**", ".venv/**", "target/**",
+        "**/*.test.*", "**/*.spec.*", "**/__tests__/**",
+        "**/test/**", "**/tests/**", "coverage/**", ".docwalk/**",
+        "**/*.d.ts", "**/*.min.js", "**/migrations/**",
       ],
       languages: "auto",
       provider: repoAnswers.repo.includes("/") ? "github" : "local",
@@ -424,7 +424,7 @@ async function detectCurrentRepo(): Promise<string> {
 async function writeDefaultConfig(options: InitOptions): Promise<void> {
   const repo = options.repo || ".";
   const config = {
-    source: { repo, branch: "main", include: ["src/**", "lib/**", "api/**"], exclude: ["node_modules/**", "dist/**", ".git/**"], languages: "auto", provider: "github" },
+    source: { repo, branch: "main", include: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.py", "**/*.go", "**/*.rs", "**/*.java", "**/*.rb", "**/*.php"], exclude: ["node_modules/**", "dist/**", "build/**", "out/**", ".git/**", ".next/**", "vendor/**", "__pycache__/**", "venv/**", ".venv/**", "target/**", "**/*.test.*", "**/*.spec.*", "**/__tests__/**", "**/test/**", "**/tests/**", "coverage/**", ".docwalk/**", "**/*.d.ts", "**/*.min.js", "**/migrations/**"], languages: "auto", provider: "github" },
     analysis: { depth: "full", ai_summaries: false, dependency_graph: true, changelog: true, changelog_depth: 100, config_docs: true, types_page: true, dependencies_page: true, usage_guide_page: true, max_file_size: 500000, concurrency: 4 },
     sync: { trigger: "on_push", diff_strategy: "incremental", impact_analysis: true, state_file: ".docwalk/state.json", auto_commit: false, commit_message: "docs: update documentation [docwalk]" },
     deploy: { provider: options.provider || "gh-pages", project: `${repo.split("/").pop()}-docs`, auto_ssl: true, output_dir: "site" },

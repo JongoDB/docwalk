@@ -17,7 +17,16 @@ export const SourceSchema = z.object({
   branch: z.string().default("main"),
 
   /** Glob patterns for files to include in analysis */
-  include: z.array(z.string()).default(["src/**", "lib/**", "api/**", "app/**"]),
+  include: z.array(z.string()).default([
+    "**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx",
+    "**/*.py", "**/*.pyi",
+    "**/*.go",
+    "**/*.rs",
+    "**/*.java",
+    "**/*.cs",
+    "**/*.rb",
+    "**/*.php",
+  ]),
 
   /** Glob patterns for files to exclude from analysis */
   exclude: z
@@ -26,12 +35,27 @@ export const SourceSchema = z.object({
       "node_modules/**",
       "dist/**",
       "build/**",
+      "out/**",
       ".git/**",
+      ".next/**",
+      ".nuxt/**",
+      ".output/**",
+      "vendor/**",
+      "__pycache__/**",
+      "venv/**",
+      ".venv/**",
+      "env/**",
+      "target/**",
       "**/*.test.*",
       "**/*.spec.*",
       "**/__tests__/**",
+      "**/test/**",
+      "**/tests/**",
       "coverage/**",
       ".docwalk/**",
+      "**/*.d.ts",
+      "**/*.min.js",
+      "**/migrations/**",
     ]),
 
   /** Language detection mode — 'auto' detects from file extensions */
