@@ -566,7 +566,8 @@ ${description}
     content += `|------|------|-------------|\n`;
     for (const sym of publicSymbols) {
       const kindBadge = getKindBadge(sym.kind);
-      content += `| [\`${sym.name}\`](#${sym.name.toLowerCase()}) | ${kindBadge} | ${sym.docs?.summary || sym.aiSummary || ""} |\n`;
+      const symAnchor = sym.name.toLowerCase().replace(/[^a-z0-9-_]/g, "");
+      content += `| [\`${sym.name}\`](#${symAnchor}) | ${kindBadge} | ${sym.docs?.summary || sym.aiSummary || ""} |\n`;
     }
     content += "\n";
   }
@@ -1026,7 +1027,8 @@ function generateTypesPage(manifest: AnalysisManifest): GeneratedPage {
     for (const { symbol: sym, module: mod } of typeSymbols) {
       const kindBadge = getKindBadge(sym.kind);
       const desc = sym.docs?.summary || sym.aiSummary || "";
-      masterTable += `| [\`${sym.name}\`](#${sym.name.toLowerCase()}) | ${kindBadge} | \`${path.basename(mod.filePath)}\` | ${desc} |\n`;
+      const symAnchor = sym.name.toLowerCase().replace(/[^a-z0-9-_]/g, "");
+      masterTable += `| [\`${sym.name}\`](#${symAnchor}) | ${kindBadge} | \`${path.basename(mod.filePath)}\` | ${desc} |\n`;
     }
     masterTable += "\n";
   }
@@ -1246,8 +1248,8 @@ This documentation includes several types of pages:
 | **[Configuration](configuration.md)** | Configuration schemas and settings reference |
 | **[Types & Interfaces](types.md)** | Aggregate view of all exported types |
 | **[Dependencies](dependencies.md)** | External packages and their usage across modules |
-| **API Reference** | Per-module documentation organized by section |
-| **[Changelog](changelog.md)** | Recent changes from git history |
+| **API Reference** | Per-module documentation organized by section |${config.analysis.changelog !== false ? `
+| **[Changelog](changelog.md)** | Recent changes from git history |` : ""}
 
 ---
 
@@ -1301,14 +1303,18 @@ interface RenderSymbolOptions {
 }
 
 function renderSymbol(sym: Symbol, langTag: string, opts?: RenderSymbolOptions): string {
-  let md = `### \`${sym.name}\``;
+  const anchor = sym.name.toLowerCase().replace(/[^a-z0-9-_]/g, "");
 
   // Badges for async/generator/static
   const badges: string[] = [];
   if (sym.async) badges.push(":material-sync: async");
   if (sym.generator) badges.push(":material-repeat: generator");
   if (sym.visibility === "protected") badges.push(":material-shield-half-full: protected");
+
+  // attr_list { #id } MUST be at end of heading line
+  let md = `### \`${sym.name}\``;
   if (badges.length > 0) md += ` ${badges.join(" · ")}`;
+  md += ` { #${anchor} }`;
   md += "\n\n";
 
   // Decorators
@@ -1445,7 +1451,8 @@ function renderTypeWithLinks(typeStr: string, symbolPageMap?: Map<string, string
     // Only replace whole-word matches
     const regex = new RegExp(`\\b${symName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
     if (regex.test(result)) {
-      result = result.replace(regex, `[${symName}](../${pagePath}#${symName.toLowerCase()})`);
+      const symAnchor = symName.toLowerCase().replace(/[^a-z0-9-_]/g, "");
+      result = result.replace(regex, `[${symName}](../${pagePath}#${symAnchor})`);
       break; // Link the first match only to keep it readable
     }
   }
@@ -1471,11 +1478,26 @@ function buildNavigation(pages: GeneratedPage[], audienceSeparation?: boolean): 
     nav.push({ title: page.title, path: page.path });
   }
 
+  // Architecture pages (tiered)
+  const archIndex = pages.find((p) => p.path === "architecture/index.md");
+  const archSubPages = pages.filter((p) => p.path.startsWith("architecture/") && p.path !== "architecture/index.md");
+
+  if (archIndex || archSubPages.length > 0) {
+    const archNav: NavigationItem = {
+      title: "Architecture",
+      children: [],
+    };
+    if (archIndex) {
+      archNav.children!.push({ title: "System Overview", path: archIndex.path });
+    }
+    for (const page of archSubPages.sort((a, b) => a.navOrder - b.navOrder)) {
+      archNav.children!.push({ title: page.title, path: page.path });
+    }
+    nav.push(archNav);
+  }
+
   // Grouped pages — detect logical boundaries
   const apiPages = pages.filter((p) => p.path.startsWith("api/"));
-
-  // Architecture sub-pages
-  const archPages = pages.filter((p) => p.path.startsWith("architecture/") && p.path !== "architecture/index.md");
 
   // Group by logical section
   const sections = groupByLogicalSection(apiPages);
@@ -1531,9 +1553,33 @@ function buildAudienceNavigation(pages: GeneratedPage[]): NavigationItem[] {
     }
   }
 
-  // Developer Reference: Architecture, API Reference, Insights
+  // Developer Reference: Architecture (tiered), Insights
+  const archIndex = pages.find((p) => p.path === "architecture/index.md");
+  const archSubPages = pages.filter((p) => p.path.startsWith("architecture/") && p.path !== "architecture/index.md");
+
+  if (archIndex || archSubPages.length > 0) {
+    const archNav: NavigationItem = {
+      title: "Architecture",
+      children: [],
+    };
+    if (archIndex) {
+      archNav.children!.push({ title: "System Overview", path: archIndex.path });
+    }
+    for (const page of archSubPages.sort((a, b) => a.navOrder - b.navOrder)) {
+      archNav.children!.push({ title: page.title, path: page.path });
+    }
+    devRef.children!.push(archNav);
+  } else {
+    // Non-tiered single architecture page
+    const archPage = pages.find((p) => p.path === "architecture.md");
+    if (archPage) {
+      devRef.children!.push({ title: archPage.title, path: archPage.path });
+    }
+  }
+
+  // Insights page
   for (const page of [...devPages, ...unassigned].sort((a, b) => a.navOrder - b.navOrder)) {
-    if (!page.path.startsWith("api/") && (page.path.startsWith("architecture/") || page.path === "insights.md")) {
+    if (page.path === "insights.md") {
       devRef.children!.push({ title: page.title, path: page.path });
     }
   }
