@@ -54,7 +54,7 @@ jobs:
 
       - name: Clone target repo
         run: |
-          git clone --depth 1 --branch "${{ github.event.inputs.branch }}" \
+          git clone --depth 100 --branch "${{ github.event.inputs.branch }}" \
             "${{ github.event.inputs.repo_url }}" target-repo
 
       - name: Setup Node.js
