@@ -9,10 +9,10 @@ import { describe, it, expect } from "vitest";
 import { THEME_PRESETS, resolvePreset, getPresetIds } from "../../src/generators/theme-presets.js";
 
 describe("Theme Presets", () => {
-  it("has four built-in presets", () => {
+  it("has six built-in presets", () => {
     const ids = getPresetIds();
-    expect(ids).toHaveLength(4);
-    expect(ids.sort()).toEqual(["corporate", "developer", "minimal", "startup"]);
+    expect(ids).toHaveLength(6);
+    expect(ids.sort()).toEqual(["api-reference", "corporate", "developer", "knowledge-base", "minimal", "startup"]);
   });
 
   it("each preset has all required fields", () => {
@@ -96,5 +96,30 @@ describe("Theme Presets", () => {
   it("minimal preset omits navigation tabs", () => {
     const preset = resolvePreset("minimal")!;
     expect(preset.features).not.toContain("navigation.tabs");
+  });
+
+  it("api-reference preset has toc.integrate and content.code.select", () => {
+    const preset = resolvePreset("api-reference")!;
+    expect(preset.palette.scheme).toBe("slate");
+    expect(preset.palette.primary).toBe("#1e88e5");
+    expect(preset.palette.accent).toBe("#82b1ff");
+    expect(preset.features).toContain("toc.integrate");
+    expect(preset.features).toContain("content.code.select");
+    expect(preset.features).toContain("content.code.annotate");
+    expect(preset.fonts.text).toBe("Inter");
+    expect(preset.fonts.code).toBe("JetBrains Mono");
+  });
+
+  it("knowledge-base preset has sticky tabs, breadcrumbs, and prune", () => {
+    const preset = resolvePreset("knowledge-base")!;
+    expect(preset.palette.scheme).toBe("default");
+    expect(preset.palette.primary).toBe("#2e7d32");
+    expect(preset.palette.accent).toBe("#66bb6a");
+    expect(preset.features).toContain("navigation.tabs.sticky");
+    expect(preset.features).toContain("navigation.path");
+    expect(preset.features).toContain("navigation.prune");
+    expect(preset.features).toContain("search.share");
+    expect(preset.fonts.text).toBe("Noto Sans");
+    expect(preset.fonts.code).toBe("Fira Code");
   });
 });

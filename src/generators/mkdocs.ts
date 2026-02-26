@@ -47,7 +47,7 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
 
   // Index / overview page
   onProgress?.("Generating overview page...");
-  pages.push(generateOverviewPage(manifest));
+  pages.push(generateOverviewPage(manifest, config));
 
   // Getting Started
   pages.push(generateGettingStartedPage(manifest, config));
@@ -65,6 +65,30 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
     for (const mod of modules) {
       pages.push(generateModulePage(mod, group));
     }
+  }
+
+  // Configuration page
+  if (config.analysis.config_docs) {
+    onProgress?.("Generating configuration page...");
+    pages.push(generateConfigurationPage(manifest, config));
+  }
+
+  // Types page
+  if (config.analysis.types_page) {
+    onProgress?.("Generating types page...");
+    pages.push(generateTypesPage(manifest));
+  }
+
+  // Dependencies page
+  if (config.analysis.dependencies_page) {
+    onProgress?.("Generating dependencies page...");
+    pages.push(generateDependenciesPage(manifest));
+  }
+
+  // Usage guide page
+  if (config.analysis.usage_guide_page) {
+    onProgress?.("Generating usage guide page...");
+    pages.push(generateUsageGuidePage(manifest, config));
   }
 
   // Changelog
@@ -105,7 +129,7 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
 
 // ─── Page Generators ────────────────────────────────────────────────────────
 
-function generateOverviewPage(manifest: AnalysisManifest): GeneratedPage {
+function generateOverviewPage(manifest: AnalysisManifest, config: DocWalkConfig): GeneratedPage {
   const { projectMeta: meta, stats } = manifest;
   const projectName = meta.name === "." ? path.basename(process.cwd()) : meta.name;
 
@@ -165,6 +189,7 @@ New to this project? Start here:
 - **[Getting Started](getting-started.md)** — Prerequisites, installation, and project structure
 - **[Architecture](architecture.md)** — System design, dependency graph, and module relationships
 - **[API Reference](#api-by-section)** — Complete reference organized by component
+${config.analysis.config_docs ? `- **[Configuration](configuration.md)** — Configuration schemas and settings\n` : ""}${config.analysis.types_page ? `- **[Types & Interfaces](types.md)** — All exported types, interfaces, and enums\n` : ""}${config.analysis.dependencies_page ? `- **[Dependencies](dependencies.md)** — External packages and their usage\n` : ""}${config.analysis.usage_guide_page ? `- **[Usage Guide](guide.md)** — How to navigate and use these docs\n` : ""}
 
 ---
 
@@ -649,6 +674,394 @@ ${changelogContent}
   };
 }
 
+// ─── New Page Generators ─────────────────────────────────────────────────────
+
+function generateConfigurationPage(
+  manifest: AnalysisManifest,
+  config: DocWalkConfig
+): GeneratedPage {
+  const meta = manifest.projectMeta;
+  const projectName = meta.name === "." ? path.basename(process.cwd()) : meta.name;
+
+  // Find config-pattern files
+  const configModules = manifest.modules.filter((mod) => {
+    const basename = path.basename(mod.filePath).toLowerCase();
+    return (
+      basename.includes("config") ||
+      basename.includes("settings") ||
+      basename.includes("schema") ||
+      /\.(config|rc)\.[^.]+$/.test(basename)
+    );
+  });
+
+  let configFilesSection = "";
+  if (configModules.length > 0) {
+    configFilesSection += `## Configuration Files\n\n`;
+    configFilesSection += `| File | Language | Exports | Description |\n`;
+    configFilesSection += `|------|----------|:-------:|-------------|\n`;
+    for (const mod of configModules) {
+      const publicSymbols = mod.symbols.filter((s) => s.exported);
+      const slug = mod.filePath.replace(/\.[^.]+$/, "").replace(/\//g, "-");
+      const desc = mod.moduleDoc?.summary || "";
+      configFilesSection += `| [\`${mod.filePath}\`](api/${slug}.md) | ${getLanguageDisplayName(mod.language as LanguageId)} | ${publicSymbols.length} | ${desc} |\n`;
+    }
+    configFilesSection += "\n";
+
+    // Render exported symbols from config files
+    for (const mod of configModules) {
+      const publicSymbols = mod.symbols.filter((s) => s.exported);
+      if (publicSymbols.length === 0) continue;
+
+      const langTag = getLanguageTag(mod.language);
+      configFilesSection += `### ${path.basename(mod.filePath)}\n\n`;
+      configFilesSection += `Source: \`${mod.filePath}\`\n\n`;
+      for (const sym of publicSymbols) {
+        configFilesSection += renderSymbol(sym, langTag);
+      }
+    }
+  } else {
+    configFilesSection += `!!! note "No configuration files detected"\n    No files matching config patterns (\`*.config.*\`, \`config.*\`, \`settings.*\`, \`schema.*\`) were found in the analyzed source.\n\n`;
+  }
+
+  // Project config summary
+  const langSummary = meta.languages
+    .map((l) => `${getLanguageDisplayName(l.name as LanguageId)} (${l.fileCount} files)`)
+    .join(", ");
+
+  const analysisOptions = [
+    `Depth: **${config.analysis.depth}**`,
+    `Dependency graph: **${config.analysis.dependency_graph ? "enabled" : "disabled"}**`,
+    `AI summaries: **${config.analysis.ai_summaries ? "enabled" : "disabled"}**`,
+    `Changelog: **${config.analysis.changelog ? "enabled" : "disabled"}**`,
+  ].join(" · ");
+
+  const content = `---
+title: Configuration
+description: Configuration reference for ${projectName}
+---
+
+# Configuration
+
+This page documents configuration schemas and settings found in **${projectName}**.
+
+---
+
+${configFilesSection}
+
+---
+
+## Project Configuration Summary
+
+| Setting | Value |
+|---------|-------|
+| Languages detected | ${langSummary} |
+| Total files analyzed | **${manifest.stats.totalFiles}** |
+| Analysis options | ${analysisOptions} |
+
+---
+
+*Generated by DocWalk from commit \`${manifest.commitSha.slice(0, 8)}\`*
+`;
+
+  return {
+    path: "configuration.md",
+    title: "Configuration",
+    content,
+    navGroup: "",
+    navOrder: 3,
+  };
+}
+
+function generateTypesPage(manifest: AnalysisManifest): GeneratedPage {
+  // Collect all exported types, interfaces, and enums across modules
+  const typeSymbols: Array<{ symbol: Symbol; module: ModuleInfo; group: string }> = [];
+  const modulesByGroup = groupModulesLogically(manifest.modules);
+
+  for (const [group, modules] of Object.entries(modulesByGroup)) {
+    for (const mod of modules) {
+      for (const sym of mod.symbols) {
+        if (
+          sym.exported &&
+          (sym.kind === "interface" || sym.kind === "type" || sym.kind === "enum")
+        ) {
+          typeSymbols.push({ symbol: sym, module: mod, group });
+        }
+      }
+    }
+  }
+
+  // Master summary table
+  let masterTable = "";
+  if (typeSymbols.length > 0) {
+    masterTable += `| Name | Kind | Module | Description |\n`;
+    masterTable += `|------|------|--------|-------------|\n`;
+    for (const { symbol: sym, module: mod } of typeSymbols) {
+      const kindBadge = getKindBadge(sym.kind);
+      const desc = sym.docs?.summary || sym.aiSummary || "";
+      masterTable += `| [\`${sym.name}\`](#${sym.name.toLowerCase()}) | ${kindBadge} | \`${path.basename(mod.filePath)}\` | ${desc} |\n`;
+    }
+    masterTable += "\n";
+  }
+
+  // Detailed sections grouped by logical section
+  let detailedSections = "";
+  const groupedTypes = new Map<string, Array<{ symbol: Symbol; module: ModuleInfo }>>();
+  for (const entry of typeSymbols) {
+    if (!groupedTypes.has(entry.group)) groupedTypes.set(entry.group, []);
+    groupedTypes.get(entry.group)!.push(entry);
+  }
+
+  for (const [group, entries] of groupedTypes) {
+    detailedSections += `## ${group}\n\n`;
+    for (const { symbol: sym, module: mod } of entries) {
+      const langTag = getLanguageTag(mod.language);
+      detailedSections += renderSymbol(sym, langTag);
+    }
+  }
+
+  const content = `---
+title: Types & Interfaces
+description: Aggregate type definitions, interfaces, and enums
+---
+
+# Types & Interfaces
+
+All exported types, interfaces, and enums across the codebase.
+
+!!! info "Summary"
+    **${typeSymbols.length}** type definitions found across **${new Set(typeSymbols.map((t) => t.module.filePath)).size}** modules.
+
+---
+
+${masterTable ? `## Overview\n\n${masterTable}---\n\n` : ""}${detailedSections || "!!! note \"No exported types found\"\n    No exported interfaces, types, or enums were detected in the analyzed source.\n"}
+
+---
+
+*Generated by DocWalk from commit \`${manifest.commitSha.slice(0, 8)}\`*
+`;
+
+  return {
+    path: "types.md",
+    title: "Types & Interfaces",
+    content,
+    navGroup: "",
+    navOrder: 4,
+  };
+}
+
+function generateDependenciesPage(manifest: AnalysisManifest): GeneratedPage {
+  // Collect external imports (source doesn't start with . or /)
+  const externalDeps = new Map<string, { modules: Set<string>; typeOnly: boolean }>();
+
+  for (const mod of manifest.modules) {
+    for (const imp of mod.imports) {
+      if (imp.source.startsWith(".") || imp.source.startsWith("/")) continue;
+
+      // Extract package name (handle scoped packages like @scope/pkg)
+      const parts = imp.source.split("/");
+      const pkgName = imp.source.startsWith("@") && parts.length >= 2
+        ? `${parts[0]}/${parts[1]}`
+        : parts[0];
+
+      if (!externalDeps.has(pkgName)) {
+        externalDeps.set(pkgName, { modules: new Set(), typeOnly: true });
+      }
+      const entry = externalDeps.get(pkgName)!;
+      entry.modules.add(mod.filePath);
+      if (!imp.isTypeOnly) entry.typeOnly = false;
+    }
+  }
+
+  // Sort by usage frequency
+  const sorted = [...externalDeps.entries()]
+    .sort((a, b) => b[1].modules.size - a[1].modules.size);
+
+  let tableContent = "";
+  if (sorted.length > 0) {
+    tableContent += `| Package | Used By | Import Type |\n`;
+    tableContent += `|---------|:-------:|:-----------:|\n`;
+    for (const [pkg, info] of sorted) {
+      const importType = info.typeOnly ? ":material-tag: type-only" : ":material-package-variant: value";
+      tableContent += `| \`${pkg}\` | ${info.modules.size} module${info.modules.size > 1 ? "s" : ""} | ${importType} |\n`;
+    }
+    tableContent += "\n";
+  }
+
+  // Detailed usage per package
+  let detailedContent = "";
+  for (const [pkg, info] of sorted.slice(0, 30)) {
+    detailedContent += `### \`${pkg}\`\n\n`;
+    detailedContent += `Used by ${info.modules.size} module${info.modules.size > 1 ? "s" : ""}:\n\n`;
+    for (const modPath of [...info.modules].sort()) {
+      const slug = modPath.replace(/\.[^.]+$/, "").replace(/\//g, "-");
+      detailedContent += `- [\`${modPath}\`](api/${slug}.md)\n`;
+    }
+    detailedContent += "\n";
+  }
+
+  const content = `---
+title: Dependencies
+description: External dependencies and their usage
+---
+
+# Dependencies
+
+External packages imported across the codebase.
+
+!!! info "Summary"
+    **${sorted.length}** external packages detected across **${manifest.modules.length}** modules.
+
+---
+
+## Package Overview
+
+${tableContent || "*No external dependencies detected.*\n"}
+
+---
+
+## Usage Details
+
+${detailedContent || "*No external dependencies to detail.*\n"}
+
+---
+
+*Generated by DocWalk from commit \`${manifest.commitSha.slice(0, 8)}\`*
+`;
+
+  return {
+    path: "dependencies.md",
+    title: "Dependencies",
+    content,
+    navGroup: "",
+    navOrder: 5,
+  };
+}
+
+function generateUsageGuidePage(
+  manifest: AnalysisManifest,
+  config: DocWalkConfig
+): GeneratedPage {
+  const meta = manifest.projectMeta;
+  const projectName = meta.name === "." ? path.basename(process.cwd()) : meta.name;
+  const modulesByGroup = groupModulesLogically(manifest.modules);
+  const sectionCount = Object.keys(modulesByGroup).length;
+
+  const content = `---
+title: Usage Guide
+description: How to navigate and use this documentation
+---
+
+# Usage Guide
+
+Welcome to the **${projectName}** documentation. This guide explains how to navigate and get the most out of this site.
+
+---
+
+## About This Site
+
+This documentation covers **${manifest.stats.totalFiles} files** across **${sectionCount} sections** with **${manifest.stats.totalSymbols} symbols** documented.
+
+It was auto-generated by [DocWalk](https://docwalk.dev) from source code analysis and is kept in sync with the repository.
+
+---
+
+## Keyboard Shortcuts
+
+MkDocs Material provides keyboard shortcuts for fast navigation:
+
+| Shortcut | Action |
+|----------|--------|
+| \`/\` or \`s\` | Open search |
+| \`n\` | Next search result |
+| \`p\` | Previous search result |
+| \`Enter\` | Follow selected result |
+| \`Esc\` | Close search / dialog |
+
+---
+
+## Navigation
+
+### Tabs
+
+The top navigation bar organizes content by major section. Click a tab to browse its pages.
+
+### Sidebar
+
+The left sidebar shows the full page tree within the current section. Expandable sections let you drill into sub-topics.
+
+### Table of Contents
+
+The right sidebar (on wider screens) shows headings within the current page for quick jumping.
+
+### Search
+
+The search bar supports fuzzy matching and highlights results in context. Use \`/\` to focus it instantly.
+
+---
+
+## Dark / Light Mode
+
+Click the :material-brightness-4: icon in the header to toggle between dark and light themes. Your preference is saved in your browser.
+
+---
+
+## Page Types
+
+This documentation includes several types of pages:
+
+| Page | Description |
+|------|-------------|
+| **[Overview](index.md)** | Project summary, statistics, and quick links |
+| **[Getting Started](getting-started.md)** | Prerequisites, installation, and project structure |
+| **[Architecture](architecture.md)** | Dependency graph and module relationships |
+| **[Configuration](configuration.md)** | Configuration schemas and settings reference |
+| **[Types & Interfaces](types.md)** | Aggregate view of all exported types |
+| **[Dependencies](dependencies.md)** | External packages and their usage across modules |
+| **API Reference** | Per-module documentation organized by section |
+| **[Changelog](changelog.md)** | Recent changes from git history |
+
+---
+
+## API Reference Organization
+
+API Reference pages are grouped by logical section based on directory structure:
+
+${Object.entries(modulesByGroup)
+  .sort(([, a], [, b]) => b.length - a.length)
+  .map(([section, modules]) => `- **${section}** — ${modules.length} module${modules.length > 1 ? "s" : ""}`)
+  .join("\n")}
+
+Each module page includes:
+
+- Module summary and metadata
+- Exports table with kind badges
+- Detailed API reference with signatures, parameters, and return types
+- Dependency list (internal and external imports)
+- Internal (non-exported) symbols in a collapsible section
+
+---
+
+## Tips
+
+- Use the **search** (\`/\`) to quickly find any function, class, or type by name
+- **Code blocks** have a copy button in the top-right corner — click to copy
+- **Collapsible sections** (marked with ►) can be expanded for additional detail
+- **Mermaid diagrams** on the Architecture page are interactive — hover over nodes for details
+
+---
+
+*Generated by [DocWalk](https://docwalk.dev)*
+`;
+
+  return {
+    path: "guide.md",
+    title: "Usage Guide",
+    content,
+    navGroup: "",
+    navOrder: 6,
+  };
+}
+
 // ─── Symbol Renderer ────────────────────────────────────────────────────────
 
 function renderSymbol(sym: Symbol, langTag: string): string {
@@ -793,10 +1206,34 @@ function generateMkdocsConfig(
   const navYaml = renderNavYaml(navigation, 0);
 
   // Resolve features: preset provides defaults, user overrides take precedence
-  const features = (preset && theme.features.length === ThemeSchemaDefaults.features.length
-    ? preset.features
-    : theme.features
-  ).map((f) => `      - ${f}`).join("\n");
+  let resolvedFeatures = preset && theme.features.length === ThemeSchemaDefaults.features.length
+    ? [...preset.features]
+    : [...theme.features];
+
+  // Apply layout overrides
+  const layout = theme.layout ?? "tabs";
+  if (layout === "sidebar") {
+    resolvedFeatures = resolvedFeatures.filter(
+      (f) => f !== "navigation.tabs" && f !== "navigation.tabs.sticky"
+    );
+    if (!resolvedFeatures.includes("toc.integrate")) {
+      resolvedFeatures.push("toc.integrate");
+    }
+  } else if (layout === "tabs-sticky") {
+    if (!resolvedFeatures.includes("navigation.tabs")) {
+      resolvedFeatures.push("navigation.tabs");
+    }
+    if (!resolvedFeatures.includes("navigation.tabs.sticky")) {
+      resolvedFeatures.push("navigation.tabs.sticky");
+    }
+  } else {
+    // "tabs" (default) — ensure navigation.tabs present
+    if (!resolvedFeatures.includes("navigation.tabs")) {
+      resolvedFeatures.push("navigation.tabs");
+    }
+  }
+
+  const features = resolvedFeatures.map((f) => `      - ${f}`).join("\n");
 
   // Resolve palette
   const scheme = preset ? preset.palette.scheme : theme.palette;

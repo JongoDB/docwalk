@@ -508,6 +508,291 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
 }
 `,
   },
+  "api-reference": {
+    id: "api-reference",
+    name: "API Reference",
+    palette: {
+      scheme: "slate",
+      primary: "#1e88e5",
+      accent: "#82b1ff",
+      toggleScheme: "default",
+    },
+    cssVars: {
+      "--md-primary-fg-color": "#1e88e5",
+      "--md-primary-fg-color--light": "#6ab7ff",
+      "--md-primary-fg-color--dark": "#005cb2",
+      "--md-accent-fg-color": "#82b1ff",
+      "--md-accent-fg-color--transparent": "rgba(130, 177, 255, 0.1)",
+    },
+    features: [
+      "toc.integrate",
+      "navigation.indexes",
+      "navigation.sections",
+      "navigation.top",
+      "search.suggest",
+      "search.highlight",
+      "content.code.copy",
+      "content.code.annotate",
+      "content.code.select",
+      "content.tabs.link",
+      "navigation.footer",
+    ],
+    fonts: {
+      text: "Inter",
+      code: "JetBrains Mono",
+    },
+    customCss: `/* API Reference Preset — Code-dense, integrated TOC */
+:root {
+  --md-primary-fg-color: #1e88e5;
+  --md-primary-fg-color--light: #6ab7ff;
+  --md-primary-fg-color--dark: #005cb2;
+  --md-accent-fg-color: #82b1ff;
+  --md-accent-fg-color--transparent: rgba(130, 177, 255, 0.1);
+}
+
+[data-md-color-scheme="slate"] {
+  --md-default-bg-color: #151821;
+  --md-default-bg-color--light: #1a1e2a;
+  --md-default-fg-color: #d4d4d8;
+  --md-default-fg-color--light: #9898a0;
+  --md-code-bg-color: #111318;
+  --md-code-fg-color: #d4d4d8;
+  --md-typeset-a-color: #82b1ff;
+}
+
+/* ── Header ── */
+.md-header {
+  background-color: #111318;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ── Typography ── */
+.md-typeset {
+  font-size: 0.84rem;
+  line-height: 1.7;
+}
+
+.md-typeset h1 {
+  font-weight: 700;
+  font-size: 1.8em;
+  letter-spacing: -0.02em;
+}
+
+.md-typeset h2 {
+  font-weight: 600;
+  font-size: 1.4em;
+  margin-top: 2em;
+  padding-bottom: 0.3em;
+}
+
+[data-md-color-scheme="slate"] .md-typeset h2 {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ── Code blocks wider ── */
+.md-typeset pre {
+  max-width: 100%;
+}
+
+.md-typeset pre > code {
+  font-size: 0.84em;
+  line-height: 1.6;
+}
+
+[data-md-color-scheme="slate"] .md-typeset pre {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+}
+
+[data-md-color-scheme="slate"] .md-typeset code {
+  background-color: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
+/* ── Tables ── */
+.md-typeset table:not([class]) {
+  font-size: 0.82rem;
+}
+
+[data-md-color-scheme="slate"] .md-typeset table:not([class]) th {
+  background-color: rgba(255, 255, 255, 0.04);
+  font-weight: 600;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ── Content width — wider for API docs ── */
+.md-content {
+  max-width: 58rem;
+}
+
+/* ── Integrated TOC styling ── */
+.md-nav--integrated .md-nav__link {
+  font-size: 0.72rem;
+}
+
+/* ── Light Mode ── */
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: #1565c0;
+  --md-accent-fg-color: #1e88e5;
+}
+
+[data-md-color-scheme="default"] .md-header {
+  background-color: #1565c0;
+}
+
+/* ── Footer ── */
+.md-footer {
+  margin-top: 3rem;
+}
+
+[data-md-color-scheme="slate"] .md-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+`,
+  },
+
+  "knowledge-base": {
+    id: "knowledge-base",
+    name: "Knowledge Base",
+    palette: {
+      scheme: "default",
+      primary: "#2e7d32",
+      accent: "#66bb6a",
+      toggleScheme: "slate",
+    },
+    cssVars: {
+      "--md-primary-fg-color": "#2e7d32",
+      "--md-primary-fg-color--light": "#60ad5e",
+      "--md-primary-fg-color--dark": "#005005",
+      "--md-accent-fg-color": "#66bb6a",
+      "--md-accent-fg-color--transparent": "rgba(102, 187, 106, 0.1)",
+    },
+    features: [
+      "navigation.tabs",
+      "navigation.tabs.sticky",
+      "navigation.path",
+      "navigation.sections",
+      "navigation.indexes",
+      "navigation.prune",
+      "navigation.top",
+      "search.suggest",
+      "search.highlight",
+      "search.share",
+      "content.code.copy",
+      "content.tabs.link",
+      "navigation.footer",
+    ],
+    fonts: {
+      text: "Noto Sans",
+      code: "Fira Code",
+    },
+    customCss: `/* Knowledge Base Preset — Readable, breadcrumbs, wide content */
+:root {
+  --md-primary-fg-color: #2e7d32;
+  --md-primary-fg-color--light: #60ad5e;
+  --md-primary-fg-color--dark: #005005;
+  --md-accent-fg-color: #66bb6a;
+  --md-accent-fg-color--transparent: rgba(102, 187, 106, 0.1);
+}
+
+/* ── Header ── */
+.md-header {
+  background: linear-gradient(135deg, #2e7d32, #1b5e20);
+}
+
+.md-tabs {
+  background-color: #1b5e20;
+}
+
+/* ── Typography — larger base ── */
+.md-typeset {
+  font-size: 1.0rem;
+  line-height: 1.75;
+}
+
+.md-typeset h1 {
+  font-weight: 700;
+  font-size: 2em;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.8em;
+}
+
+.md-typeset h2 {
+  font-weight: 600;
+  font-size: 1.5em;
+  margin-top: 2.5em;
+  padding-bottom: 0.4em;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.md-typeset h3 {
+  font-weight: 600;
+  font-size: 1.2em;
+  margin-top: 1.8em;
+}
+
+/* ── Content width — wider ── */
+.md-content {
+  max-width: 60rem;
+}
+
+/* ── Code ── */
+.md-typeset code {
+  border-radius: 4px;
+  font-size: 0.85em;
+  font-variant-ligatures: common-ligatures;
+}
+
+/* ── Admonitions ── */
+.md-typeset .admonition,
+.md-typeset details {
+  border-radius: 6px;
+  border-left-width: 3px;
+}
+
+/* ── Tables ── */
+.md-typeset table:not([class]) th {
+  background-color: #e8f5e9;
+  color: #1b5e20;
+}
+
+/* ── Breadcrumb styling ── */
+.md-path {
+  font-size: 0.75rem;
+}
+
+/* ── Dark Mode ── */
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #66bb6a;
+  --md-accent-fg-color: #81c784;
+}
+
+[data-md-color-scheme="slate"] .md-header {
+  background: #111318;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+[data-md-color-scheme="slate"] .md-tabs {
+  background-color: #111318;
+}
+
+[data-md-color-scheme="slate"] .md-typeset h2 {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+[data-md-color-scheme="slate"] .md-typeset table:not([class]) th {
+  background-color: rgba(255, 255, 255, 0.04);
+  color: #81c784;
+}
+
+/* ── Footer ── */
+.md-footer {
+  margin-top: 3rem;
+}
+`,
+  },
 };
 
 /**

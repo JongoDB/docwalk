@@ -871,6 +871,140 @@
   .badge-subdomain { background: var(--accent-dim); color: var(--accent); }
   .badge-subpath { background: #fae4a020; color: var(--accent-tertiary); }
   .badge-root { background: #c4b5fd20; color: var(--accent-purple); }
+
+  /* ─── TRY DOCWALK ─── */
+  .try-container {
+    max-width: 680px;
+    margin: 64px auto 0;
+  }
+
+  .try-input-group {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .try-input {
+    flex: 1;
+    padding: 14px 20px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .try-input::placeholder {
+    color: var(--text-muted);
+  }
+
+  .try-input:focus {
+    border-color: var(--accent);
+  }
+
+  .try-input.error {
+    border-color: var(--accent-warn);
+  }
+
+  .try-submit {
+    padding: 14px 28px;
+    background: var(--accent);
+    color: var(--bg-primary);
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'DM Sans', sans-serif;
+    white-space: nowrap;
+  }
+
+  .try-submit:hover {
+    box-shadow: 0 0 30px var(--accent-dim);
+    transform: translateY(-1px);
+  }
+
+  .try-status {
+    padding: 16px 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    display: none;
+  }
+
+  .try-status.visible {
+    display: block;
+  }
+
+  .try-status .try-cmd {
+    color: var(--accent);
+    user-select: all;
+    display: block;
+    margin-top: 8px;
+    padding: 12px 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    word-break: break-all;
+  }
+
+  .try-status .try-label {
+    color: var(--text-secondary);
+    font-size: 12px;
+    margin-bottom: 4px;
+    display: block;
+  }
+
+  .try-status .try-note {
+    color: var(--text-muted);
+    font-size: 12px;
+    margin-top: 12px;
+    display: block;
+    line-height: 1.6;
+  }
+
+  .try-copy-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    padding: 8px 16px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .try-copy-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .try-error {
+    color: var(--accent-warn);
+    font-size: 13px;
+    margin-top: 8px;
+    display: none;
+  }
+
+  .try-error.visible {
+    display: block;
+  }
+
+  @media (max-width: 900px) {
+    .try-input-group { flex-direction: column; }
+  }
 </style>
 </head>
 <body>
@@ -886,6 +1020,7 @@
     <a href="#how-it-works">How It Works</a>
     <a href="#deploy">Deploy</a>
     <a href="#config">Config</a>
+    <a href="#try">Try It</a>
     <a href="#pricing">Pricing</a>
     <a href="#specs">Specs</a>
     <a href="docs/" style="color:var(--accent); font-weight:600;">Documentation</a>
@@ -1273,6 +1408,45 @@
   </div>
 </section>
 
+<!-- ═══ TRY DOCWALK ═══ -->
+<section id="try" class="fade-in">
+  <div class="section-label">Try It</div>
+  <h2 class="section-title">See DocWalk in action</h2>
+  <p class="section-desc">
+    Paste a public GitHub repo URL and generate documentation instantly. No install required.
+  </p>
+
+  <div class="try-container">
+    <div class="try-input-group">
+      <input
+        type="text"
+        id="try-repo-url"
+        class="try-input"
+        placeholder="https://github.com/owner/repo"
+        autocomplete="off"
+        spellcheck="false"
+      >
+      <button class="try-submit" id="try-submit-btn" onclick="handleTrySubmit()">
+        Generate Docs
+      </button>
+    </div>
+    <div class="try-error" id="try-error"></div>
+    <div class="try-status" id="try-status">
+      <span class="try-label">Run this command to generate docs for the repo:</span>
+      <code class="try-cmd" id="try-cmd"></code>
+      <span class="try-label" style="margin-top:16px">Or trigger the GitHub Actions workflow:</span>
+      <code class="try-cmd" id="try-workflow-cmd"></code>
+      <button class="try-copy-btn" onclick="copyTryCommand()">
+        Copy command
+      </button>
+      <span class="try-note">
+        This uses DocWalk's CLI to analyze the repo and generate a full MkDocs Material documentation site locally.
+        Requires Node.js 18+ and Python 3.12+ with mkdocs-material installed.
+      </span>
+    </div>
+  </div>
+</section>
+
 <!-- ═══ PRICING ═══ -->
 <section id="pricing" class="fade-in">
   <div class="section-label">Pricing</div>
@@ -1416,6 +1590,52 @@
   }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
 
   document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+  // ── Try DocWalk ──
+  function handleTrySubmit() {
+    const input = document.getElementById('try-repo-url');
+    const errorEl = document.getElementById('try-error');
+    const statusEl = document.getElementById('try-status');
+    const cmdEl = document.getElementById('try-cmd');
+    const workflowCmdEl = document.getElementById('try-workflow-cmd');
+    const url = input.value.trim();
+
+    // Reset state
+    errorEl.classList.remove('visible');
+    statusEl.classList.remove('visible');
+    input.classList.remove('error');
+
+    // Validate URL
+    const match = url.match(/^https?:\/\/github\.com\/([^/]+\/[^/]+)\/?$/);
+    if (!match) {
+      errorEl.textContent = 'Please enter a valid GitHub repo URL (e.g., https://github.com/owner/repo)';
+      errorEl.classList.add('visible');
+      input.classList.add('error');
+      return;
+    }
+
+    const ownerRepo = match[1];
+    const slug = ownerRepo.replace('/', '-');
+
+    // Show commands
+    cmdEl.textContent = `npx docwalk init --no-interactive --repo ${ownerRepo} && npx docwalk generate && cd docwalk-output && mkdocs build && mkdocs serve`;
+    workflowCmdEl.textContent = `gh workflow run try-docwalk.yml -f repo_url="${url}" -f branch="main"`;
+    statusEl.classList.add('visible');
+  }
+
+  function copyTryCommand() {
+    const cmdEl = document.getElementById('try-cmd');
+    const btn = document.querySelector('.try-copy-btn');
+    navigator.clipboard.writeText(cmdEl.textContent).then(() => {
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy command'; }, 2000);
+    });
+  }
+
+  // Allow Enter key to submit
+  document.getElementById('try-repo-url').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') handleTrySubmit();
+  });
 </script>
 
 </body>

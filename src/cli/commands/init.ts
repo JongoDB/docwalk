@@ -219,13 +219,26 @@ export async function initCommand(options: InitOptions): Promise<void> {
       name: "preset",
       message: "Theme preset:",
       choices: [
-        { name: "Developer — Dark-first, code-dense, technical (JetBrains Mono)", value: "developer" },
+        { name: "Developer — Dark-first, code-dense, technical (Inter + Fira Code)", value: "developer" },
         { name: "Corporate — Clean, professional, B2B (Roboto)", value: "corporate" },
         { name: "Startup — Vibrant, modern, energetic (Inter + Fira Code)", value: "startup" },
         { name: "Minimal — Reading-focused, distraction-free (Source Serif)", value: "minimal" },
+        { name: "API Reference — Code-dense, integrated TOC, no right sidebar (Inter + JetBrains Mono)", value: "api-reference" },
+        { name: "Knowledge Base — Readable, breadcrumbs, sticky tabs (Noto Sans + Fira Code)", value: "knowledge-base" },
         { name: "Custom — Choose your own palette and accent", value: "custom" },
       ],
       default: "developer",
+    },
+    {
+      type: "list",
+      name: "layout",
+      message: "Layout mode:",
+      choices: [
+        { name: "Tabs — Top navigation tabs (default)", value: "tabs" },
+        { name: "Sidebar — No tabs, TOC integrated in left sidebar", value: "sidebar" },
+        { name: "Sticky Tabs — Tabs that stay visible on scroll", value: "tabs-sticky" },
+      ],
+      default: "tabs",
     },
     {
       type: "list",
@@ -308,6 +321,7 @@ export async function initCommand(options: InitOptions): Promise<void> {
     },
     theme: {
       preset: themeAnswers.preset,
+      layout: themeAnswers.layout || "tabs",
       ...(themeAnswers.palette && { palette: themeAnswers.palette }),
       ...(themeAnswers.accent && { accent: themeAnswers.accent }),
       features: [
@@ -409,7 +423,7 @@ async function writeDefaultConfig(options: InitOptions): Promise<void> {
   const repo = options.repo || ".";
   const config = {
     source: { repo, branch: "main", include: ["src/**", "lib/**", "api/**"], exclude: ["node_modules/**", "dist/**", ".git/**"], languages: "auto", provider: "github" },
-    analysis: { depth: "full", ai_summaries: false, dependency_graph: true, changelog: true, changelog_depth: 100, config_docs: true, max_file_size: 500000, concurrency: 4 },
+    analysis: { depth: "full", ai_summaries: false, dependency_graph: true, changelog: true, changelog_depth: 100, config_docs: true, types_page: true, dependencies_page: true, usage_guide_page: true, max_file_size: 500000, concurrency: 4 },
     sync: { trigger: "on_push", diff_strategy: "incremental", impact_analysis: true, state_file: ".docwalk/state.json", auto_commit: false, commit_message: "docs: update documentation [docwalk]" },
     deploy: { provider: options.provider || "gh-pages", project: `${repo.split("/").pop()}-docs`, auto_ssl: true, output_dir: "site" },
     domain: { ...(options.domain && { custom: options.domain }), base_path: "/", dns_auto: true },

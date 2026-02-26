@@ -83,6 +83,15 @@ export const AnalysisSchema = z.object({
   /** Extract and document configuration schemas */
   config_docs: z.boolean().default(true),
 
+  /** Generate aggregate types/interfaces page */
+  types_page: z.boolean().default(true),
+
+  /** Generate external dependencies listing page */
+  dependencies_page: z.boolean().default(true),
+
+  /** Generate "How to use these docs" usage guide page */
+  usage_guide_page: z.boolean().default(true),
+
   /** Maximum file size to analyze (bytes) — skip huge generated files */
   max_file_size: z.number().int().positive().default(500_000),
 
@@ -172,8 +181,13 @@ export const DomainSchema = z.object({
 export const ThemeSchema = z.object({
   /** Theme preset — provides palette, fonts, features, and custom CSS out of the box */
   preset: z
-    .enum(["corporate", "startup", "developer", "minimal", "custom"])
+    .enum(["corporate", "startup", "developer", "minimal", "api-reference", "knowledge-base", "custom"])
     .default("developer"),
+
+  /** Layout mode — controls tab/sidebar behavior */
+  layout: z
+    .enum(["tabs", "sidebar", "tabs-sticky"])
+    .default("tabs"),
 
   /** MkDocs Material color palette preset */
   palette: z
