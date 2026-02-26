@@ -100,19 +100,19 @@ jobs:
           cd gh-pages
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git pull --rebase origin gh-pages || true
           git add try/${SLUG}
           git commit -m "try: generate docs for ${SLUG}" || echo "No changes to commit"
+          git pull --rebase origin gh-pages || true
           git push
 
       - name: Prune old results
         run: |
           cd gh-pages
-          git pull --rebase origin gh-pages || true
           # Remove try/ subdirectories older than 7 days
           find try/ -mindepth 1 -maxdepth 1 -type d -mtime +7 -exec rm -rf {} + 2>/dev/null || true
           git add -A
           git diff --cached --quiet || git commit -m "try: prune results older than 7 days"
+          git pull --rebase origin gh-pages || true
           git push || true
 
       - name: Output result URL
