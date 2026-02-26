@@ -19,6 +19,9 @@ on:
         default: "main"
         type: string
 
+permissions:
+  contents: write
+
 concurrency:
   group: try-${{ github.event.inputs.repo_url }}
   cancel-in-progress: true

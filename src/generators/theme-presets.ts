@@ -795,17 +795,103 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
   },
 };
 
+// ─── Free vs Premium Preset IDs ─────────────────────────────────────────────
+
+/** Presets available in the open-source tier */
+export const FREE_PRESET_IDS = ["corporate", "startup", "developer", "minimal"] as const;
+
+/** Presets that require a paid license */
+export const PREMIUM_PRESET_IDS = ["api-reference", "knowledge-base"] as const;
+
+// ─── Dynamic Preset Loader ──────────────────────────────────────────────────
+
 /**
- * Resolve a preset by ID. Returns undefined for "custom" or unknown IDs.
+ * Registry of additional presets loaded from external packages.
+ * Premium theme packages call `registerPresets()` to add their themes.
  */
-export function resolvePreset(presetId: string): ThemePreset | undefined {
-  if (presetId === "custom") return undefined;
-  return THEME_PRESETS[presetId];
+const externalPresets: Record<string, ThemePreset> = {};
+
+/**
+ * Register external presets (used by premium theme packages).
+ */
+export function registerPresets(presets: Record<string, ThemePreset>): void {
+  Object.assign(externalPresets, presets);
 }
 
 /**
- * Get all available preset IDs.
+ * Try to load the premium themes package if installed and licensed.
+ * Returns silently if the package is not installed.
+ */
+export async function loadPremiumPresets(licenseKey?: string): Promise<void> {
+  try {
+    const premium = await import("@docwalk/themes-premium");
+    if (typeof premium.register === "function") {
+      premium.register(licenseKey);
+    }
+  } catch {
+    // Premium package not installed — use built-in presets only
+  }
+}
+
+/**
+ * Resolve a preset by ID. Checks built-in presets first, then external.
+ * Returns undefined for "custom" or unknown IDs.
+ *
+ * @param presetId - The preset identifier
+ * @param options.requireLicense - If true, premium built-in presets require a license key
+ * @param options.licenseKey - License key for premium preset access
+ */
+export function resolvePreset(
+  presetId: string,
+  options?: { requireLicense?: boolean; licenseKey?: string }
+): ThemePreset | undefined {
+  if (presetId === "custom") return undefined;
+
+  // Check built-in presets
+  const builtin = THEME_PRESETS[presetId];
+  if (builtin) {
+    // If license enforcement is enabled, check premium presets
+    if (
+      options?.requireLicense &&
+      (PREMIUM_PRESET_IDS as readonly string[]).includes(presetId) &&
+      !options?.licenseKey
+    ) {
+      return undefined;
+    }
+    return builtin;
+  }
+
+  // Check externally registered presets
+  return externalPresets[presetId];
+}
+
+/**
+ * Get all available preset IDs (built-in + external).
  */
 export function getPresetIds(): string[] {
-  return Object.keys(THEME_PRESETS);
+  return [...Object.keys(THEME_PRESETS), ...Object.keys(externalPresets)];
+}
+
+/**
+ * Get only free preset IDs.
+ */
+export function getFreePresetIds(): string[] {
+  return [...FREE_PRESET_IDS];
+}
+
+/**
+ * Get only premium preset IDs (built-in + external).
+ */
+export function getPremiumPresetIds(): string[] {
+  return [...PREMIUM_PRESET_IDS, ...Object.keys(externalPresets)];
+}
+
+/**
+ * Check if a preset ID is a premium preset.
+ */
+export function isPremiumPreset(presetId: string): boolean {
+  return (
+    (PREMIUM_PRESET_IDS as readonly string[]).includes(presetId) ||
+    presetId in externalPresets
+  );
 }

@@ -179,10 +179,10 @@ export const DomainSchema = z.object({
 // ─── Theme Configuration ────────────────────────────────────────────────────
 
 export const ThemeSchema = z.object({
-  /** Theme preset — provides palette, fonts, features, and custom CSS out of the box */
-  preset: z
-    .enum(["corporate", "startup", "developer", "minimal", "api-reference", "knowledge-base", "custom"])
-    .default("developer"),
+  /** Theme preset — provides palette, fonts, features, and custom CSS out of the box.
+   *  Built-in: corporate, startup, developer, minimal (free) + api-reference, knowledge-base (premium).
+   *  Additional presets can be registered via @docwalk/themes-premium or custom packages. */
+  preset: z.string().default("developer"),
 
   /** Layout mode — controls tab/sidebar behavior */
   layout: z
@@ -318,6 +318,9 @@ export const DocWalkConfigSchema = z.object({
 
   /** Lifecycle hooks */
   hooks: HooksSchema.optional(),
+
+  /** License key for premium features (themes, AI summaries, etc.) */
+  license_key: z.string().optional(),
 });
 
 // ─── Types ──────────────────────────────────────────────────────────────────
