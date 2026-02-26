@@ -4,6 +4,11 @@
  * Accepts a public GitHub repo URL, validates it, rate-limits,
  * and dispatches the try-docwalk.yml workflow via the GitHub API.
  * Returns the expected result URL for the frontend to poll.
+ *
+ * Rate limiting:
+ * - 1 dispatch per repo per minute
+ * - 5 global dispatches per minute
+ * - 1 dispatch per browser fingerprint (ever)
  */
 
 interface Env {
@@ -21,12 +26,15 @@ const MAX_DISPATCHES_PER_MINUTE = 5; // global cap
 let globalDispatchCount = 0;
 let globalWindowStart = Date.now();
 
+// Fingerprint tracking — one try per visitor (in-memory, resets on worker restart)
+const usedFingerprints = new Map<string, { slug: string; ts: number }>();
+
 function corsHeaders(origin: string, allowedOrigin: string): Record<string, string> {
   const allowed = origin === allowedOrigin || allowedOrigin === "*";
   return {
     "Access-Control-Allow-Origin": allowed ? origin : allowedOrigin,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, X-Visitor-FP",
     "Access-Control-Max-Age": "86400",
   };
 }
@@ -81,6 +89,23 @@ export default {
     }
 
     const slug = `${match[1]}-${match[2]}`;
+
+    // Fingerprint rate limiting
+    const fingerprint = request.headers.get("X-Visitor-FP");
+    if (fingerprint && fingerprint !== "fp-unknown") {
+      const prev = usedFingerprints.get(fingerprint);
+      if (prev) {
+        const prevUrl = `https://jongodb.github.io/docwalk/try/${prev.slug}/`;
+        return Response.json(
+          {
+            error: "You've already used your free demo.",
+            previous_result: prevUrl,
+            slug: prev.slug,
+          },
+          { status: 429, headers }
+        );
+      }
+    }
 
     // Rate limit: per-repo
     const now = Date.now();
@@ -138,9 +163,17 @@ export default {
     recentDispatches.set(slug, now);
     globalDispatchCount++;
 
-    // Clean up old entries
+    // Track fingerprint
+    if (fingerprint && fingerprint !== "fp-unknown") {
+      usedFingerprints.set(fingerprint, { slug, ts: now });
+    }
+
+    // Clean up old entries (keep fingerprints for 24h)
     for (const [key, ts] of recentDispatches) {
       if (now - ts > RATE_LIMIT_MS * 10) recentDispatches.delete(key);
+    }
+    for (const [key, data] of usedFingerprints) {
+      if (now - data.ts > 86_400_000) usedFingerprints.delete(key);
     }
 
     const resultUrl = `https://jongodb.github.io/docwalk/try/${slug}/`;

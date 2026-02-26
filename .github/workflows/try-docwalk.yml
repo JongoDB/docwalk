@@ -28,7 +28,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout gh-pages branch
+      - name: Checkout docwalk source
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          path: docwalk-src
+
+      - name: Checkout gh-pages
         uses: actions/checkout@v4
         with:
           ref: gh-pages
@@ -38,11 +44,8 @@ jobs:
         id: parse
         run: |
           REPO_URL="${{ github.event.inputs.repo_url }}"
-          # Extract owner/repo from URL
           SLUG=$(echo "$REPO_URL" | sed -E 's|https?://github\.com/||' | sed 's|/$||' | tr '/' '-')
-          OWNER_REPO=$(echo "$REPO_URL" | sed -E 's|https?://github\.com/||' | sed 's|/$||')
           echo "slug=$SLUG" >> "$GITHUB_OUTPUT"
-          echo "owner_repo=$OWNER_REPO" >> "$GITHUB_OUTPUT"
 
       - name: Clone target repo
         run: |
@@ -53,31 +56,34 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: docwalk-src/package-lock.json
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Install dependencies
-        run: |
-          npm install -g docwalk
-          pip install mkdocs-material mkdocs-minify-plugin
+      - name: Install docwalk dependencies
+        working-directory: docwalk-src
+        run: npm ci
 
-      - name: Initialize DocWalk
+      - name: Install MkDocs
+        run: pip install mkdocs-material mkdocs-minify-plugin
+
+      - name: Initialize DocWalk config
         working-directory: target-repo
         run: |
-          npx docwalk init --no-interactive --repo "${{ steps.parse.outputs.owner_repo }}"
+          npx -y tsx ../docwalk-src/src/cli/index.ts init --no-interactive
 
       - name: Generate documentation
         working-directory: target-repo
         run: |
-          npx docwalk generate
+          npx -y tsx ../docwalk-src/src/cli/index.ts generate
 
       - name: Build MkDocs site
         working-directory: target-repo/docwalk-output
-        run: |
-          mkdocs build
+        run: mkdocs build
 
       - name: Deploy to gh-pages
         run: |

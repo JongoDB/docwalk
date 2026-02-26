@@ -759,11 +759,177 @@
   .tab-content { display: none; }
   .tab-content.active { display: block; }
 
+  /* ─── THEME GALLERY ─── */
+  .themes-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-top: 64px;
+  }
+
+  .theme-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: all 0.3s;
+    position: relative;
+  }
+
+  .theme-card:hover {
+    border-color: var(--border);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+  }
+
+  .theme-card .badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: var(--accent);
+    color: #0a0a0c;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    z-index: 2;
+  }
+
+  .theme-preview {
+    height: 180px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .theme-preview-inner {
+    position: absolute;
+    inset: 8px;
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 8px;
+  }
+
+  .theme-preview-nav {
+    display: flex;
+    align-items: center;
+    padding: 4px 8px;
+    gap: 6px;
+    font-weight: 600;
+    font-size: 7px;
+  }
+
+  .theme-preview-tabs {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+    font-size: 6px;
+    font-weight: 400;
+  }
+
+  .theme-preview-tabs span {
+    opacity: 0.6;
+  }
+
+  .theme-preview-tabs span:first-child {
+    opacity: 1;
+    border-bottom: 1.5px solid currentColor;
+    padding-bottom: 1px;
+  }
+
+  .theme-preview-body {
+    display: flex;
+    flex: 1;
+  }
+
+  .theme-preview-sidebar {
+    width: 28%;
+    padding: 6px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 6px;
+    border-right: 1px solid rgba(128,128,128,0.15);
+  }
+
+  .theme-preview-sidebar span {
+    display: block;
+    padding: 2px 4px;
+    border-radius: 3px;
+    opacity: 0.6;
+  }
+
+  .theme-preview-sidebar span:first-child {
+    opacity: 1;
+  }
+
+  .theme-preview-content {
+    flex: 1;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .theme-preview-content .line {
+    height: 3px;
+    border-radius: 1px;
+    opacity: 0.15;
+  }
+
+  .theme-preview-content .line-heading {
+    height: 6px;
+    width: 40%;
+    border-radius: 2px;
+    opacity: 0.35;
+    margin-bottom: 2px;
+  }
+
+  .theme-preview-content .line-code {
+    height: 20px;
+    border-radius: 3px;
+    opacity: 0.08;
+    margin: 3px 0;
+  }
+
+  .theme-card-info {
+    padding: 20px;
+  }
+
+  .theme-card-info h3 {
+    font-size: 16px;
+    margin-bottom: 4px;
+  }
+
+  .theme-card-info p {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .theme-card-palette {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  .theme-card-palette span {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid var(--border-subtle);
+  }
+
   /* ─── RESPONSIVE ─── */
   @media (max-width: 900px) {
     section { padding: 80px 20px; }
-    .features-grid, .pricing-grid { grid-template-columns: 1fr; }
+    .features-grid, .pricing-grid, .themes-grid { grid-template-columns: 1fr; }
     .providers-grid { grid-template-columns: repeat(2, 1fr); }
+    .themes-grid { grid-template-columns: repeat(2, 1fr); }
     .config-grid, .diff-showcase { grid-template-columns: 1fr; }
     .arch-flow { flex-direction: column; }
     .arch-step:first-child { border-radius: var(--radius) var(--radius) 0 0; }
@@ -1017,7 +1183,7 @@
 <!-- ═══ NAVIGATION ═══ -->
 <nav>
   <a href="#" class="nav-logo">
-    <div class="logo-icon"><svg viewBox="0 0 24 24" fill="#0a0a0c" xmlns="http://www.w3.org/2000/svg"><ellipse cx="8.5" cy="8" rx="2.6" ry="3.5" transform="rotate(-20 8.5 8)"/><circle cx="6.1" cy="4.8" r="0.9" transform="rotate(-20 6.1 4.8)"/><circle cx="8.2" cy="3.8" r="0.9"/><circle cx="10.5" cy="4.5" r="0.8" transform="rotate(-20 10.5 4.5)"/><ellipse cx="15.5" cy="16" rx="2.6" ry="3.5" transform="rotate(20 15.5 16)"/><circle cx="17.9" cy="12.8" r="0.9" transform="rotate(20 17.9 12.8)"/><circle cx="15.8" cy="11.8" r="0.9"/><circle cx="13.5" cy="12.5" r="0.8" transform="rotate(20 13.5 12.5)"/></svg></div>
+    <div class="logo-icon"><svg viewBox="0 0 24 24" fill="#0a0a0c" xmlns="http://www.w3.org/2000/svg"><path d="M5.5 10.5c-.3-1.5-.1-3 .6-4.2.5-.8 1.2-1.2 2-1.2 1 0 1.6.5 2 1.2.6 1 .8 2.5.5 4-.2 1-.7 1.8-1.4 2.2-.4.2-.8.3-1.2.2C7 12.5 5.8 11.8 5.5 10.5z" transform="rotate(-15 7.5 8)"/><ellipse cx="5.2" cy="4.2" rx=".55" ry=".7" transform="rotate(-25 5.2 4.2)"/><ellipse cx="6.4" cy="3.4" rx=".6" ry=".75" transform="rotate(-15 6.4 3.4)"/><ellipse cx="7.7" cy="3.2" rx=".6" ry=".7" transform="rotate(-5 7.7 3.2)"/><ellipse cx="8.9" cy="3.6" rx=".55" ry=".65" transform="rotate(5 8.9 3.6)"/><ellipse cx="9.8" cy="4.4" rx=".45" ry=".55" transform="rotate(15 9.8 4.4)"/><path d="M14.5 18.5c-.3-1.5-.1-3 .6-4.2.5-.8 1.2-1.2 2-1.2 1 0 1.6.5 2 1.2.6 1 .8 2.5.5 4-.2 1-.7 1.8-1.4 2.2-.4.2-.8.3-1.2.2-1-.2-2.2-.9-2.5-2.2z" transform="rotate(15 16.5 16)"/><ellipse cx="14.2" cy="12.2" rx=".55" ry=".7" transform="rotate(5 14.2 12.2)"/><ellipse cx="15.4" cy="11.4" rx=".6" ry=".75" transform="rotate(15 15.4 11.4)"/><ellipse cx="16.7" cy="11.2" rx=".6" ry=".7" transform="rotate(25 16.7 11.2)"/><ellipse cx="17.9" cy="11.6" rx=".55" ry=".65" transform="rotate(35 17.9 11.6)"/><ellipse cx="18.8" cy="12.4" rx=".45" ry=".55" transform="rotate(40 18.8 12.4)"/></svg></div>
     DocWalk
   </a>
   <div class="nav-links">
@@ -1025,6 +1191,7 @@
     <a href="#how-it-works">How It Works</a>
     <a href="#deploy">Deploy</a>
     <a href="#config">Config</a>
+    <a href="#themes">Themes</a>
     <a href="#try">Try It</a>
     <a href="#pricing">Pricing</a>
     <a href="#specs">Specs</a>
@@ -1456,6 +1623,240 @@
   </div>
 </section>
 
+<!-- ═══ THEMES ═══ -->
+<section id="themes" class="fade-in">
+  <div class="section-label">Theme Presets</div>
+  <h2 class="section-title">Six curated themes. Zero design work.</h2>
+  <p class="section-desc">
+    Each preset configures color palettes, typography, navigation layout, and MkDocs Material feature flags. Pick one and ship — or customize every detail.
+  </p>
+
+  <div class="themes-grid">
+    <!-- Developer -->
+    <div class="theme-card">
+      <div class="theme-preview">
+        <div class="theme-preview-inner" style="background:#1a1a2e; color:#e0e0e0;">
+          <div class="theme-preview-nav" style="background:#16213e; color:#5de4c7;">
+            <span>&#9670; Project</span>
+            <div class="theme-preview-tabs" style="color:#5de4c7;"><span>API</span><span>Guide</span><span>Types</span></div>
+          </div>
+          <div class="theme-preview-body">
+            <div class="theme-preview-sidebar" style="border-color:rgba(93,228,199,0.1);">
+              <span style="background:rgba(93,228,199,0.15); color:#5de4c7;">Overview</span>
+              <span>Architecture</span>
+              <span>Config</span>
+              <span>API Ref</span>
+            </div>
+            <div class="theme-preview-content">
+              <div class="line-heading" style="background:#5de4c7;"></div>
+              <div class="line" style="background:#e0e0e0; width:90%;"></div>
+              <div class="line" style="background:#e0e0e0; width:75%;"></div>
+              <div class="line-code" style="background:#5de4c7;"></div>
+              <div class="line" style="background:#e0e0e0; width:85%;"></div>
+              <div class="line" style="background:#e0e0e0; width:60%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="theme-card-info">
+        <h3>Developer</h3>
+        <p>Dark terminal aesthetic with mint accents. Tabbed nav, instant search, code annotations.</p>
+        <div class="theme-card-palette">
+          <span style="background:#1a1a2e;"></span>
+          <span style="background:#5de4c7;"></span>
+          <span style="background:#16213e;"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Corporate -->
+    <div class="theme-card">
+      <div class="theme-preview">
+        <div class="theme-preview-inner" style="background:#ffffff; color:#333333;">
+          <div class="theme-preview-nav" style="background:#1565c0; color:#ffffff;">
+            <span>&#9670; Project</span>
+            <div class="theme-preview-tabs" style="color:#ffffff;"><span>API</span><span>Guide</span><span>Types</span></div>
+          </div>
+          <div class="theme-preview-body">
+            <div class="theme-preview-sidebar" style="border-color:rgba(21,101,192,0.1);">
+              <span style="background:rgba(21,101,192,0.1); color:#1565c0;">Overview</span>
+              <span>Architecture</span>
+              <span>Config</span>
+              <span>API Ref</span>
+            </div>
+            <div class="theme-preview-content">
+              <div class="line-heading" style="background:#1565c0;"></div>
+              <div class="line" style="background:#333; width:90%;"></div>
+              <div class="line" style="background:#333; width:75%;"></div>
+              <div class="line-code" style="background:#1565c0;"></div>
+              <div class="line" style="background:#333; width:85%;"></div>
+              <div class="line" style="background:#333; width:60%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="theme-card-info">
+        <h3>Corporate</h3>
+        <p>Clean light theme with blue brand tones. Professional typography, smooth navigation.</p>
+        <div class="theme-card-palette">
+          <span style="background:#ffffff;"></span>
+          <span style="background:#1565c0;"></span>
+          <span style="background:#bbdefb;"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Startup -->
+    <div class="theme-card">
+      <div class="theme-preview">
+        <div class="theme-preview-inner" style="background:#ffffff; color:#333333;">
+          <div class="theme-preview-nav" style="background:#6200ea; color:#ffffff;">
+            <span>&#9670; Project</span>
+            <div class="theme-preview-tabs" style="color:#ffffff;"><span>API</span><span>Guide</span><span>Types</span></div>
+          </div>
+          <div class="theme-preview-body">
+            <div class="theme-preview-sidebar" style="border-color:rgba(98,0,234,0.1);">
+              <span style="background:rgba(98,0,234,0.1); color:#6200ea;">Overview</span>
+              <span>Architecture</span>
+              <span>Config</span>
+              <span>API Ref</span>
+            </div>
+            <div class="theme-preview-content">
+              <div class="line-heading" style="background:#6200ea;"></div>
+              <div class="line" style="background:#333; width:90%;"></div>
+              <div class="line" style="background:#333; width:75%;"></div>
+              <div class="line-code" style="background:#6200ea;"></div>
+              <div class="line" style="background:#333; width:85%;"></div>
+              <div class="line" style="background:#333; width:60%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="theme-card-info">
+        <h3>Startup</h3>
+        <p>Bold purple energy with Poppins font. Playful gradients, instant search, section indexes.</p>
+        <div class="theme-card-palette">
+          <span style="background:#ffffff;"></span>
+          <span style="background:#6200ea;"></span>
+          <span style="background:#b388ff;"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Minimal -->
+    <div class="theme-card">
+      <div class="theme-preview">
+        <div class="theme-preview-inner" style="background:#fafafa; color:#444444;">
+          <div class="theme-preview-nav" style="background:#f5f5f5; color:#444; border-bottom: 1px solid #e0e0e0;">
+            <span>&#9670; Project</span>
+            <div class="theme-preview-tabs" style="color:#444;"><span>API</span><span>Guide</span><span>Types</span></div>
+          </div>
+          <div class="theme-preview-body">
+            <div class="theme-preview-sidebar" style="border-color:#e0e0e0;">
+              <span style="background:rgba(0,0,0,0.06); color:#333;">Overview</span>
+              <span>Architecture</span>
+              <span>Config</span>
+              <span>API Ref</span>
+            </div>
+            <div class="theme-preview-content">
+              <div class="line-heading" style="background:#444;"></div>
+              <div class="line" style="background:#444; width:90%;"></div>
+              <div class="line" style="background:#444; width:75%;"></div>
+              <div class="line-code" style="background:#444;"></div>
+              <div class="line" style="background:#444; width:85%;"></div>
+              <div class="line" style="background:#444; width:60%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="theme-card-info">
+        <h3>Minimal</h3>
+        <p>Content-first with no distractions. Subtle grays, system fonts, zero visual noise.</p>
+        <div class="theme-card-palette">
+          <span style="background:#fafafa;"></span>
+          <span style="background:#444444;"></span>
+          <span style="background:#e0e0e0;"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- API Reference (Team) -->
+    <div class="theme-card">
+      <div class="badge">Team</div>
+      <div class="theme-preview">
+        <div class="theme-preview-inner" style="background:#263238; color:#cfd8dc;">
+          <div class="theme-preview-nav" style="background:#1e272c; color:#82b1ff;">
+            <span>&#9670; Project</span>
+            <div class="theme-preview-tabs" style="color:#82b1ff;"><span>Endpoints</span><span>Models</span><span>Auth</span></div>
+          </div>
+          <div class="theme-preview-body">
+            <div class="theme-preview-sidebar" style="border-color:rgba(130,177,255,0.1);">
+              <span style="background:rgba(130,177,255,0.15); color:#82b1ff;">GET /users</span>
+              <span>POST /auth</span>
+              <span>PUT /items</span>
+              <span>DELETE /…</span>
+            </div>
+            <div class="theme-preview-content">
+              <div class="line-heading" style="background:#82b1ff;"></div>
+              <div class="line" style="background:#cfd8dc; width:90%;"></div>
+              <div class="line-code" style="background:#82b1ff; height:28px;"></div>
+              <div class="line" style="background:#cfd8dc; width:70%;"></div>
+              <div class="line" style="background:#cfd8dc; width:50%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="theme-card-info">
+        <h3>API Reference</h3>
+        <p>Slate dark with blue accents. Integrated TOC, code selection, wider code blocks for endpoint docs.</p>
+        <div class="theme-card-palette">
+          <span style="background:#263238;"></span>
+          <span style="background:#1e88e5;"></span>
+          <span style="background:#82b1ff;"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Knowledge Base (Team) -->
+    <div class="theme-card">
+      <div class="badge">Team</div>
+      <div class="theme-preview">
+        <div class="theme-preview-inner" style="background:#ffffff; color:#333333;">
+          <div class="theme-preview-nav" style="background:#2e7d32; color:#ffffff;">
+            <span>&#9670; Knowledge Base</span>
+            <div class="theme-preview-tabs" style="color:#ffffff;"><span>Guides</span><span>FAQ</span><span>API</span></div>
+          </div>
+          <div class="theme-preview-body">
+            <div class="theme-preview-sidebar" style="border-color:rgba(46,125,50,0.1);">
+              <span style="background:rgba(46,125,50,0.1); color:#2e7d32;">Getting Started</span>
+              <span>Installation</span>
+              <span>Configuration</span>
+              <span>Deployment</span>
+            </div>
+            <div class="theme-preview-content">
+              <div class="line-heading" style="background:#2e7d32;"></div>
+              <div class="line" style="background:#333; width:95%;"></div>
+              <div class="line" style="background:#333; width:80%;"></div>
+              <div class="line" style="background:#333; width:90%;"></div>
+              <div class="line-code" style="background:#2e7d32;"></div>
+              <div class="line" style="background:#333; width:70%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="theme-card-info">
+        <h3>Knowledge Base</h3>
+        <p>Light theme with green accents. Breadcrumbs, sticky tabs, wider content area for long-form docs.</p>
+        <div class="theme-card-palette">
+          <span style="background:#ffffff;"></span>
+          <span style="background:#2e7d32;"></span>
+          <span style="background:#66bb6a;"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ═══ PRICING ═══ -->
 <section id="pricing" class="fade-in">
   <div class="section-label">Pricing</div>
@@ -1486,6 +1887,7 @@
       <ul class="price-features">
         <li>Unlimited private repos</li>
         <li>All deploy providers</li>
+        <li>All 6 theme presets (incl. API Reference & Knowledge Base)</li>
         <li>AI-powered summaries & descriptions</li>
         <li>Versioned documentation (per tag/branch)</li>
         <li>Custom domains (10) + subpath routing</li>
@@ -1580,7 +1982,7 @@
 <footer>
   <div style="margin-bottom:16px">
     <span class="nav-logo" style="justify-content:center; display:inline-flex">
-      <span class="logo-icon"><svg viewBox="0 0 24 24" fill="#0a0a0c" xmlns="http://www.w3.org/2000/svg"><ellipse cx="8.5" cy="8" rx="2.6" ry="3.5" transform="rotate(-20 8.5 8)"/><circle cx="6.1" cy="4.8" r="0.9" transform="rotate(-20 6.1 4.8)"/><circle cx="8.2" cy="3.8" r="0.9"/><circle cx="10.5" cy="4.5" r="0.8" transform="rotate(-20 10.5 4.5)"/><ellipse cx="15.5" cy="16" rx="2.6" ry="3.5" transform="rotate(20 15.5 16)"/><circle cx="17.9" cy="12.8" r="0.9" transform="rotate(20 17.9 12.8)"/><circle cx="15.8" cy="11.8" r="0.9"/><circle cx="13.5" cy="12.5" r="0.8" transform="rotate(20 13.5 12.5)"/></svg></span>
+      <span class="logo-icon"><svg viewBox="0 0 24 24" fill="#0a0a0c" xmlns="http://www.w3.org/2000/svg"><path d="M5.5 10.5c-.3-1.5-.1-3 .6-4.2.5-.8 1.2-1.2 2-1.2 1 0 1.6.5 2 1.2.6 1 .8 2.5.5 4-.2 1-.7 1.8-1.4 2.2-.4.2-.8.3-1.2.2C7 12.5 5.8 11.8 5.5 10.5z" transform="rotate(-15 7.5 8)"/><ellipse cx="5.2" cy="4.2" rx=".55" ry=".7" transform="rotate(-25 5.2 4.2)"/><ellipse cx="6.4" cy="3.4" rx=".6" ry=".75" transform="rotate(-15 6.4 3.4)"/><ellipse cx="7.7" cy="3.2" rx=".6" ry=".7" transform="rotate(-5 7.7 3.2)"/><ellipse cx="8.9" cy="3.6" rx=".55" ry=".65" transform="rotate(5 8.9 3.6)"/><ellipse cx="9.8" cy="4.4" rx=".45" ry=".55" transform="rotate(15 9.8 4.4)"/><path d="M14.5 18.5c-.3-1.5-.1-3 .6-4.2.5-.8 1.2-1.2 2-1.2 1 0 1.6.5 2 1.2.6 1 .8 2.5.5 4-.2 1-.7 1.8-1.4 2.2-.4.2-.8.3-1.2.2-1-.2-2.2-.9-2.5-2.2z" transform="rotate(15 16.5 16)"/><ellipse cx="14.2" cy="12.2" rx=".55" ry=".7" transform="rotate(5 14.2 12.2)"/><ellipse cx="15.4" cy="11.4" rx=".6" ry=".75" transform="rotate(15 15.4 11.4)"/><ellipse cx="16.7" cy="11.2" rx=".6" ry=".7" transform="rotate(25 16.7 11.2)"/><ellipse cx="17.9" cy="11.6" rx=".55" ry=".65" transform="rotate(35 17.9 11.6)"/><ellipse cx="18.8" cy="12.4" rx=".45" ry=".55" transform="rotate(40 18.8 12.4)"/></svg></span>
       DocWalk
     </span>
   </div>
@@ -1599,6 +2001,50 @@
   }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
 
   document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+  // ── Browser fingerprint for try-it rate limiting ──
+  function getFingerprint() {
+    try {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      ctx.textBaseline = 'top';
+      ctx.font = '14px Arial';
+      ctx.fillText('DocWalk-fp', 2, 2);
+      const canvasData = canvas.toDataURL().slice(-50);
+      const components = [
+        canvasData,
+        screen.width + 'x' + screen.height,
+        screen.colorDepth,
+        Intl.DateTimeFormat().resolvedOptions().timeZone,
+        navigator.language,
+        navigator.hardwareConcurrency || 0,
+      ].join('|');
+      // Simple hash
+      let hash = 0;
+      for (let i = 0; i < components.length; i++) {
+        hash = ((hash << 5) - hash) + components.charCodeAt(i);
+        hash = hash & hash;
+      }
+      return 'fp-' + Math.abs(hash).toString(36);
+    } catch { return 'fp-unknown'; }
+  }
+
+  const VISITOR_FP = getFingerprint();
+  const TRY_KEY = 'docwalk-try-used';
+
+  function hasUsedTry() {
+    try {
+      const stored = localStorage.getItem(TRY_KEY);
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return null;
+  }
+
+  function markTryUsed(slug, resultUrl) {
+    try {
+      localStorage.setItem(TRY_KEY, JSON.stringify({ slug, resultUrl, ts: Date.now() }));
+    } catch {}
+  }
 
   // ── Try DocWalk ──
   const PROXY_URL = 'https://docwalk-try.jonathanrannabargar.workers.dev';
@@ -1632,6 +2078,18 @@
       return;
     }
 
+    // Check if visitor already used their free try
+    const previous = hasUsedTry();
+    if (previous) {
+      errorEl.textContent = 'You\'ve already used your free demo. View your previous result:';
+      errorEl.classList.add('visible');
+      input.classList.add('error');
+      resultEl.style.display = '';
+      resultLink.href = previous.resultUrl;
+      resultLink.textContent = previous.resultUrl;
+      return;
+    }
+
     // Disable button during dispatch
     btn.disabled = true;
     btn.textContent = 'Dispatching...';
@@ -1641,7 +2099,7 @@
     try {
       const res = await fetch(PROXY_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Visitor-FP': VISITOR_FP },
         body: JSON.stringify({ repo_url: url, branch: 'main' }),
       });
 
@@ -1651,12 +2109,13 @@
         throw new Error(data.error || 'Failed to dispatch build');
       }
 
-      // Dispatch succeeded — start polling
+      // Dispatch succeeded — mark as used and start polling
       progressBar.style.width = '25%';
       progressLabel.textContent = 'Build dispatched. Analyzing codebase...';
       btn.textContent = 'Building...';
 
       const resultUrl = data.result_url;
+      markTryUsed(data.slug, resultUrl);
       resultLink.href = resultUrl;
       resultLink.textContent = resultUrl;
 
