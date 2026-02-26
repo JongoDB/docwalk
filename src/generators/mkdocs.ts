@@ -587,7 +587,6 @@ async function generateChangelogPage(config: DocWalkConfig): Promise<GeneratedPa
     // Get recent commits
     const logResult = await git.log({
       maxCount: config.analysis.changelog_depth || 100,
-      "--format": "%H|%s|%an|%aI",
     });
 
     if (logResult.all.length > 0) {
