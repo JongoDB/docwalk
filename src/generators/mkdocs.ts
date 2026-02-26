@@ -153,6 +153,7 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
 function generateOverviewPage(manifest: AnalysisManifest, config: DocWalkConfig): GeneratedPage {
   const { projectMeta: meta, stats } = manifest;
   const projectName = meta.name === "." ? path.basename(process.cwd()) : meta.name;
+  const archLink = config.analysis.architecture_tiers !== false ? "architecture/index.md" : "architecture.md";
 
   // Group modules by logical section for categorized navigation
   const modulesByGroup = groupModulesLogically(manifest.modules);
@@ -208,7 +209,7 @@ ${meta.description || `Technical documentation for the **${projectName}** projec
 New to this project? Start here:
 
 - **[Getting Started](getting-started.md)** — Prerequisites, installation, and project structure
-- **[Architecture](architecture.md)** — System design, dependency graph, and module relationships
+- **[Architecture](${archLink})** — System design, dependency graph, and module relationships
 - **[API Reference](#api-by-section)** — Complete reference organized by component
 ${config.analysis.config_docs ? `- **[Configuration](configuration.md)** — Configuration schemas and settings\n` : ""}${config.analysis.types_page ? `- **[Types & Interfaces](types.md)** — All exported types, interfaces, and enums\n` : ""}${config.analysis.dependencies_page ? `- **[Dependencies](dependencies.md)** — External packages and their usage\n` : ""}${config.analysis.usage_guide_page ? `- **[Usage Guide](guide.md)** — How to navigate and use these docs\n` : ""}
 
@@ -259,6 +260,7 @@ function generateGettingStartedPage(
 ): GeneratedPage {
   const meta = manifest.projectMeta;
   const projectName = meta.name === "." ? path.basename(process.cwd()) : meta.name;
+  const archLink = config.analysis.architecture_tiers !== false ? "architecture/index.md" : "architecture.md";
 
   // Detect package manager from the project
   const pkgManager = detectPackageManager(manifest.modules);
@@ -338,7 +340,7 @@ ${meta.entryPoints.map((e) => {
 
 ## Next Steps
 
-- **[Architecture](architecture.md)** — Understand the system design and dependency graph
+- **[Architecture](${archLink})** — Understand the system design and dependency graph
 - **[API Reference](index.md#api-by-section)** — Browse the full API organized by component
 
 ---
@@ -1171,6 +1173,7 @@ function generateUsageGuidePage(
   const projectName = meta.name === "." ? path.basename(process.cwd()) : meta.name;
   const modulesByGroup = groupModulesLogically(manifest.modules);
   const sectionCount = Object.keys(modulesByGroup).length;
+  const archLink = config.analysis.architecture_tiers !== false ? "architecture/index.md" : "architecture.md";
 
   const content = `---
 title: Usage Guide
@@ -1239,7 +1242,7 @@ This documentation includes several types of pages:
 |------|-------------|
 | **[Overview](index.md)** | Project summary, statistics, and quick links |
 | **[Getting Started](getting-started.md)** | Prerequisites, installation, and project structure |
-| **[Architecture](architecture.md)** | Dependency graph and module relationships |
+| **[Architecture](${archLink})** | Dependency graph and module relationships |
 | **[Configuration](configuration.md)** | Configuration schemas and settings reference |
 | **[Types & Interfaces](types.md)** | Aggregate view of all exported types |
 | **[Dependencies](dependencies.md)** | External packages and their usage across modules |
