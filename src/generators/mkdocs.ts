@@ -2045,7 +2045,7 @@ graph LR
       .slice(0, 3)
       .map((s) => `\`${s.name}\``)
       .join(", ");
-    t1Content += `| [**${dir}**](architecture/${dirSlug}.md) | ${nodes.length} | ${totalSymbols} | ${keyExports || "—"} |\n`;
+    t1Content += `| [**${dir}**](${dirSlug}.md) | ${nodes.length} | ${totalSymbols} | ${keyExports || "—"} |\n`;
   }
 
   t1Content += `
