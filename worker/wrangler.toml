@@ -1,0 +1,12 @@
+name = "docwalk-try"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+[vars]
+ALLOWED_ORIGIN = "https://jongodb.github.io"
+REPO_OWNER = "JongoDB"
+REPO_NAME = "docwalk"
+WORKFLOW_FILE = "try-docwalk.yml"
+
+# Set GITHUB_PAT as a secret:
+#   npx wrangler secret put GITHUB_PAT

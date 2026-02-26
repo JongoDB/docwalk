@@ -1017,7 +1017,7 @@
 <!-- ═══ NAVIGATION ═══ -->
 <nav>
   <a href="#" class="nav-logo">
-    <div class="logo-icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 6.5C4 5 5 4 6.5 4H8" stroke="#0a0a0c" stroke-width="2.2" stroke-linecap="round"/><path d="M4 17.5C4 19 5 20 6.5 20H8" stroke="#0a0a0c" stroke-width="2.2" stroke-linecap="round"/><path d="M20 6.5C20 5 19 4 17.5 4H16" stroke="#0a0a0c" stroke-width="2.2" stroke-linecap="round"/><path d="M20 17.5C20 19 19 20 17.5 20H16" stroke="#0a0a0c" stroke-width="2.2" stroke-linecap="round"/><path d="M7 9.5C9 9.5 10 10 11 11.5C12 13 13 13.5 17 13.5" stroke="#0a0a0c" stroke-width="2" stroke-linecap="round"/><circle cx="7" cy="9.5" r="1.2" fill="#0a0a0c"/><circle cx="17" cy="13.5" r="1.2" fill="#0a0a0c"/></svg></div>
+    <div class="logo-icon"><svg viewBox="0 0 24 24" fill="#0a0a0c" xmlns="http://www.w3.org/2000/svg"><ellipse cx="8.5" cy="8" rx="2.6" ry="3.5" transform="rotate(-20 8.5 8)"/><circle cx="6.1" cy="4.8" r="0.9" transform="rotate(-20 6.1 4.8)"/><circle cx="8.2" cy="3.8" r="0.9"/><circle cx="10.5" cy="4.5" r="0.8" transform="rotate(-20 10.5 4.5)"/><ellipse cx="15.5" cy="16" rx="2.6" ry="3.5" transform="rotate(20 15.5 16)"/><circle cx="17.9" cy="12.8" r="0.9" transform="rotate(20 17.9 12.8)"/><circle cx="15.8" cy="11.8" r="0.9"/><circle cx="13.5" cy="12.5" r="0.8" transform="rotate(20 13.5 12.5)"/></svg></div>
     DocWalk
   </a>
   <div class="nav-links">
@@ -1437,16 +1437,20 @@
     </div>
     <div class="try-error" id="try-error"></div>
     <div class="try-status" id="try-status">
-      <span class="try-label">Run this command to generate docs for the repo:</span>
-      <code class="try-cmd" id="try-cmd"></code>
-      <span class="try-label" style="margin-top:16px">Or trigger the GitHub Actions workflow:</span>
-      <code class="try-cmd" id="try-workflow-cmd"></code>
-      <button class="try-copy-btn" onclick="copyTryCommand()">
-        Copy command
-      </button>
-      <span class="try-note">
-        This uses DocWalk's CLI to analyze the repo and generate a full MkDocs Material documentation site locally.
-        Requires Node.js 18+ and Python 3.12+ with mkdocs-material installed.
+      <div id="try-progress">
+        <span class="try-label" id="try-progress-label">Dispatching build...</span>
+        <div style="margin-top:12px; height:3px; background:var(--border); border-radius:2px; overflow:hidden;">
+          <div id="try-progress-bar" style="height:100%; background:var(--accent); width:10%; transition:width 1s ease; border-radius:2px;"></div>
+        </div>
+      </div>
+      <div id="try-result" style="display:none">
+        <span class="try-label" style="color:var(--accent);">Documentation generated!</span>
+        <a id="try-result-link" href="#" target="_blank" class="try-cmd" style="display:block; margin-top:8px; color:var(--accent); text-decoration:none;">
+          View documentation
+        </a>
+      </div>
+      <span class="try-note" id="try-note">
+        DocWalk will clone the repo, analyze the codebase, and build a full MkDocs Material documentation site. This typically completes in 2-5 minutes.
       </span>
     </div>
   </div>
@@ -1576,7 +1580,7 @@
 <footer>
   <div style="margin-bottom:16px">
     <span class="nav-logo" style="justify-content:center; display:inline-flex">
-      <span class="logo-icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 6.5C4 5 5 4 6.5 4H8" stroke="#0a0a0c" stroke-width="2.2" stroke-linecap="round"/><path d="M4 17.5C4 19 5 20 6.5 20H8" stroke="#0a0a0c" stroke-width="2.2" stroke-linecap="round"/><path d="M20 6.5C20 5 19 4 17.5 4H16" stroke="#0a0a0c" stroke-width="2.2" stroke-linecap="round"/><path d="M20 17.5C20 19 19 20 17.5 20H16" stroke="#0a0a0c" stroke-width="2.2" stroke-linecap="round"/><path d="M7 9.5C9 9.5 10 10 11 11.5C12 13 13 13.5 17 13.5" stroke="#0a0a0c" stroke-width="2" stroke-linecap="round"/><circle cx="7" cy="9.5" r="1.2" fill="#0a0a0c"/><circle cx="17" cy="13.5" r="1.2" fill="#0a0a0c"/></svg></span>
+      <span class="logo-icon"><svg viewBox="0 0 24 24" fill="#0a0a0c" xmlns="http://www.w3.org/2000/svg"><ellipse cx="8.5" cy="8" rx="2.6" ry="3.5" transform="rotate(-20 8.5 8)"/><circle cx="6.1" cy="4.8" r="0.9" transform="rotate(-20 6.1 4.8)"/><circle cx="8.2" cy="3.8" r="0.9"/><circle cx="10.5" cy="4.5" r="0.8" transform="rotate(-20 10.5 4.5)"/><ellipse cx="15.5" cy="16" rx="2.6" ry="3.5" transform="rotate(20 15.5 16)"/><circle cx="17.9" cy="12.8" r="0.9" transform="rotate(20 17.9 12.8)"/><circle cx="15.8" cy="11.8" r="0.9"/><circle cx="13.5" cy="12.5" r="0.8" transform="rotate(20 13.5 12.5)"/></svg></span>
       DocWalk
     </span>
   </div>
@@ -1597,44 +1601,113 @@
   document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
 
   // ── Try DocWalk ──
-  function handleTrySubmit() {
+  const PROXY_URL = 'https://docwalk-try.jongodb.workers.dev';
+
+  async function handleTrySubmit() {
     const input = document.getElementById('try-repo-url');
     const errorEl = document.getElementById('try-error');
     const statusEl = document.getElementById('try-status');
-    const cmdEl = document.getElementById('try-cmd');
-    const workflowCmdEl = document.getElementById('try-workflow-cmd');
+    const btn = document.getElementById('try-submit-btn');
+    const progressEl = document.getElementById('try-progress');
+    const progressLabel = document.getElementById('try-progress-label');
+    const progressBar = document.getElementById('try-progress-bar');
+    const resultEl = document.getElementById('try-result');
+    const resultLink = document.getElementById('try-result-link');
     const url = input.value.trim();
 
     // Reset state
     errorEl.classList.remove('visible');
     statusEl.classList.remove('visible');
     input.classList.remove('error');
+    progressEl.style.display = '';
+    resultEl.style.display = 'none';
+    progressBar.style.width = '10%';
 
     // Validate URL
     const match = url.match(/^https?:\/\/github\.com\/([^/]+\/[^/]+)\/?$/);
     if (!match) {
-      errorEl.textContent = 'Please enter a valid GitHub repo URL (e.g., https://github.com/owner/repo)';
+      errorEl.textContent = 'Please enter a valid public GitHub repo URL (e.g., https://github.com/owner/repo)';
       errorEl.classList.add('visible');
       input.classList.add('error');
       return;
     }
 
-    const ownerRepo = match[1];
-    const slug = ownerRepo.replace('/', '-');
-
-    // Show commands
-    cmdEl.textContent = `npx docwalk init --no-interactive --repo ${ownerRepo} && npx docwalk generate && cd docwalk-output && mkdocs build && mkdocs serve`;
-    workflowCmdEl.textContent = `gh workflow run try-docwalk.yml -f repo_url="${url}" -f branch="main"`;
+    // Disable button during dispatch
+    btn.disabled = true;
+    btn.textContent = 'Dispatching...';
     statusEl.classList.add('visible');
-  }
+    progressLabel.textContent = 'Dispatching build...';
 
-  function copyTryCommand() {
-    const cmdEl = document.getElementById('try-cmd');
-    const btn = document.querySelector('.try-copy-btn');
-    navigator.clipboard.writeText(cmdEl.textContent).then(() => {
-      btn.textContent = 'Copied!';
-      setTimeout(() => { btn.textContent = 'Copy command'; }, 2000);
-    });
+    try {
+      const res = await fetch(PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repo_url: url, branch: 'main' }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to dispatch build');
+      }
+
+      // Dispatch succeeded — start polling
+      progressBar.style.width = '25%';
+      progressLabel.textContent = 'Build dispatched. Analyzing codebase...';
+      btn.textContent = 'Building...';
+
+      const resultUrl = data.result_url;
+      resultLink.href = resultUrl;
+      resultLink.textContent = resultUrl;
+
+      // Poll for result
+      let attempts = 0;
+      const maxAttempts = 90; // ~7.5 minutes at 5s intervals
+      const pollInterval = setInterval(async () => {
+        attempts++;
+        const pct = Math.min(25 + (attempts / maxAttempts) * 70, 95);
+        progressBar.style.width = pct + '%';
+
+        if (attempts < 12) progressLabel.textContent = 'Analyzing codebase...';
+        else if (attempts < 36) progressLabel.textContent = 'Generating documentation...';
+        else if (attempts < 60) progressLabel.textContent = 'Building MkDocs site...';
+        else progressLabel.textContent = 'Deploying to GitHub Pages...';
+
+        try {
+          const check = await fetch(resultUrl, { method: 'HEAD', mode: 'no-cors' });
+          // mode: no-cors means we can't read status, but opaque response = exists
+          if (check.type === 'opaque' || check.ok) {
+            // Verify with a real fetch
+            const verify = await fetch(resultUrl);
+            if (verify.ok) {
+              clearInterval(pollInterval);
+              progressBar.style.width = '100%';
+              progressEl.style.display = 'none';
+              resultEl.style.display = '';
+              btn.textContent = 'Generate Docs';
+              btn.disabled = false;
+              return;
+            }
+          }
+        } catch {}
+
+        if (attempts >= maxAttempts) {
+          clearInterval(pollInterval);
+          progressLabel.textContent = 'Build is taking longer than expected. Check back shortly.';
+          resultEl.style.display = '';
+          resultLink.textContent = resultUrl + ' (may still be building)';
+          btn.textContent = 'Generate Docs';
+          btn.disabled = false;
+        }
+      }, 5000);
+
+    } catch (err) {
+      errorEl.textContent = err.message || 'Something went wrong. Please try again.';
+      errorEl.classList.add('visible');
+      statusEl.classList.remove('visible');
+      btn.textContent = 'Generate Docs';
+      btn.disabled = false;
+    }
   }
 
   // Allow Enter key to submit
