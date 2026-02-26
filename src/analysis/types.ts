@@ -229,6 +229,13 @@ export interface AnalysisManifest {
 
   /** Analysis statistics */
   stats: AnalysisStats;
+
+  /** Cached AI summaries keyed by content hash */
+  summaryCache?: Array<{
+    contentHash: string;
+    summary: string;
+    generatedAt: string;
+  }>;
 }
 
 export interface ProjectMeta {

@@ -64,6 +64,9 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
     onProgress: (current, total, file) => {
       log("debug", `[${current}/${total}] ${file}`);
     },
+    onAIProgress: (current, total, message) => {
+      log("debug", `[AI ${current}/${total}] ${message}`);
+    },
   });
 
   const analysisTime = ((Date.now() - startTime) / 1000).toFixed(1);
@@ -71,6 +74,18 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
     "success",
     `Analysis complete: ${manifest.stats.totalFiles} files, ${manifest.stats.totalSymbols} symbols (${analysisTime}s)`
   );
+
+  if (config.analysis.ai_summaries) {
+    const aiModules = manifest.modules.filter((m) => m.aiSummary);
+    if (aiModules.length > 0) {
+      log("success", `AI summaries generated for ${aiModules.length} modules`);
+    } else if (!config.analysis.ai_provider) {
+      log("warn", "AI summaries enabled but no ai_provider configured");
+    } else {
+      const keyEnv = config.analysis.ai_provider.api_key_env;
+      log("warn", `AI summaries enabled but ${keyEnv} environment variable not set`);
+    }
+  }
 
   if (options.dryRun) {
     blank();

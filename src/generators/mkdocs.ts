@@ -397,6 +397,8 @@ ${mod.moduleDoc?.summary || mod.aiSummary || ""}
 
 ${mod.moduleDoc?.description && mod.moduleDoc.description !== mod.moduleDoc.summary ? mod.moduleDoc.description : ""}
 
+${mod.aiSummary && mod.moduleDoc?.summary ? `!!! abstract "AI Summary"\n    ${mod.aiSummary}\n` : ""}
+
 `;
 
   // Exports summary table

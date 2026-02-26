@@ -21,6 +21,7 @@ import type {
   AnalysisStats,
   SymbolKind,
 } from "./types.js";
+import type { SummaryCacheEntry } from "./ai-summarizer.js";
 import { detectLanguage, type LanguageId } from "./language-detect.js";
 import { getParser, type ParserResult } from "./parsers/index.js";
 import { discoverFiles } from "./file-discovery.js";
@@ -42,6 +43,12 @@ export interface AnalysisOptions {
 
   /** Progress callback */
   onProgress?: (current: number, total: number, file: string) => void;
+
+  /** Previous AI summary cache for reuse */
+  previousSummaryCache?: SummaryCacheEntry[];
+
+  /** AI summarization progress callback */
+  onAIProgress?: (current: number, total: number, message: string) => void;
 }
 
 export async function analyzeCodebase(
@@ -56,6 +63,8 @@ export async function analyzeCodebase(
     targetFiles,
     previousManifest,
     onProgress,
+    previousSummaryCache,
+    onAIProgress,
   } = options;
 
   // ── Step 1: File Discovery ──────────────────────────────────────────────
@@ -126,9 +135,30 @@ export async function analyzeCodebase(
   // ── Step 6: Cross-file dependency resolution ───────────────────────────
   const dependencyGraph = buildDependencyGraph(allModules);
 
-  // ── Step 7: Compute project metadata and stats ─────────────────────────
-  const projectMeta = computeProjectMeta(allModules, repoRoot, source);
-  const stats = computeStats(allModules, skippedFiles, startTime);
+  // ── Step 7: Optional AI summarization ─────────────────────────────────
+  let finalModules = allModules;
+  let summaryCache: SummaryCacheEntry[] = previousSummaryCache || [];
+
+  if (analysis.ai_summaries && analysis.ai_provider) {
+    const { summarizeModules } = await import("./ai-summarizer.js");
+    const result = await summarizeModules({
+      providerConfig: analysis.ai_provider,
+      modules: allModules,
+      readFile: async (filePath) => {
+        const absolutePath = path.resolve(repoRoot, filePath);
+        return readFile(absolutePath, "utf-8");
+      },
+      previousCache: previousSummaryCache,
+      onProgress: onAIProgress,
+    });
+
+    finalModules = result.modules;
+    summaryCache = result.cache;
+  }
+
+  // ── Step 8: Compute project metadata and stats ─────────────────────────
+  const projectMeta = computeProjectMeta(finalModules, repoRoot, source);
+  const stats = computeStats(finalModules, skippedFiles, startTime);
 
   const manifest: AnalysisManifest = {
     docwalkVersion: "0.1.0",
@@ -136,10 +166,11 @@ export async function analyzeCodebase(
     branch: source.branch,
     commitSha,
     analyzedAt: new Date().toISOString(),
-    modules: allModules,
+    modules: finalModules,
     dependencyGraph,
     projectMeta,
     stats,
+    summaryCache,
   };
 
   return manifest;
