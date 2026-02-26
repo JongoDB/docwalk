@@ -125,6 +125,7 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
       "search.suggest",
       "search.highlight",
       "content.code.copy",
+      "content.code.annotate",
       "content.tabs.link",
       "navigation.instant",
       "navigation.footer",
@@ -217,12 +218,13 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
       "content.code.annotate",
       "content.tabs.link",
       "navigation.instant",
+      "navigation.footer",
     ],
     fonts: {
-      text: "JetBrains Mono",
-      code: "JetBrains Mono",
+      text: "Inter",
+      code: "Fira Code",
     },
-    customCss: `/* Developer Preset — Code-dense, technical, dark-first */
+    customCss: `/* Developer Preset — Professional technical documentation */
 :root {
   --md-primary-fg-color: #5de4c7;
   --md-primary-fg-color--light: #89f0d6;
@@ -232,58 +234,183 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
 }
 
 [data-md-color-scheme="slate"] {
-  --md-default-bg-color: #1b1e28;
-  --md-default-bg-color--light: #232630;
-  --md-default-fg-color: #d4d4d8;
-  --md-code-bg-color: #141620;
-  --md-code-fg-color: #d4d4d8;
+  --md-default-bg-color: #171921;
+  --md-default-bg-color--light: #1e2028;
+  --md-default-fg-color: #d6d6da;
+  --md-default-fg-color--light: #a0a0a8;
+  --md-code-bg-color: #12141c;
+  --md-code-fg-color: #d6d6da;
+  --md-typeset-a-color: #89d4f5;
 }
 
+/* ── Header & Navigation ── */
 .md-header {
-  background-color: #141620;
-  border-bottom: 1px solid rgba(93, 228, 199, 0.15);
+  background-color: #12141c;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.2);
 }
 
 .md-tabs {
-  background-color: #141620;
-  border-bottom: 1px solid rgba(93, 228, 199, 0.1);
+  background-color: #12141c;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
-.md-typeset h1,
+/* ── Typography ── */
+.md-typeset {
+  font-size: 0.82rem;
+  line-height: 1.75;
+}
+
+.md-typeset h1 {
+  font-weight: 700;
+  font-size: 2em;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.8em;
+}
+
 .md-typeset h2 {
   font-weight: 600;
-  color: #5de4c7;
+  font-size: 1.5em;
+  letter-spacing: -0.01em;
+  margin-top: 2.5em;
+  padding-bottom: 0.4em;
+}
+
+[data-md-color-scheme="slate"] .md-typeset h2 {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.md-typeset h3 {
+  font-weight: 600;
+  font-size: 1.2em;
+  margin-top: 1.8em;
+}
+
+[data-md-color-scheme="slate"] .md-typeset h1 {
+  color: #e8e8ec;
+}
+
+[data-md-color-scheme="slate"] .md-typeset h2 {
+  color: #d0d0d6;
 }
 
 [data-md-color-scheme="slate"] .md-typeset h3,
 [data-md-color-scheme="slate"] .md-typeset h4 {
-  color: #add7ff;
+  color: #b8b8c0;
 }
 
+/* ── Code ── */
 .md-typeset code {
   border-radius: 4px;
-  font-size: 0.85em;
-  font-variant-ligatures: common-ligatures;
+  font-size: 0.84em;
+  padding: 0.1em 0.4em;
+}
+
+[data-md-color-scheme="slate"] .md-typeset code {
+  background-color: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .md-typeset pre > code {
   font-size: 0.82em;
-  line-height: 1.6;
+  line-height: 1.65;
+  border: none;
 }
 
+[data-md-color-scheme="slate"] .md-typeset pre {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+}
+
+/* ── Admonitions ── */
 .md-typeset .admonition,
 .md-typeset details {
-  border-radius: 4px;
+  border-radius: 6px;
   border-left-width: 3px;
+  font-size: 0.82rem;
 }
 
+.md-typeset .admonition .admonition-title,
+.md-typeset details summary {
+  font-weight: 600;
+}
+
+/* ── Tables ── */
+.md-typeset table:not([class]) {
+  font-size: 0.82rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+[data-md-color-scheme="slate"] .md-typeset table:not([class]) th {
+  background-color: rgba(255, 255, 255, 0.04);
+  font-weight: 600;
+  color: #d0d0d6;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-md-color-scheme="slate"] .md-typeset table:not([class]) td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* ── Sidebar ── */
+[data-md-color-scheme="slate"] .md-sidebar {
+  border-right: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.md-nav__link {
+  font-size: 0.72rem;
+}
+
+/* ── Content Width ── */
 .md-content {
-  max-width: 58rem;
+  max-width: 54rem;
 }
 
+/* ── Light Mode Overrides ── */
 [data-md-color-scheme="default"] {
-  --md-primary-fg-color: #1a7a63;
-  --md-accent-fg-color: #3b82f6;
+  --md-primary-fg-color: #0f766e;
+  --md-primary-fg-color--light: #14b8a6;
+  --md-primary-fg-color--dark: #0d5d56;
+  --md-accent-fg-color: #2563eb;
+}
+
+[data-md-color-scheme="default"] .md-header {
+  background-color: #0f766e;
+  border-bottom: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+[data-md-color-scheme="default"] .md-tabs {
+  background-color: #0d6d66;
+  border-bottom: none;
+}
+
+[data-md-color-scheme="default"] .md-typeset h2 {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+[data-md-color-scheme="default"] .md-typeset table:not([class]) {
+  border: 1px solid #e5e7eb;
+}
+
+[data-md-color-scheme="default"] .md-typeset table:not([class]) th {
+  background-color: #f3f4f6;
+  border-bottom: 1px solid #d1d5db;
+}
+
+[data-md-color-scheme="default"] .md-typeset table:not([class]) td {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* ── Footer ── */
+.md-footer {
+  margin-top: 3rem;
+}
+
+[data-md-color-scheme="slate"] .md-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 `,
   },

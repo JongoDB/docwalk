@@ -49,7 +49,7 @@ describe("Theme Presets", () => {
     const preset = resolvePreset("developer")!;
     expect(preset.palette.scheme).toBe("slate");
     expect(preset.palette.primary).toBe("#5de4c7");
-    expect(preset.fonts.text).toBe("JetBrains Mono");
+    expect(preset.fonts.text).toBe("Inter");
   });
 
   it("minimal preset uses gray tones and serif font", () => {
