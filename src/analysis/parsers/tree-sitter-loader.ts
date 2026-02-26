@@ -20,6 +20,8 @@ export interface TreeSitterNode {
   endPosition: { row: number; column: number };
   child(index: number): TreeSitterNode | null;
   childForFieldName(name: string): TreeSitterNode | null;
+  previousSibling: TreeSitterNode | null;
+  nextSibling: TreeSitterNode | null;
 }
 
 interface TreeSitterTree {

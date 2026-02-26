@@ -61,6 +61,10 @@ export function getRegisteredLanguages(): LanguageId[] {
 
 import { TypeScriptParser } from "./typescript.js";
 import { JavaScriptParser } from "./javascript.js";
+import { PythonParser } from "./python.js";
+import { GoParser } from "./go.js";
 
 registerParser(new TypeScriptParser());
 registerParser(new JavaScriptParser());
+registerParser(new PythonParser());
+registerParser(new GoParser());
