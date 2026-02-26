@@ -24,7 +24,16 @@ export type LanguageId =
   | "zig"
   | "haskell"
   | "c"
-  | "cpp";
+  | "cpp"
+  | "yaml"
+  | "shell"
+  | "hcl"
+  | "sql"
+  | "markdown"
+  | "dockerfile"
+  | "toml"
+  | "json"
+  | "xml";
 
 const EXTENSION_MAP: Record<string, LanguageId> = {
   ".ts": "typescript",
@@ -62,6 +71,29 @@ const EXTENSION_MAP: Record<string, LanguageId> = {
   ".cc": "cpp",
   ".hpp": "cpp",
   ".hxx": "cpp",
+  // YAML/config
+  ".yaml": "yaml",
+  ".yml": "yaml",
+  // Shell
+  ".sh": "shell",
+  ".bash": "shell",
+  ".zsh": "shell",
+  // Terraform/HCL
+  ".tf": "hcl",
+  ".hcl": "hcl",
+  // SQL
+  ".sql": "sql",
+  // Markdown
+  ".md": "markdown",
+  ".mdx": "markdown",
+  // Dockerfile
+  ".dockerfile": "dockerfile",
+  // TOML
+  ".toml": "toml",
+  // JSON
+  ".json": "json",
+  // XML
+  ".xml": "xml",
 };
 
 /**
@@ -69,6 +101,12 @@ const EXTENSION_MAP: Record<string, LanguageId> = {
  * Returns undefined for unrecognized extensions.
  */
 export function detectLanguage(filePath: string): LanguageId | undefined {
+  // Handle files without extensions (e.g., Dockerfile)
+  const basename = filePath.split("/").pop() || "";
+  if (basename === "Dockerfile" || basename.startsWith("Dockerfile.")) {
+    return "dockerfile";
+  }
+
   const ext = filePath.slice(filePath.lastIndexOf(".")).toLowerCase();
   return EXTENSION_MAP[ext];
 }
@@ -111,6 +149,15 @@ export function getLanguageDisplayName(lang: LanguageId): string {
     haskell: "Haskell",
     c: "C",
     cpp: "C++",
+    yaml: "YAML",
+    shell: "Shell",
+    hcl: "HCL",
+    sql: "SQL",
+    markdown: "Markdown",
+    dockerfile: "Dockerfile",
+    toml: "TOML",
+    json: "JSON",
+    xml: "XML",
   };
   return names[lang] ?? lang;
 }

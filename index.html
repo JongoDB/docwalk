@@ -924,22 +924,163 @@
     border: 2px solid var(--border-subtle);
   }
 
+  /* ─── HAMBURGER MENU ─── */
+  .nav-toggle {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    z-index: 110;
+  }
+
+  .nav-toggle svg {
+    width: 24px;
+    height: 24px;
+    stroke: var(--text-primary);
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+
+  .nav-toggle .hamburger-close { display: none; }
+  .nav-open .nav-toggle .hamburger-open { display: none; }
+  .nav-open .nav-toggle .hamburger-close { display: block; }
+
+  /* ─── INSIGHT STATS GRID (extracted from inline) ─── */
+  .insights-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    margin-top: 48px;
+  }
+
+  .insights-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 48px;
+  }
+
   /* ─── RESPONSIVE ─── */
+
+  /* Wide desktop → reduce gaps */
+  @media (max-width: 1200px) {
+    .nav-links { gap: 20px; }
+    .providers-grid { grid-template-columns: repeat(3, 1fr); }
+    section { padding: 100px 32px; }
+  }
+
+  /* Tablet → hamburger menu, stacked grids */
   @media (max-width: 900px) {
     section { padding: 80px 20px; }
-    .features-grid, .pricing-grid, .themes-grid { grid-template-columns: 1fr; }
-    .providers-grid { grid-template-columns: repeat(2, 1fr); }
+
+    /* Hamburger visible */
+    .nav-toggle { display: block; }
+
+    /* Nav links become mobile drawer */
+    .nav-links {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(10,10,12,0.97);
+      backdrop-filter: blur(20px);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 32px;
+      z-index: 105;
+    }
+
+    .nav-links.nav-open {
+      display: flex;
+    }
+
+    .nav-links a {
+      font-size: 20px;
+    }
+
+    /* Grids */
+    .features-grid, .pricing-grid { grid-template-columns: 1fr; }
     .themes-grid { grid-template-columns: repeat(2, 1fr); }
+    .providers-grid { grid-template-columns: repeat(2, 1fr); }
     .config-grid, .diff-showcase { grid-template-columns: 1fr; }
+    .insights-grid-2 { grid-template-columns: 1fr; }
+    .insights-stats-grid { grid-template-columns: repeat(3, 1fr); }
+
+    /* Architecture flow */
     .arch-flow { flex-direction: column; }
     .arch-step:first-child { border-radius: var(--radius) var(--radius) 0 0; }
     .arch-step:last-child { border-radius: 0 0 var(--radius) var(--radius); }
     .arch-arrow { display: none; }
+
+    /* Specs table */
     .specs-row { grid-template-columns: 1fr; }
     .specs-key { border-right: none; border-bottom: 1px solid var(--border-subtle); }
+
+    /* Nav */
     nav { padding: 12px 20px; }
-    .nav-links { gap: 16px; }
+
+    /* Hero */
+    .hero { padding-top: 140px; padding-bottom: 100px; }
     .hero-actions { flex-direction: column; align-items: center; }
+
+    /* Terminal */
+    .terminal-body { overflow-x: auto; }
+
+    /* Try input - prevent iOS auto-zoom */
+    .try-input { font-size: 16px; }
+    .try-input-group { flex-direction: column; }
+
+    /* Pricing featured badge */
+    .price-card.featured::before { top: -12px; }
+
+    /* Footer */
+    footer { padding: 40px 20px; }
+
+    /* Domain rows */
+    .domain-url { word-break: break-all; overflow-wrap: anywhere; }
+  }
+
+  /* Phone landscape */
+  @media (max-width: 600px) {
+    section { padding: 60px 16px; }
+
+    .section-title { font-size: clamp(28px, 6vw, 40px); }
+    .section-desc { font-size: 15px; }
+
+    .features-grid, .pricing-grid, .themes-grid { grid-template-columns: 1fr; }
+    .providers-grid { grid-template-columns: 1fr; }
+    .insights-stats-grid { grid-template-columns: 1fr; }
+
+    .hero { padding-top: 120px; padding-bottom: 80px; }
+    .hero-sub { font-size: 16px; }
+
+    .terminal-wrapper { margin-top: 48px; }
+    .terminal-body { font-size: 12px; min-height: 240px; padding: 16px; }
+
+    .feature-card { padding: 24px 20px; }
+    .price-card { padding: 28px 24px; }
+
+    .config-body { font-size: 12px; }
+    .diff-body { font-size: 11.5px; }
+
+    footer { padding: 32px 16px; }
+
+    .domain-row { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .domain-row { padding: 14px 16px; }
+  }
+
+  /* Small phone */
+  @media (max-width: 480px) {
+    .hero { padding-top: 100px; padding-bottom: 60px; }
+    .hero-badge { font-size: 12px; }
+
+    nav { padding: 10px 16px; }
+
+    .workflow-item { grid-template-columns: 56px 1fr; gap: 16px; }
+    .workflow-step-indicator { width: 48px; height: 48px; font-size: 16px; }
+
+    .tab-group { width: 100%; overflow-x: auto; }
+    .tab-btn { padding: 8px 14px; font-size: 12px; white-space: nowrap; }
   }
 
   /* ─── SCROLL ANIMATIONS ─── */
@@ -1186,6 +1327,10 @@
     <div class="logo-icon"><svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><g transform="rotate(-15 7 10)"><rect x="3.5" y="3" width="5" height="10" rx="2.5" ry="2.5"/><rect x="4" y="14" width="4" height="4.5" rx="2" ry="1.5"/><line x1="4.2" y1="5.5" x2="7.8" y2="5.5" stroke="var(--accent,#5de4c7)" stroke-width=".5" opacity=".5"/><line x1="4.2" y1="7.5" x2="7.8" y2="7.5" stroke="var(--accent,#5de4c7)" stroke-width=".5" opacity=".5"/><line x1="4.2" y1="9.5" x2="7.8" y2="9.5" stroke="var(--accent,#5de4c7)" stroke-width=".5" opacity=".5"/></g><g transform="rotate(15 17 14)"><rect x="14.5" y="10" width="5" height="10" rx="2.5" ry="2.5"/><rect x="15" y="21" width="4" height="4.5" rx="2" ry="1.5"/><line x1="15.2" y1="12.5" x2="18.8" y2="12.5" stroke="var(--accent,#5de4c7)" stroke-width=".5" opacity=".5"/><line x1="15.2" y1="14.5" x2="18.8" y2="14.5" stroke="var(--accent,#5de4c7)" stroke-width=".5" opacity=".5"/><line x1="15.2" y1="16.5" x2="18.8" y2="16.5" stroke="var(--accent,#5de4c7)" stroke-width=".5" opacity=".5"/></g></svg></div>
     DocWalk
   </a>
+  <button class="nav-toggle" aria-label="Toggle navigation">
+    <svg class="hamburger-open" viewBox="0 0 24 24" fill="none"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    <svg class="hamburger-close" viewBox="0 0 24 24" fill="none"><line x1="4" y1="4" x2="20" y2="20"/><line x1="20" y1="4" x2="4" y2="20"/></svg>
+  </button>
   <div class="nav-links">
     <a href="#features">Features</a>
     <a href="#how-it-works">How It Works</a>
@@ -1866,7 +2011,7 @@
     DocWalk doesn't just document your code — it analyzes it. 8 built-in static analyzers find missing docs, circular dependencies, and architectural issues. Pro adds AI-powered deep analysis.
   </p>
 
-  <div class="features-grid" style="grid-template-columns: repeat(2, 1fr); margin-top: 48px;">
+  <div class="features-grid insights-grid-2" style="margin-top: 48px;">
     <div class="feature-card">
       <div class="feature-icon icon-analyze">&#128269;</div>
       <h3>Static Analyzers (Free)</h3>
@@ -1911,7 +2056,7 @@
     </div>
   </div>
 
-  <div style="margin-top: 48px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+  <div class="insights-stats-grid">
     <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 20px; border-left: 3px solid var(--accent-tertiary);">
       <div style="font-size: 28px; font-weight: 700; color: var(--accent-tertiary); margin-bottom: 4px;">12</div>
       <div style="font-size: 13px; color: var(--text-secondary);">Undocumented exports</div>
@@ -2065,6 +2210,30 @@
 </footer>
 
 <script>
+  // ── Hamburger menu toggle ──
+  (function() {
+    const toggle = document.querySelector('.nav-toggle');
+    const navLinks = document.querySelector('.nav-links');
+    if (toggle && navLinks) {
+      toggle.addEventListener('click', function(e) {
+        e.stopPropagation();
+        navLinks.classList.toggle('nav-open');
+      });
+      // Close on link click
+      navLinks.querySelectorAll('a').forEach(function(link) {
+        link.addEventListener('click', function() {
+          navLinks.classList.remove('nav-open');
+        });
+      });
+      // Close on outside tap
+      document.addEventListener('click', function(e) {
+        if (!navLinks.contains(e.target) && !toggle.contains(e.target)) {
+          navLinks.classList.remove('nav-open');
+        }
+      });
+    }
+  })();
+
   // Scroll-triggered fade-in animations
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {

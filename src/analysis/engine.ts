@@ -23,12 +23,14 @@ import type {
   SymbolKind,
 } from "./types.js";
 import type { SummaryCacheEntry } from "./ai-summarizer.js";
-import { detectLanguage, type LanguageId } from "./language-detect.js";
+import { detectLanguage, getSupportedExtensions, type LanguageId } from "./language-detect.js";
 import { getParser, type ParserResult } from "./parsers/index.js";
 import { discoverFiles } from "./file-discovery.js";
 import { computeFileHash } from "../utils/hash.js";
+import { log } from "../utils/logger.js";
 import { readFile, stat } from "fs/promises";
 import path from "path";
+import fg from "fast-glob";
 
 export interface AnalysisOptions {
   source: SourceConfig;
@@ -78,6 +80,36 @@ export async function analyzeCodebase(
   // ── Step 1: File Discovery ──────────────────────────────────────────────
   const files = targetFiles ?? (await discoverFiles(repoRoot, source));
 
+  // ── Guard: No files found ───────────────────────────────────────────────
+  if (files.length === 0) {
+    log("warn", "No source files found matching include patterns. Check your docwalk.config.yml include/exclude settings.");
+    log("info", `Supported extensions: ${getSupportedExtensions().join(", ")}`);
+
+    // List top files by extension in the repo for diagnostic help
+    try {
+      const allFiles = await fg("**/*", {
+        cwd: repoRoot,
+        ignore: [".git/**", "node_modules/**"],
+        dot: false,
+        onlyFiles: true,
+        deep: 3,
+      });
+      const extCounts: Record<string, number> = {};
+      for (const f of allFiles) {
+        const ext = path.extname(f) || "(no extension)";
+        extCounts[ext] = (extCounts[ext] || 0) + 1;
+      }
+      const topExts = Object.entries(extCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([ext, count]) => `${ext} (${count})`)
+        .join(", ");
+      log("info", `Detected files in repo: ${topExts}`);
+    } catch {
+      // Ignore diagnostic errors
+    }
+  }
+
   // ── Step 2-4: Parse and Extract per file ────────────────────────────────
   const modules: ModuleInfo[] = [];
   let skippedFiles = 0;
@@ -92,6 +124,7 @@ export async function analyzeCodebase(
       // Check file size limit
       const fileStat = await stat(absolutePath);
       if (fileStat.size > analysis.max_file_size) {
+        log("debug", `Skipped ${filePath}: exceeds ${analysis.max_file_size} byte limit (${fileStat.size} bytes)`);
         skippedFiles++;
         continue;
       }
@@ -100,8 +133,10 @@ export async function analyzeCodebase(
       const content = await readFile(absolutePath, "utf-8");
 
       // Detect language
+      const ext = filePath.slice(filePath.lastIndexOf(".")).toLowerCase();
       const language = detectLanguage(filePath);
       if (!language) {
+        log("debug", `Skipped ${filePath}: unrecognized language for extension ${ext}`);
         skippedFiles++;
         continue;
       }
@@ -109,6 +144,7 @@ export async function analyzeCodebase(
       // Get the appropriate parser
       const parser = getParser(language);
       if (!parser) {
+        log("debug", `Skipped ${filePath}: no parser for ${language}`);
         skippedFiles++;
         continue;
       }
@@ -133,9 +169,19 @@ export async function analyzeCodebase(
       modules.push(moduleInfo);
     } catch (error) {
       // Log but don't fail — skip unparseable files
+      const errMsg = error instanceof Error ? error.message : String(error);
+      log("debug", `Skipped ${filePath}: parse error — ${errMsg}`);
       skippedFiles++;
     }
   }
+
+  // ── Guard: All files skipped ────────────────────────────────────────────
+  if (modules.length === 0 && files.length > 0) {
+    log("warn", `Found ${files.length} files but all were skipped during parsing. Run with -v to see skip reasons.`);
+  }
+
+  // ── Summary ─────────────────────────────────────────────────────────────
+  log("info", `Analyzed ${modules.length} files, skipped ${skippedFiles} (run with -v for details)`);
 
   // ── Step 5: Merge with previous manifest (incremental) ─────────────────
   const allModules = mergeModules(modules, previousManifest, targetFiles);

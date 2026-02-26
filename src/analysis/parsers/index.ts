@@ -69,6 +69,15 @@ import { CSharpParser } from "./csharp.js";
 import { RubyParser } from "./ruby.js";
 import { PhpParser } from "./php.js";
 
+// Lightweight regex-based parsers
+import { TextParser } from "./text.js";
+import { YamlParser } from "./yaml.js";
+import { ShellParser } from "./shell.js";
+import { HclParser } from "./hcl.js";
+import { SqlParser } from "./sql.js";
+import { MarkdownParser } from "./markdown.js";
+
+// Tree-sitter backed parsers
 registerParser(new TypeScriptParser());
 registerParser(new JavaScriptParser());
 registerParser(new PythonParser());
@@ -78,3 +87,20 @@ registerParser(new JavaParser());
 registerParser(new CSharpParser());
 registerParser(new RubyParser());
 registerParser(new PhpParser());
+
+// Lightweight parsers for languages without tree-sitter support
+registerParser(new YamlParser());
+registerParser(new ShellParser());
+registerParser(new HclParser());
+registerParser(new SqlParser());
+registerParser(new MarkdownParser());
+
+// Text fallback for languages with detection but no dedicated parser
+for (const lang of [
+  "swift", "kotlin", "scala", "elixir", "dart", "lua", "zig", "haskell",
+  "c", "cpp", "dockerfile", "toml", "json", "xml",
+] as LanguageId[]) {
+  if (!parsers.has(lang)) {
+    registerParser(new TextParser(lang));
+  }
+}

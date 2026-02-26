@@ -32,10 +32,20 @@ describe("detectLanguage", () => {
     expect(detectLanguage("lib.rs")).toBe("rust");
   });
 
+  it("detects newly supported languages", () => {
+    expect(detectLanguage("README.md")).toBe("markdown");
+    expect(detectLanguage("data.json")).toBe("json");
+    expect(detectLanguage("config.yaml")).toBe("yaml");
+    expect(detectLanguage("deploy.sh")).toBe("shell");
+    expect(detectLanguage("main.tf")).toBe("hcl");
+    expect(detectLanguage("schema.sql")).toBe("sql");
+    expect(detectLanguage("Dockerfile")).toBe("dockerfile");
+  });
+
   it("returns undefined for unknown extensions", () => {
-    expect(detectLanguage("README.md")).toBeUndefined();
-    expect(detectLanguage("data.json")).toBeUndefined();
     expect(detectLanguage("Makefile")).toBeUndefined();
+    expect(detectLanguage("file.xyz")).toBeUndefined();
+    expect(detectLanguage("binary.bin")).toBeUndefined();
   });
 
   it("is case-insensitive for extensions", () => {
