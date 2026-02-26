@@ -67,6 +67,7 @@ program
   .option("-c, --config <path>", "Config file path")
   .option("--dry-run", "Show diff without applying changes")
   .option("--full", "Force full re-analysis instead of incremental")
+  .option("--since <commit>", "Diff from a specific commit SHA instead of last synced")
   .option("-v, --verbose", "Verbose output")
   .action(async (options) => {
     const { syncCommand } = await import("./commands/sync.js");

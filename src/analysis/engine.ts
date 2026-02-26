@@ -220,21 +220,33 @@ function resolveImportSource(
   }
 
   const dir = path.dirname(fromFile);
-  const resolved = source.startsWith("@/")
+  let resolved = source.startsWith("@/")
     ? source.replace("@/", "src/")
     : path.join(dir, source);
+
+  // Strip .js/.mjs/.cjs extension for TS → JS extension mapping
+  const strippedExt = resolved.replace(/\.(m|c)?js$/, "");
 
   // Try common extensions
   const candidates = [
     resolved,
+    strippedExt,
     `${resolved}.ts`,
     `${resolved}.tsx`,
     `${resolved}.js`,
     `${resolved}.jsx`,
+    `${strippedExt}.ts`,
+    `${strippedExt}.tsx`,
+    `${strippedExt}.js`,
+    `${strippedExt}.jsx`,
     `${resolved}/index.ts`,
     `${resolved}/index.tsx`,
     `${resolved}/index.js`,
     `${resolved}/index.jsx`,
+    `${strippedExt}/index.ts`,
+    `${strippedExt}/index.tsx`,
+    `${strippedExt}/index.js`,
+    `${strippedExt}/index.jsx`,
   ].map((c) => path.normalize(c));
 
   return knownFiles.find((f) => candidates.includes(path.normalize(f)));

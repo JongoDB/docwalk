@@ -14,6 +14,7 @@ interface SyncOptions {
   config?: string;
   dryRun?: boolean;
   full?: boolean;
+  since?: string;
   verbose?: boolean;
 }
 
@@ -48,6 +49,7 @@ export async function syncCommand(options: SyncOptions): Promise<void> {
     analysis: config.analysis,
     sync: syncConfig,
     dryRun: options.dryRun,
+    since: options.since,
     onProgress: (msg) => log("debug", msg),
   });
 
