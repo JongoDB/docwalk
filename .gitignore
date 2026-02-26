@@ -1,0 +1,11 @@
+node_modules/
+dist/
+site/
+docwalk-output/
+.docwalk/state.json
+.docwalk/manifest.json
+*.tsbuildinfo
+.env
+.env.local
+coverage/
+.DS_Store
