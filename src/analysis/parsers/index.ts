@@ -63,8 +63,18 @@ import { TypeScriptParser } from "./typescript.js";
 import { JavaScriptParser } from "./javascript.js";
 import { PythonParser } from "./python.js";
 import { GoParser } from "./go.js";
+import { RustParser } from "./rust.js";
+import { JavaParser } from "./java.js";
+import { CSharpParser } from "./csharp.js";
+import { RubyParser } from "./ruby.js";
+import { PhpParser } from "./php.js";
 
 registerParser(new TypeScriptParser());
 registerParser(new JavaScriptParser());
 registerParser(new PythonParser());
 registerParser(new GoParser());
+registerParser(new RustParser());
+registerParser(new JavaParser());
+registerParser(new CSharpParser());
+registerParser(new RubyParser());
+registerParser(new PhpParser());

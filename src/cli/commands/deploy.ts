@@ -11,6 +11,7 @@ import { loadConfig, loadConfigFile } from "../../config/loader.js";
 import { getProvider } from "../../deploy/index.js";
 import { ToolNotFoundError, formatToolError, runTool } from "../../utils/cli-tools.js";
 import { log, header, blank, setVerbose } from "../../utils/logger.js";
+import { executeHooks } from "../../utils/hooks.js";
 
 interface DeployOptions {
   config?: string;
@@ -112,6 +113,9 @@ export async function deployCommand(options: DeployOptions): Promise<void> {
     throw error;
   }
 
+  // ── Pre-deploy hooks ───────────────────────────────────────────────────
+  await executeHooks("pre_deploy", config.hooks, { cwd: process.cwd() });
+
   // ── Deploy ─────────────────────────────────────────────────────────────
   log("info", "Deploying...");
 
@@ -146,6 +150,9 @@ export async function deployCommand(options: DeployOptions): Promise<void> {
         log("info", "Add these records to your DNS provider, then re-run deploy.");
       }
     }
+
+    // ── Post-deploy hooks ──────────────────────────────────────────────
+    await executeHooks("post_deploy", config.hooks, { cwd: process.cwd() });
 
     blank();
     log("success", "Deployment complete!");

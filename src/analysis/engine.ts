@@ -11,7 +11,8 @@
  * 7. Manifest generation
  */
 
-import type { AnalysisConfig, SourceConfig } from "../config/schema.js";
+import type { AnalysisConfig, SourceConfig, HooksConfig } from "../config/schema.js";
+import { executeHooks } from "../utils/hooks.js";
 import type {
   AnalysisManifest,
   ModuleInfo,
@@ -49,6 +50,9 @@ export interface AnalysisOptions {
 
   /** AI summarization progress callback */
   onAIProgress?: (current: number, total: number, message: string) => void;
+
+  /** Hooks configuration for pre/post analyze */
+  hooks?: HooksConfig;
 }
 
 export async function analyzeCodebase(
@@ -65,7 +69,11 @@ export async function analyzeCodebase(
     onProgress,
     previousSummaryCache,
     onAIProgress,
+    hooks,
   } = options;
+
+  // ── Pre-analyze hooks ───────────────────────────────────────────────────
+  await executeHooks("pre_analyze", hooks, { cwd: repoRoot });
 
   // ── Step 1: File Discovery ──────────────────────────────────────────────
   const files = targetFiles ?? (await discoverFiles(repoRoot, source));
@@ -172,6 +180,9 @@ export async function analyzeCodebase(
     stats,
     summaryCache,
   };
+
+  // ── Post-analyze hooks ──────────────────────────────────────────────────
+  await executeHooks("post_analyze", hooks, { cwd: repoRoot });
 
   return manifest;
 }

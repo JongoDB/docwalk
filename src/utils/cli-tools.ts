@@ -29,6 +29,21 @@ const TOOL_INFO: Record<string, { name: string; install: string; docs: string }>
     install: "https://cli.github.com — follow install instructions for your OS",
     docs: "https://cli.github.com/manual/",
   },
+  netlify: {
+    name: "Netlify CLI",
+    install: "npm install -g netlify-cli",
+    docs: "https://docs.netlify.com/cli/get-started/",
+  },
+  aws: {
+    name: "AWS CLI",
+    install: "https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html",
+    docs: "https://docs.aws.amazon.com/cli/latest/reference/",
+  },
+  mike: {
+    name: "mike (MkDocs versioning)",
+    install: "pip install mike",
+    docs: "https://github.com/jimporter/mike",
+  },
 };
 
 /**

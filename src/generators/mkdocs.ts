@@ -9,7 +9,8 @@
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import simpleGit from "simple-git";
-import type { DocWalkConfig } from "../config/schema.js";
+import type { DocWalkConfig, HooksConfig } from "../config/schema.js";
+import { executeHooks } from "../utils/hooks.js";
 import type {
   AnalysisManifest,
   ModuleInfo,
@@ -19,19 +20,24 @@ import type {
   DependencyEdge,
 } from "../analysis/types.js";
 import { getLanguageDisplayName, type LanguageId } from "../analysis/language-detect.js";
+import { resolvePreset, type ThemePreset } from "./theme-presets.js";
 
 export interface GenerateOptions {
   manifest: AnalysisManifest;
   config: DocWalkConfig;
   outputDir: string;
   onProgress?: (message: string) => void;
+  hooks?: HooksConfig;
 }
 
 /**
  * Generate a complete MkDocs Material documentation site.
  */
 export async function generateDocs(options: GenerateOptions): Promise<void> {
-  const { manifest, config, outputDir, onProgress } = options;
+  const { manifest, config, outputDir, onProgress, hooks } = options;
+
+  // ── Pre-build hooks ────────────────────────────────────────────────────
+  await executeHooks("pre_build", hooks, { cwd: outputDir });
 
   const docsDir = path.join(outputDir, "docs");
   await mkdir(docsDir, { recursive: true });
@@ -76,11 +82,23 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
     onProgress?.(`Written: ${page.path}`);
   }
 
-  // ── 3. Generate mkdocs.yml ─────────────────────────────────────────────
+  // ── 3. Write preset CSS ──────────────────────────────────────────────
+  const preset = resolvePreset(config.theme.preset ?? "developer");
+  if (preset) {
+    const stylesDir = path.join(docsDir, "stylesheets");
+    await mkdir(stylesDir, { recursive: true });
+    await writeFile(path.join(stylesDir, "preset.css"), preset.customCss);
+    onProgress?.("Written: stylesheets/preset.css");
+  }
+
+  // ── 4. Generate mkdocs.yml ─────────────────────────────────────────────
   onProgress?.("Generating mkdocs.yml...");
   const navigation = buildNavigation(pages);
   const mkdocsYml = generateMkdocsConfig(manifest, config, navigation);
   await writeFile(path.join(outputDir, "mkdocs.yml"), mkdocsYml);
+
+  // ── Post-build hooks ───────────────────────────────────────────────────
+  await executeHooks("post_build", hooks, { cwd: outputDir });
 
   onProgress?.(`Documentation generated: ${pages.length} pages`);
 }
@@ -701,12 +719,96 @@ function generateMkdocsConfig(
 ): string {
   const siteName = manifest.projectMeta.name;
   const theme = config.theme;
+  const preset = resolvePreset(theme.preset ?? "developer");
 
   const navYaml = renderNavYaml(navigation, 0);
 
-  const features = theme.features
-    .map((f) => `      - ${f}`)
-    .join("\n");
+  // Resolve features: preset provides defaults, user overrides take precedence
+  const features = (preset && theme.features.length === ThemeSchemaDefaults.features.length
+    ? preset.features
+    : theme.features
+  ).map((f) => `      - ${f}`).join("\n");
+
+  // Resolve palette
+  const scheme = preset ? preset.palette.scheme : theme.palette;
+  const toggleScheme = preset?.palette.toggleScheme;
+
+  // Build palette section
+  let paletteYaml: string;
+  if (toggleScheme) {
+    paletteYaml = `  palette:
+    - scheme: ${scheme}
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-${scheme === "slate" ? "4" : "7"}
+        name: Switch to ${scheme === "slate" ? "light" : "dark"} mode
+    - scheme: ${toggleScheme}
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-${toggleScheme === "slate" ? "4" : "7"}
+        name: Switch to ${toggleScheme === "slate" ? "dark" : "light"} mode`;
+  } else {
+    paletteYaml = `  palette:
+    - scheme: ${scheme}
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode`;
+  }
+
+  // Font section
+  const fonts = preset?.fonts;
+  const fontYaml = fonts
+    ? `  font:\n    text: "${fonts.text}"\n    code: "${fonts.code}"`
+    : "";
+
+  // Build extra_css list
+  const extraCss: string[] = [];
+  if (preset) {
+    extraCss.push("docs/stylesheets/preset.css");
+  }
+  if (theme.custom_css) {
+    extraCss.push(...theme.custom_css);
+  }
+  const extraCssYaml = extraCss.length > 0
+    ? `\nextra_css:\n${extraCss.map((c) => `  - ${c}`).join("\n")}\n`
+    : "";
+
+  // Build extra_javascript list
+  const extraJs = theme.custom_js ?? [];
+  const extraJsYaml = extraJs.length > 0
+    ? `\nextra_javascript:\n${extraJs.map((j) => `  - ${j}`).join("\n")}\n`
+    : "";
+
+  // Plugins
+  let pluginsYaml = `plugins:
+  - search:
+      lang: en
+  - minify:
+      minify_html: true`;
+
+  // Versioning — add mike plugin
+  if (config.versioning.enabled) {
+    pluginsYaml += `\n  - mike:\n      alias_type: symlink\n      canonical_version: "${config.versioning.default_alias}"`;
+  }
+
+  // Extra section
+  let extraYaml = `extra:
+  generator: false
+  social: []`;
+
+  if (config.versioning.enabled) {
+    extraYaml += `\n  version:\n    provider: mike\n    default: "${config.versioning.default_alias}"`;
+  }
 
   return `# DocWalk Generated Configuration
 # Do not edit manually — re-run 'docwalk generate' to update
@@ -720,21 +822,10 @@ repo_name: "${config.source.repo}"
 
 theme:
   name: material
-  palette:
-    - scheme: ${theme.palette}
-      primary: custom
-      accent: custom
-      toggle:
-        icon: material/brightness-7
-        name: Switch to dark mode
-    - scheme: slate
-      primary: custom
-      accent: custom
-      toggle:
-        icon: material/brightness-4
-        name: Switch to light mode
+${paletteYaml}
 ${theme.logo ? `  logo: ${theme.logo}` : ""}
 ${theme.favicon ? `  favicon: ${theme.favicon}` : ""}
+${fontYaml}
   features:
 ${features}
 
@@ -758,20 +849,28 @@ markdown_extensions:
   - toc:
       permalink: true
 
-plugins:
-  - search:
-      lang: en
-  - minify:
-      minify_html: true
-
+${pluginsYaml}
+${extraCssYaml}${extraJsYaml}
 nav:
 ${navYaml}
 
-extra:
-  generator: false
-  social: []
+${extraYaml}
 `;
 }
+
+/** Default feature list from ThemeSchema — used to detect if user has customized features */
+const ThemeSchemaDefaults = {
+  features: [
+    "navigation.tabs",
+    "navigation.sections",
+    "navigation.expand",
+    "navigation.top",
+    "search.suggest",
+    "search.highlight",
+    "content.code.copy",
+    "content.tabs.link",
+  ],
+};
 
 // ─── Utilities ──────────────────────────────────────────────────────────────
 

@@ -170,6 +170,11 @@ export const DomainSchema = z.object({
 // ─── Theme Configuration ────────────────────────────────────────────────────
 
 export const ThemeSchema = z.object({
+  /** Theme preset — provides palette, fonts, features, and custom CSS out of the box */
+  preset: z
+    .enum(["corporate", "startup", "developer", "minimal", "custom"])
+    .default("developer"),
+
   /** MkDocs Material color palette preset */
   palette: z
     .enum(["default", "slate", "indigo", "deep-purple", "teal", "custom"])

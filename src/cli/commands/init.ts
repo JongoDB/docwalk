@@ -216,6 +216,19 @@ export async function initCommand(options: InitOptions): Promise<void> {
   const themeAnswers = await inquirer.prompt([
     {
       type: "list",
+      name: "preset",
+      message: "Theme preset:",
+      choices: [
+        { name: "Developer — Dark-first, code-dense, technical (JetBrains Mono)", value: "developer" },
+        { name: "Corporate — Clean, professional, B2B (Roboto)", value: "corporate" },
+        { name: "Startup — Vibrant, modern, energetic (Inter + Fira Code)", value: "startup" },
+        { name: "Minimal — Reading-focused, distraction-free (Source Serif)", value: "minimal" },
+        { name: "Custom — Choose your own palette and accent", value: "custom" },
+      ],
+      default: "developer",
+    },
+    {
+      type: "list",
       name: "palette",
       message: "Color palette:",
       choices: [
@@ -226,12 +239,14 @@ export async function initCommand(options: InitOptions): Promise<void> {
         { name: "Deep Purple", value: "deep-purple" },
       ],
       default: "slate",
+      when: (answers: any) => answers.preset === "custom",
     },
     {
       type: "input",
       name: "accent",
       message: "Accent color (hex):",
       default: "#5de4c7",
+      when: (answers: any) => answers.preset === "custom",
     },
   ]);
 
@@ -292,8 +307,9 @@ export async function initCommand(options: InitOptions): Promise<void> {
       dns_auto: domainAnswers.dns_auto ?? true,
     },
     theme: {
-      palette: themeAnswers.palette,
-      accent: themeAnswers.accent,
+      preset: themeAnswers.preset,
+      ...(themeAnswers.palette && { palette: themeAnswers.palette }),
+      ...(themeAnswers.accent && { accent: themeAnswers.accent }),
       features: [
         "navigation.tabs",
         "navigation.sections",
@@ -397,7 +413,7 @@ async function writeDefaultConfig(options: InitOptions): Promise<void> {
     sync: { trigger: "on_push", diff_strategy: "incremental", impact_analysis: true, state_file: ".docwalk/state.json", auto_commit: false, commit_message: "docs: update documentation [docwalk]" },
     deploy: { provider: options.provider || "gh-pages", project: `${repo.split("/").pop()}-docs`, auto_ssl: true, output_dir: "site" },
     domain: { ...(options.domain && { custom: options.domain }), base_path: "/", dns_auto: true },
-    theme: { palette: "slate", accent: "#5de4c7", features: ["navigation.tabs", "navigation.sections", "search.suggest", "content.code.copy"] },
+    theme: { preset: "developer", palette: "slate", accent: "#5de4c7", features: ["navigation.tabs", "navigation.sections", "search.suggest", "content.code.copy"] },
     versioning: { enabled: false, source: "tags", default_alias: "latest", max_versions: 10 },
   };
 

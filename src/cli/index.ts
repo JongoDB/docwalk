@@ -143,6 +143,34 @@ program
     await ciSetupCommand(options);
   });
 
+// ─── VERSION ─────────────────────────────────────────────────────────────────
+
+const versionCmd = program
+  .command("version")
+  .description("Manage versioned documentation (requires mike)");
+
+versionCmd
+  .command("list")
+  .description("List available documentation versions from git tags")
+  .option("-c, --config <path>", "Config file path")
+  .option("-v, --verbose", "Verbose output")
+  .action(async (options) => {
+    const { versionListCommand } = await import("./commands/version.js");
+    await versionListCommand(options);
+  });
+
+versionCmd
+  .command("deploy <tag>")
+  .description("Deploy a specific version tag using mike")
+  .option("-c, --config <path>", "Config file path")
+  .option("-a, --alias <alias>", "Version alias (e.g., latest, stable)")
+  .option("--no-set-default", "Don't set this as the default version")
+  .option("-v, --verbose", "Verbose output")
+  .action(async (tag, options) => {
+    const { versionDeployCommand } = await import("./commands/version.js");
+    await versionDeployCommand(tag, options);
+  });
+
 // ─── RUN ────────────────────────────────────────────────────────────────────
 
 program.parse();
