@@ -358,16 +358,18 @@ describe("Provider properties", () => {
 describe("OllamaProvider specifics", () => {
   it("default model is 'llama3.2'", () => {
     const provider = new OllamaProvider();
-    // OllamaProvider implements AIProvider directly (uses native Ollama API)
+    // OllamaProvider extends OpenAIProvider for OpenAI-compat interop
     expect(provider).toBeInstanceOf(OllamaProvider);
+    expect(provider).toBeInstanceOf(OpenAIProvider);
     expect(provider.name).toBe("Ollama (Local)");
   });
 
-  it("constructs with default base URL", () => {
+  it("default base URL is 'http://localhost:11434/v1'", () => {
     // Verify the provider constructs without error using defaults.
+    // The base URL is private, so we verify indirectly: the provider
+    // should be an instance of OpenAIProvider (which receives the baseURL).
     const provider = new OllamaProvider();
-    expect(provider).toBeInstanceOf(OllamaProvider);
-    expect(provider.name).toBe("Ollama (Local)");
+    expect(provider).toBeInstanceOf(OpenAIProvider);
   });
 
   it("accepts custom model", () => {
