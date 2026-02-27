@@ -9,6 +9,7 @@ import path from "path";
 import { loadConfig, loadConfigFile } from "../../config/loader.js";
 import { runSync } from "../../sync/engine.js";
 import { log, header, blank, setVerbose } from "../../utils/logger.js";
+import { resolveRepoRoot } from "../../utils/index.js";
 
 interface SyncOptions {
   config?: string;
@@ -30,9 +31,7 @@ export async function syncCommand(options: SyncOptions): Promise<void> {
 
   log("success", `Config loaded from ${chalk.dim(filepath)}`);
 
-  const repoRoot = config.source.provider === "local"
-    ? path.resolve(config.source.repo)
-    : process.cwd();
+  const repoRoot = resolveRepoRoot(config.source);
 
   // ── Override to full if requested ──────────────────────────────────────
   const syncConfig = {

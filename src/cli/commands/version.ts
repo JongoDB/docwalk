@@ -11,6 +11,7 @@ import simpleGit from "simple-git";
 import { loadConfig, loadConfigFile } from "../../config/loader.js";
 import { runTool, ToolNotFoundError, formatToolError } from "../../utils/cli-tools.js";
 import { log, header, blank, setVerbose } from "../../utils/logger.js";
+import { resolveRepoRoot } from "../../utils/index.js";
 
 interface VersionOptions {
   config?: string;
@@ -40,9 +41,7 @@ export async function versionListCommand(options: VersionOptions): Promise<void>
     return;
   }
 
-  const repoRoot = config.source.provider === "local"
-    ? path.resolve(config.source.repo)
-    : process.cwd();
+  const repoRoot = resolveRepoRoot(config.source);
 
   const git = simpleGit(repoRoot);
   const tagsResult = await git.tags();
@@ -88,9 +87,7 @@ export async function versionDeployCommand(
   }
 
   // Verify tag exists
-  const repoRoot = config.source.provider === "local"
-    ? path.resolve(config.source.repo)
-    : process.cwd();
+  const repoRoot = resolveRepoRoot(config.source);
 
   const git = simpleGit(repoRoot);
   const tagsResult = await git.tags();

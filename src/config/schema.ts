@@ -67,6 +67,8 @@ export const SourceSchema = z.object({
       "**/tests/**",
       "coverage/**",
       ".docwalk/**",
+      "docwalk-output/**",
+      "site/**",
       "**/*.d.ts",
       "**/*.min.js",
       "**/migrations/**",

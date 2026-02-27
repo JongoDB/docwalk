@@ -15,6 +15,7 @@
 import inquirer from "inquirer";
 import chalk from "chalk";
 import { writeFile, mkdir } from "fs/promises";
+import { execSync } from "child_process";
 import path from "path";
 import yaml from "js-yaml";
 import { log, header, blank } from "../../utils/logger.js";
@@ -273,6 +274,16 @@ export async function initCommand(options: InitOptions): Promise<void> {
       include: [
         "**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx",
         "**/*.py", "**/*.go", "**/*.rs", "**/*.java", "**/*.rb", "**/*.php",
+        "**/*.cs", "**/*.c", "**/*.h", "**/*.cpp", "**/*.hpp", "**/*.cc", "**/*.cxx",
+        "**/*.swift", "**/*.kt", "**/*.kts", "**/*.scala",
+        "**/*.sh", "**/*.bash",
+        "**/*.yaml", "**/*.yml",
+        "**/*.tf", "**/*.hcl",
+        "**/*.md",
+        "**/*.json",
+        "**/*.toml", "**/*.xml",
+        "**/*.sql",
+        "**/*.dockerfile", "**/Dockerfile",
       ],
       exclude: [
         "node_modules/**", "dist/**", "build/**", "out/**",
@@ -280,10 +291,11 @@ export async function initCommand(options: InitOptions): Promise<void> {
         "venv/**", ".venv/**", "target/**",
         "**/*.test.*", "**/*.spec.*", "**/__tests__/**",
         "**/test/**", "**/tests/**", "coverage/**", ".docwalk/**",
+        "docwalk-output/**", "site/**",
         "**/*.d.ts", "**/*.min.js", "**/migrations/**",
       ],
       languages: "auto",
-      provider: repoAnswers.repo.includes("/") ? "github" : "local",
+      provider: detectProvider(repoAnswers.repo),
     },
     analysis: {
       depth: analysisAnswers.depth,
@@ -399,6 +411,29 @@ export async function initCommand(options: InitOptions): Promise<void> {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+/**
+ * Detect whether to use "local" or "github" provider based on repo input.
+ * If the repo is "." or an absolute/relative path, use "local".
+ * If it looks like "owner/repo" format, check if we're in a local git checkout
+ * of that repo — if so, use "local". Otherwise "github".
+ */
+function detectProvider(repo: string): "local" | "github" {
+  // Explicit local paths
+  if (repo === "." || repo.startsWith("/") || repo.startsWith("./") || repo.startsWith("../")) {
+    return "local";
+  }
+
+  // If "owner/repo" format but we're currently inside a git repo, prefer local
+  // (user likely cloned the repo and is running from inside it)
+  try {
+    execSync("git rev-parse --is-inside-work-tree", { stdio: "ignore" });
+    return "local";
+  } catch {
+    // Not in a git repo — assume it's a remote GitHub reference
+    return repo.includes("/") ? "github" : "local";
+  }
+}
+
 async function detectCurrentRepo(): Promise<string> {
   try {
     const { execa } = await import("execa");
@@ -424,7 +459,35 @@ async function detectCurrentRepo(): Promise<string> {
 async function writeDefaultConfig(options: InitOptions): Promise<void> {
   const repo = options.repo || ".";
   const config = {
-    source: { repo, branch: "main", include: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.py", "**/*.go", "**/*.rs", "**/*.java", "**/*.rb", "**/*.php"], exclude: ["node_modules/**", "dist/**", "build/**", "out/**", ".git/**", ".next/**", "vendor/**", "__pycache__/**", "venv/**", ".venv/**", "target/**", "**/*.test.*", "**/*.spec.*", "**/__tests__/**", "**/test/**", "**/tests/**", "coverage/**", ".docwalk/**", "**/*.d.ts", "**/*.min.js", "**/migrations/**"], languages: "auto", provider: "github" },
+    source: {
+      repo,
+      branch: "main",
+      include: [
+        "**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx",
+        "**/*.py", "**/*.go", "**/*.rs", "**/*.java", "**/*.rb", "**/*.php",
+        "**/*.cs", "**/*.c", "**/*.h", "**/*.cpp", "**/*.hpp", "**/*.cc", "**/*.cxx",
+        "**/*.swift", "**/*.kt", "**/*.kts", "**/*.scala",
+        "**/*.sh", "**/*.bash",
+        "**/*.yaml", "**/*.yml",
+        "**/*.tf", "**/*.hcl",
+        "**/*.md",
+        "**/*.json",
+        "**/*.toml", "**/*.xml",
+        "**/*.sql",
+        "**/*.dockerfile", "**/Dockerfile",
+      ],
+      exclude: [
+        "node_modules/**", "dist/**", "build/**", "out/**",
+        ".git/**", ".next/**", "vendor/**", "__pycache__/**",
+        "venv/**", ".venv/**", "target/**",
+        "**/*.test.*", "**/*.spec.*", "**/__tests__/**",
+        "**/test/**", "**/tests/**", "coverage/**", ".docwalk/**",
+        "docwalk-output/**", "site/**",
+        "**/*.d.ts", "**/*.min.js", "**/migrations/**",
+      ],
+      languages: "auto",
+      provider: detectProvider(repo),
+    },
     analysis: { depth: "full", ai_summaries: false, dependency_graph: true, changelog: true, changelog_depth: 100, config_docs: true, types_page: true, dependencies_page: true, usage_guide_page: true, max_file_size: 500000, concurrency: 4 },
     sync: { trigger: "on_push", diff_strategy: "incremental", impact_analysis: true, state_file: ".docwalk/state.json", auto_commit: false, commit_message: "docs: update documentation [docwalk]" },
     deploy: { provider: options.provider || "gh-pages", project: `${repo.split("/").pop()}-docs`, auto_ssl: true, output_dir: "site" },

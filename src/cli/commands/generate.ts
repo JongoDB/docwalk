@@ -13,6 +13,7 @@ import { loadConfig, loadConfigFile } from "../../config/loader.js";
 import { analyzeCodebase } from "../../analysis/engine.js";
 import { generateDocs } from "../../generators/mkdocs.js";
 import { log, header, blank, setVerbose } from "../../utils/logger.js";
+import { resolveRepoRoot } from "../../utils/index.js";
 import simpleGit from "simple-git";
 
 interface GenerateOptions {
@@ -38,9 +39,7 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
   log("success", `Config loaded from ${chalk.dim(filepath)}`);
 
   // ── Resolve repo root ──────────────────────────────────────────────────
-  const repoRoot = config.source.provider === "local"
-    ? path.resolve(config.source.repo)
-    : process.cwd();
+  const repoRoot = resolveRepoRoot(config.source);
 
   // ── Get current commit ─────────────────────────────────────────────────
   const git = simpleGit(repoRoot);

@@ -11,6 +11,7 @@ import path from "path";
 import simpleGit from "simple-git";
 import type { DocWalkConfig, HooksConfig } from "../config/schema.js";
 import { executeHooks } from "../utils/hooks.js";
+import { resolveRepoRoot } from "../utils/index.js";
 import type {
   AnalysisManifest,
   ModuleInfo,
@@ -706,9 +707,7 @@ async function generateChangelogPage(config: DocWalkConfig): Promise<GeneratedPa
   let changelogContent = "";
 
   try {
-    const repoRoot = config.source.provider === "local"
-      ? path.resolve(config.source.repo)
-      : process.cwd();
+    const repoRoot = resolveRepoRoot(config.source);
 
     const git = simpleGit(repoRoot);
 
@@ -1747,21 +1746,11 @@ function generateMkdocsConfig(
     ? `\nextra_javascript:\n${extraJs.map((j) => `  - ${j}`).join("\n")}\n`
     : "";
 
-  // Plugins
+  // Plugins — only include built-in plugins that ship with mkdocs-material.
+  // Optional plugins (minify, glightbox) are added by CI/deploy pipelines.
   let pluginsYaml = `plugins:
   - search:
-      lang: en
-  - minify:
-      minify_html: true
-  - glightbox:
-      touchNavigation: true
-      loop: false
-      effect: zoom
-      slide_effect: slide
-      width: "100%"
-      height: auto
-      zoomable: true
-      draggable: true`;
+      lang: en`;
 
   // Versioning — add mike plugin
   if (config.versioning.enabled) {

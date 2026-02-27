@@ -27,7 +27,13 @@ export class MarkdownParser implements LanguageParser {
       const match = line.match(headingPattern);
       if (match) {
         const level = match[1].length;
-        const text = match[2].trim();
+        // Strip inline markdown: [text](url) → text, `code` → code, **bold** → bold
+        const text = match[2].trim()
+          .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")  // [text](url) → text
+          .replace(/`([^`]*)`/g, "$1")                // `code` → code
+          .replace(/\*\*([^*]*)\*\*/g, "$1")          // **bold** → bold
+          .replace(/\*([^*]*)\*/g, "$1")              // *italic* → italic
+          .trim();
 
         symbols.push({
           id: `${filePath}:${text}`,
