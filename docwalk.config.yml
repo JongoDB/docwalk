@@ -17,13 +17,13 @@ analysis:
   ai_provider:
     name: local
     model: granite3.3:2b
-    base_url: "http://host.docker.internal:11434/v1"
+    base_url: "http://localhost:11434/v1"
   insights: true
   insights_ai: true
   dependency_graph: true
   changelog: false
   max_file_size: 500000
-  concurrency: 4
+  concurrency: 8
 
 deploy:
   provider: gh-pages

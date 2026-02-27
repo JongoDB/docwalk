@@ -70,9 +70,23 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
     log("warn", "Not a git repository — commit tracking disabled");
   }
 
+  // ── Show pipeline plan ─────────────────────────────────────────────────
+  const aiProvider = config.analysis.ai_provider;
+  const aiEnabled = config.analysis.ai_summaries && aiProvider;
+  const providerLabel = aiProvider
+    ? `${aiProvider.name}${aiProvider.model ? ` (${aiProvider.model})` : ""}`
+    : "";
+
+  log("info", `Analyzing ${chalk.bold(config.source.repo)} on branch ${chalk.bold(config.source.branch)}`);
+  if (aiEnabled) {
+    log("info", `AI provider: ${chalk.bold(providerLabel)} at ${chalk.dim(aiProvider!.base_url || "default endpoint")}`);
+  }
+
   // ── Analyze ────────────────────────────────────────────────────────────
-  log("info", "Analyzing codebase...");
+  log("info", "Scanning files...");
   const startTime = Date.now();
+  let aiStartTime: number | undefined;
+  let lastAIProgress = 0;
 
   const manifest = await analyzeCodebase({
     source: config.source,
@@ -83,6 +97,17 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
       log("debug", `[${current}/${total}] ${file}`);
     },
     onAIProgress: (current, total, message) => {
+      if (!aiStartTime) {
+        aiStartTime = Date.now();
+        log("info", `Generating AI summaries (${total} modules)...`);
+      }
+      // Log every 10% or every 5 modules, whichever is more frequent
+      const step = Math.max(1, Math.min(5, Math.floor(total / 10)));
+      if (current % step === 0 || current === total) {
+        const pct = Math.round((current / total) * 100);
+        log("info", `  AI progress: ${current}/${total} (${pct}%)`);
+      }
+      lastAIProgress = current;
       log("debug", `[AI ${current}/${total}] ${message}`);
     },
   });
@@ -96,13 +121,18 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
   if (config.analysis.ai_summaries) {
     const aiModules = manifest.modules.filter((m) => m.aiSummary);
     if (aiModules.length > 0) {
-      log("success", `AI summaries generated for ${aiModules.length} modules`);
+      const aiTime = aiStartTime ? ((Date.now() - aiStartTime) / 1000).toFixed(1) : "?";
+      log("success", `AI summaries: ${aiModules.length}/${manifest.modules.length} modules (${aiTime}s via ${providerLabel})`);
     } else if (!config.analysis.ai_provider) {
       log("warn", "AI summaries enabled but no ai_provider configured");
-    } else {
+    } else if (config.analysis.ai_provider.name !== "ollama" && config.analysis.ai_provider.name !== "local") {
       const keyEnv = config.analysis.ai_provider.api_key_env;
       log("warn", `AI summaries enabled but ${keyEnv} environment variable not set`);
+    } else {
+      log("warn", `AI summaries enabled but no modules received summaries — check that ${providerLabel} is running`);
     }
+  } else {
+    log("info", "AI summaries: disabled");
   }
 
   if (options.dryRun) {
@@ -124,17 +154,28 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
     return fsReadFile(fullPath, "utf-8");
   };
 
+  let pageCount = 0;
   await generateDocs({
     manifest,
     config,
     outputDir,
     readFile,
     tryMode: options.tryMode,
-    onProgress: (msg) => log("debug", msg),
+    onProgress: (msg) => {
+      if (msg.startsWith("Written:")) {
+        pageCount++;
+        log("debug", msg);
+      } else if (msg.startsWith("Warning:")) {
+        log("warn", msg.replace("Warning: ", ""));
+      } else {
+        // Surface key generation steps (not file writes)
+        log("info", msg);
+      }
+    },
   });
 
   blank();
-  log("success", "Documentation generated!");
+  log("success", `Documentation generated: ${pageCount} pages written`);
   blank();
   console.log(chalk.dim("  Next steps:"));
   console.log(`    ${chalk.cyan("docwalk dev")}     — Preview locally`);

@@ -671,11 +671,10 @@ function generateMkdocsConfig(
     ? `\nextra_javascript:\n${extraJs.map((j) => `  - ${j}`).join("\n")}\n`
     : "";
 
-  // Plugins — only include built-in plugins that ship with mkdocs-material.
-  // Optional plugins (minify, glightbox) are added by CI/deploy pipelines.
   let pluginsYaml = `plugins:
   - search:
-      lang: en`;
+      lang: en
+  - glightbox`;
 
   // Versioning — add mike plugin
   if (config.versioning.enabled) {

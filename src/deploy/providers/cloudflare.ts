@@ -206,7 +206,7 @@ jobs:
         run: npm install -g docwalk
 
       - name: Install MkDocs Material
-        run: pip install mkdocs-material mkdocs-minify-plugin
+        run: pip install mkdocs-material mkdocs-minify-plugin mkdocs-glightbox
 
       - name: DocWalk Sync and Generate
         run: |
@@ -273,7 +273,7 @@ jobs:
         run: npm install -g docwalk
 
       - name: Install MkDocs Material
-        run: pip install mkdocs-material mkdocs-minify-plugin
+        run: pip install mkdocs-material mkdocs-minify-plugin mkdocs-glightbox
 
       - name: DocWalk Generate
         run: docwalk generate --full

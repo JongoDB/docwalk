@@ -21,7 +21,7 @@ const TOOL_INFO: Record<string, { name: string; install: string; docs: string }>
   },
   mkdocs: {
     name: "MkDocs",
-    install: "pip install mkdocs-material mkdocs-minify-plugin",
+    install: "pip install mkdocs-material mkdocs-minify-plugin mkdocs-glightbox",
     docs: "https://squidfunk.github.io/mkdocs-material/getting-started/",
   },
   gh: {

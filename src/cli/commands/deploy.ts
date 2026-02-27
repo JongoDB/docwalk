@@ -94,7 +94,7 @@ export async function deployCommand(options: DeployOptions): Promise<void> {
         process.exit(1);
       }
       log("error", "MkDocs build failed. Is mkdocs-material installed?");
-      log("info", `Run: ${chalk.cyan("pip install mkdocs-material mkdocs-minify-plugin")}`);
+      log("info", `Run: ${chalk.cyan("pip install mkdocs-material mkdocs-minify-plugin mkdocs-glightbox")}`);
       process.exit(1);
     }
   }
