@@ -114,7 +114,7 @@ npm run build                        # Build for distribution
 
 - **Name**: DocWalk
 - **Tagline**: "Your codebase, documented. Automatically."
-- **Icon**: ⚒
+- **Icon**: 👣
 - **Accent color**: `#5de4c7`
 - **Font stack**: JetBrains Mono (code), Instrument Serif (display), DM Sans (body)
 - **Tone**: Developer-first, no-nonsense, premium-feeling
