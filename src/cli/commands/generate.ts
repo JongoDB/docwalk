@@ -9,6 +9,7 @@
 
 import chalk from "chalk";
 import path from "path";
+import { readFile as fsReadFile } from "fs/promises";
 import { loadConfig, loadConfigFile } from "../../config/loader.js";
 import { analyzeCodebase } from "../../analysis/engine.js";
 import { generateDocs } from "../../generators/mkdocs.js";
@@ -22,6 +23,8 @@ interface GenerateOptions {
   full?: boolean;
   dryRun?: boolean;
   verbose?: boolean;
+  ai?: boolean;
+  tryMode?: boolean;
 }
 
 export async function generateCommand(options: GenerateOptions): Promise<void> {
@@ -37,6 +40,22 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
     : await loadConfig();
 
   log("success", `Config loaded from ${chalk.dim(filepath)}`);
+
+  // ── Apply --ai flag overrides ───────────────────────────────────────────
+  if (options.ai) {
+    config.analysis.ai_summaries = true;
+    config.analysis.ai_narrative = true;
+    config.analysis.ai_diagrams = true;
+
+    // Default to Gemini if no provider configured (free tier for Try It)
+    if (!config.analysis.ai_provider) {
+      config.analysis.ai_provider = {
+        name: "gemini",
+        model: "gemini-2.0-flash",
+        api_key_env: "DOCWALK_AI_KEY",
+      };
+    }
+  }
 
   // ── Resolve repo root ──────────────────────────────────────────────────
   const repoRoot = resolveRepoRoot(config.source);
@@ -97,10 +116,20 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
   const outputDir = path.resolve(options.output);
   log("info", `Generating docs to ${chalk.dim(outputDir)}...`);
 
+  // Provide readFile so AI narrative engine can read source files for context
+  const readFile = async (filePath: string): Promise<string> => {
+    const fullPath = path.isAbsolute(filePath)
+      ? filePath
+      : path.join(repoRoot, filePath);
+    return fsReadFile(fullPath, "utf-8");
+  };
+
   await generateDocs({
     manifest,
     config,
     outputDir,
+    readFile,
+    tryMode: options.tryMode,
     onProgress: (msg) => log("debug", msg),
   });
 

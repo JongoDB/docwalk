@@ -56,6 +56,8 @@ program
   .option("-o, --output <dir>", "Output directory", "docwalk-output")
   .option("--full", "Force full re-analysis (ignore cache)")
   .option("--dry-run", "Show what would be generated without writing files")
+  .option("--ai", "Enable AI features using DOCWALK_AI_KEY environment variable")
+  .option("--try-mode", "Try mode: limit output and append upsell banners")
   .option("-v, --verbose", "Verbose output")
   .action(async (options) => {
     const { generateCommand } = await import("./commands/generate.js");

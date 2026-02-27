@@ -1,6 +1,8 @@
 <div align="center">
 
-# 👣 DocWalk
+<img src="docs/assets/logo.svg" alt="DocWalk" width="48" height="48">
+
+# DocWalk
 
 **Your codebase, documented. Automatically.**
 
@@ -327,5 +329,5 @@ MIT — see [LICENSE](LICENSE) for details.
 ---
 
 <div align="center">
-<strong>👣 DocWalk</strong> — Your codebase, documented. Automatically.
+<img src="docs/assets/logo.svg" alt="" width="16" height="16"> <strong>DocWalk</strong> — Your codebase, documented. Automatically.
 </div>
