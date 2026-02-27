@@ -264,9 +264,9 @@ describe("New Page Generators", () => {
 
       const guideContent = await readFile(path.join(OUTPUT_DIR, "docs", "guide.md"), "utf-8");
       expect(guideContent).toContain("# Usage Guide");
-      expect(guideContent).toContain("Keyboard Shortcuts");
-      expect(guideContent).toContain("Dark / Light Mode");
-      expect(guideContent).toContain("Search");
+      expect(guideContent).toContain("API Reference Organization");
+      expect(guideContent).toContain("Quick Start");
+      expect(guideContent).toContain("Regenerating These Docs");
       expect(guideContent).toContain("1 files");
     });
   });
@@ -344,7 +344,7 @@ describe("New Page Generators", () => {
 
       await generateDocs({ manifest, config, outputDir: OUTPUT_DIR });
 
-      const moduleContent = await readFile(path.join(OUTPUT_DIR, "docs", "api", "src-test.md"), "utf-8");
+      const moduleContent = await readFile(path.join(OUTPUT_DIR, "docs", "api", "src", "test.md"), "utf-8");
       expect(moduleContent).toContain("View source");
       expect(moduleContent).toContain("github.com/owner/repo/blob/main/src/test.ts");
       expect(moduleContent).toContain("Relevant source files");
@@ -373,7 +373,7 @@ describe("New Page Generators", () => {
 
       await generateDocs({ manifest, config, outputDir: OUTPUT_DIR });
 
-      const moduleContent = await readFile(path.join(OUTPUT_DIR, "docs", "api", "src-test.md"), "utf-8");
+      const moduleContent = await readFile(path.join(OUTPUT_DIR, "docs", "api", "src", "test.md"), "utf-8");
       expect(moduleContent).toContain(":material-sync: async");
     });
 
@@ -398,7 +398,7 @@ describe("New Page Generators", () => {
 
       await generateDocs({ manifest, config, outputDir: OUTPUT_DIR });
 
-      const moduleContent = await readFile(path.join(OUTPUT_DIR, "docs", "api", "src-test.md"), "utf-8");
+      const moduleContent = await readFile(path.join(OUTPUT_DIR, "docs", "api", "src", "test.md"), "utf-8");
       expect(moduleContent).toContain("classDiagram");
       expect(moduleContent).toContain("BaseClass");
       expect(moduleContent).toContain("IService");
@@ -424,7 +424,7 @@ describe("New Page Generators", () => {
 
       await generateDocs({ manifest, config, outputDir: OUTPUT_DIR });
 
-      const moduleContent = await readFile(path.join(OUTPUT_DIR, "docs", "api", "src-test.md"), "utf-8");
+      const moduleContent = await readFile(path.join(OUTPUT_DIR, "docs", "api", "src", "test.md"), "utf-8");
       expect(moduleContent).toContain("Example:");
       expect(moduleContent).toContain("const result = helper();");
     });
@@ -449,7 +449,7 @@ describe("New Page Generators", () => {
 
       await generateDocs({ manifest, config, outputDir: OUTPUT_DIR });
 
-      const moduleContent = await readFile(path.join(OUTPUT_DIR, "docs", "api", "src-test.md"), "utf-8");
+      const moduleContent = await readFile(path.join(OUTPUT_DIR, "docs", "api", "src", "test.md"), "utf-8");
       expect(moduleContent).toContain("@experimental");
     });
   });

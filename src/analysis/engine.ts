@@ -383,8 +383,22 @@ function computeProjectMeta(
     )
     .map((m) => m.filePath);
 
+  const rawName = source.repo.split("/").pop() || source.repo;
+  // If repo is "." (local), resolve to the directory basename
+  const name = rawName === "." ? path.basename(repoRoot) : rawName;
+
+  // Try to find a README and extract its summary for use as project description
+  let readmeDescription: string | undefined;
+  const readmeMod = modules.find(
+    (m) => path.basename(m.filePath).toLowerCase() === "readme.md"
+  );
+  if (readmeMod?.moduleDoc?.summary) {
+    readmeDescription = readmeMod.moduleDoc.summary;
+  }
+
   return {
-    name: source.repo.split("/").pop() || source.repo,
+    name,
+    readmeDescription,
     languages,
     entryPoints,
     repository: source.repo,

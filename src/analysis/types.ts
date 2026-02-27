@@ -245,6 +245,8 @@ export interface ProjectMeta {
   name: string;
   version?: string;
   description?: string;
+  /** Summary extracted from the project's README.md, if present */
+  readmeDescription?: string;
   languages: Array<{ name: string; fileCount: number; percentage: number }>;
   entryPoints: string[];
   packageManager?: string;

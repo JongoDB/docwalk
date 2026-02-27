@@ -47,6 +47,10 @@ export async function executeHooks(
 
   for (const command of commands) {
     try {
+      // SECURITY: shell: true is intentional — user-defined hook commands need
+      // shell features (pipes, env vars, glob expansion). However, this means
+      // untrusted docwalk.config.yml files could execute arbitrary commands.
+      // Only run hooks from config files you trust.
       const result = await execa(command, {
         shell: true,
         cwd: options.cwd,

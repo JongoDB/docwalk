@@ -96,6 +96,10 @@ npm run docwalk -- status            # Test status display
 npm run build                        # Build for distribution
 ```
 
+## Security
+
+- **Hook commands run with `shell: true`**: The hooks executor (`src/utils/hooks.ts`) passes user-defined hook commands through the system shell via `execa(command, { shell: true })`. This is intentional — hooks need shell features like pipes, environment variable expansion, and glob patterns. However, this means **untrusted `docwalk.config.yml` files could execute arbitrary commands**. Only run DocWalk against config files you trust. This is the same trust model as Makefiles, npm scripts, and Git hooks.
+
 ## Style & Conventions
 
 - ESM modules throughout (`"type": "module"` in package.json)
