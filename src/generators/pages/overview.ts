@@ -70,7 +70,7 @@ New to this project? Start here:
 - **[Getting Started](getting-started.md)** — Prerequisites, installation, and project structure
 - **[Architecture](${archLink})** — System design, dependency graph, and module relationships
 - **[API Reference](#api-by-section)** — Complete reference organized by component
-${config.analysis.config_docs ? `- **[Configuration](configuration.md)** — Configuration schemas and settings\n` : ""}${config.analysis.types_page ? `- **[Types & Interfaces](types.md)** — All exported types, interfaces, and enums\n` : ""}${config.analysis.dependencies_page ? `- **[Dependencies](dependencies.md)** — External packages and their usage\n` : ""}${config.analysis.usage_guide_page ? `- **[Usage Guide](guide.md)** — How to navigate and use these docs\n` : ""}
+${config.analysis.config_docs ? `- **[Configuration](configuration.md)** — Configuration schemas and settings\n` : ""}${config.analysis.types_page ? `- **[Types & Interfaces](types.md)** — All exported types, interfaces, and enums\n` : ""}${config.analysis.dependencies_page ? `- **[Dependencies](dependencies.md)** — External packages and their usage\n` : ""}
 
 ---
 
@@ -116,6 +116,7 @@ ${meta.entryPoints.map((e) => {
     content,
     navGroup: "",
     navOrder: 0,
+    audience: "developer",
   };
 }
 

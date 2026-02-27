@@ -231,5 +231,6 @@ ${changelogContent}
     content,
     navGroup: "",
     navOrder: 99,
+    audience: "developer",
   };
 }

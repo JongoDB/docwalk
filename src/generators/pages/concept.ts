@@ -90,6 +90,7 @@ ${prose}
       content,
       navGroup: suggestion.navGroup,
       navOrder: suggestion.navOrder,
+      audience: "developer",
     };
   } catch {
     // Fallback: minimal page
@@ -112,6 +113,7 @@ Related files: ${suggestion.relatedModules.map((f) => `\`${f}\``).join(", ")}
 `,
       navGroup: suggestion.navGroup,
       navOrder: suggestion.navOrder,
+      audience: "developer",
     };
   }
 }

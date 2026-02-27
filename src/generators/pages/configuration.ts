@@ -97,5 +97,6 @@ ${configFilesSection}
     content,
     navGroup: "",
     navOrder: 3,
+    audience: "developer",
   };
 }

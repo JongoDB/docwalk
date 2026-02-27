@@ -162,6 +162,7 @@ ${moduleRows.map((r) => {
     content,
     navGroup: "",
     navOrder: 2,
+    audience: "developer",
   };
 }
 
@@ -194,6 +195,7 @@ description: System architecture overview
 `,
       navGroup: "Architecture",
       navOrder: 2,
+      audience: "developer",
     });
     return pages;
   }
@@ -289,6 +291,7 @@ graph ${packageMap.size > 15 ? "TD" : "LR"}
     content: t1Content,
     navGroup: "",
     navOrder: 2,
+    audience: "developer",
   });
 
   // ── Tier 2: Package Detail — one per directory ─────────────────────────
@@ -351,6 +354,7 @@ graph ${nodes.length > 15 ? "TD" : "LR"}
       content: t2Content,
       navGroup: "Architecture",
       navOrder: 2,
+      audience: "developer",
     });
   }
 

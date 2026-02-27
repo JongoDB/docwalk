@@ -185,6 +185,7 @@ ${description}
     content,
     navGroup: group || "API Reference",
     navOrder: 10,
+    audience: "developer",
   };
 }
 

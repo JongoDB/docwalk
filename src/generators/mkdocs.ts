@@ -405,7 +405,7 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
 
 function buildNavigation(pages: GeneratedPage[], audienceSeparation?: boolean): NavigationItem[] {
   if (audienceSeparation) {
-    return buildAudienceNavigation(pages);
+    return buildTabbedNavigation(pages);
   }
 
   const nav: NavigationItem[] = [];
@@ -471,44 +471,39 @@ function buildNavigation(pages: GeneratedPage[], audienceSeparation?: boolean): 
   return nav;
 }
 
-function buildAudienceNavigation(pages: GeneratedPage[]): NavigationItem[] {
+function buildTabbedNavigation(pages: GeneratedPage[]): NavigationItem[] {
   const userPages = pages.filter((p) => p.audience === "user" || p.audience === "both");
   const devPages = pages.filter((p) => p.audience === "developer" || p.audience === "both");
   // Pages with no audience set go to developer section
   const unassigned = pages.filter((p) => !p.audience);
 
-  const userGuide: NavigationItem = {
-    title: "User Guide",
+  // ── User Docs tab ────────────────────────────────────────────────────
+  const userDocs: NavigationItem = {
+    title: "User Docs",
     children: [],
   };
 
-  const devRef: NavigationItem = {
-    title: "Developer Reference",
-    children: [],
-  };
-
-  // User Guide: dedicated user pages sorted by navOrder
+  // Flat list sorted by navOrder
   for (const page of userPages.sort((a, b) => a.navOrder - b.navOrder)) {
-    userGuide.children!.push({ title: page.title, path: page.path });
+    userDocs.children!.push({ title: page.title, path: page.path });
   }
 
-  // If no user pages, put unassigned non-api pages in user guide (backward compat)
-  if (userPages.length === 0) {
-    for (const page of unassigned.sort((a, b) => a.navOrder - b.navOrder)) {
-      if (!page.path.startsWith("api/") && !page.path.startsWith("architecture/")) {
-        userGuide.children!.push({ title: page.title, path: page.path });
-      }
-    }
-  } else {
-    // Put unassigned non-api non-arch pages under developer reference
-    for (const page of unassigned.sort((a, b) => a.navOrder - b.navOrder)) {
-      if (!page.path.startsWith("api/") && !page.path.startsWith("architecture/")) {
-        devRef.children!.push({ title: page.title, path: page.path });
-      }
-    }
+  // ── Developer Docs tab ───────────────────────────────────────────────
+  const devDocs: NavigationItem = {
+    title: "Developer Docs",
+    children: [],
+  };
+
+  // Top-level developer pages (non-api, non-architecture) sorted by navOrder
+  const devTopLevel = [...devPages, ...unassigned]
+    .filter((p) => !p.path.startsWith("api/") && !p.path.startsWith("architecture/") && !p.path.startsWith("concepts/"))
+    .sort((a, b) => a.navOrder - b.navOrder);
+
+  for (const page of devTopLevel) {
+    devDocs.children!.push({ title: page.title, path: page.path });
   }
 
-  // Developer Reference: Architecture (tiered), Insights
+  // Architecture sub-nav
   const archIndex = pages.find((p) => p.path === "architecture/index.md");
   const archSubPages = pages.filter((p) => p.path.startsWith("architecture/") && p.path !== "architecture/index.md");
 
@@ -523,23 +518,16 @@ function buildAudienceNavigation(pages: GeneratedPage[]): NavigationItem[] {
     for (const page of archSubPages.sort((a, b) => a.navOrder - b.navOrder)) {
       archNav.children!.push({ title: page.title, path: page.path });
     }
-    devRef.children!.push(archNav);
+    devDocs.children!.push(archNav);
   } else {
     // Non-tiered single architecture page
     const archPage = pages.find((p) => p.path === "architecture.md");
     if (archPage) {
-      devRef.children!.push({ title: archPage.title, path: archPage.path });
+      devDocs.children!.push({ title: archPage.title, path: archPage.path });
     }
   }
 
-  // Insights page
-  for (const page of [...devPages, ...unassigned].sort((a, b) => a.navOrder - b.navOrder)) {
-    if (page.path === "insights.md") {
-      devRef.children!.push({ title: page.title, path: page.path });
-    }
-  }
-
-  // API pages go under Developer Reference
+  // API Reference sub-nav
   const apiPages = pages.filter((p) => p.path.startsWith("api/"));
   const sections = groupByLogicalSection(apiPages);
   if (Object.keys(sections).length > 0) {
@@ -561,10 +549,22 @@ function buildAudienceNavigation(pages: GeneratedPage[]): NavigationItem[] {
         });
       }
     }
-    devRef.children!.push(apiNav);
+    devDocs.children!.push(apiNav);
   }
 
-  return [userGuide, devRef];
+  // Concept pages sub-nav
+  const conceptPages = pages.filter((p) => p.path.startsWith("concepts/"));
+  if (conceptPages.length > 0) {
+    const conceptNav: NavigationItem = {
+      title: "Concepts",
+      children: conceptPages
+        .sort((a, b) => a.navOrder - b.navOrder)
+        .map((p) => ({ title: p.title, path: p.path })),
+    };
+    devDocs.children!.push(conceptNav);
+  }
+
+  return [userDocs, devDocs];
 }
 
 // ─── MkDocs Config Generator ────────────────────────────────────────────────

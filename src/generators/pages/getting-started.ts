@@ -110,6 +110,7 @@ ${meta.entryPoints.map((e) => {
     content,
     navGroup: "",
     navOrder: 1,
+    audience: "developer",
   };
 }
 

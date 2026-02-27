@@ -98,7 +98,7 @@ describe("DocWalkConfigSchema", () => {
     }
   });
 
-  it("new page flags default to true", () => {
+  it("new page flags default correctly", () => {
     const result = DocWalkConfigSchema.safeParse({
       source: { repo: "owner/repo" },
     });
@@ -107,7 +107,7 @@ describe("DocWalkConfigSchema", () => {
     if (result.success) {
       expect(result.data.analysis.types_page).toBe(true);
       expect(result.data.analysis.dependencies_page).toBe(true);
-      expect(result.data.analysis.usage_guide_page).toBe(true);
+      expect(result.data.analysis.usage_guide_page).toBe(false);
       expect(result.data.analysis.config_docs).toBe(true);
     }
   });

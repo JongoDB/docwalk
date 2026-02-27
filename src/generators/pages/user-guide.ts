@@ -81,7 +81,7 @@ description: User guide for ${projectName}
 
   return {
     path: "user-guide.md",
-    title: sectionTitle,
+    title: "Overview",
     content,
     navGroup: sectionTitle,
     navOrder: 0,

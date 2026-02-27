@@ -119,5 +119,6 @@ npx docwalk sync
     content,
     navGroup: "",
     navOrder: 6,
+    audience: "developer",
   };
 }

@@ -131,7 +131,7 @@ export const AnalysisSchema = z.object({
   dependencies_page: z.boolean().default(true),
 
   /** Generate "How to use these docs" usage guide page */
-  usage_guide_page: z.boolean().default(true),
+  usage_guide_page: z.boolean().default(false),
 
   /** Maximum file size to analyze (bytes) — skip huge generated files */
   max_file_size: z.number().int().positive().default(500_000),
@@ -140,7 +140,7 @@ export const AnalysisSchema = z.object({
   concurrency: z.number().int().positive().default(4),
 
   /** Audience separation: auto-detect library vs app, split into user/dev tabs, or unified */
-  audience: z.enum(["auto", "unified", "split"]).default("auto"),
+  audience: z.enum(["auto", "unified", "split"]).default("split"),
 
   /** Multi-level architecture pages (system → package → module) */
   architecture_tiers: z.boolean().default(true),

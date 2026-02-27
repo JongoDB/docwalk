@@ -77,5 +77,6 @@ ${masterTable ? `## Overview\n\n${masterTable}---\n\n` : ""}${detailedSections |
     content,
     navGroup: "",
     navOrder: 4,
+    audience: "developer",
   };
 }

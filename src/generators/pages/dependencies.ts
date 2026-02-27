@@ -87,6 +87,7 @@ ${detailedContent || "*No external dependencies to detail.*\n"}
     content,
     navGroup: "",
     navOrder: 5,
+    audience: "developer",
   };
 }
 
@@ -189,5 +190,6 @@ ${detailedContent || "*No external dependencies to detail.*\n"}
     content,
     navGroup: "",
     navOrder: 5,
+    audience: "developer",
   };
 }
