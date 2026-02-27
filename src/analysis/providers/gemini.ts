@@ -13,10 +13,19 @@ export class GeminiProvider implements AIProvider {
   readonly name = "Google Gemini";
   private readonly model: string;
   private readonly apiKey: string;
+  private _genAI?: any;
 
   constructor(apiKey: string, model?: string) {
     this.apiKey = apiKey;
     this.model = model || "gemini-2.0-flash";
+  }
+
+  private async getGenAI() {
+    if (!this._genAI) {
+      const { GoogleGenerativeAI } = await import("@google/generative-ai");
+      this._genAI = new GoogleGenerativeAI(this.apiKey);
+    }
+    return this._genAI;
   }
 
   async summarizeModule(module: ModuleInfo, fileContent: string): Promise<string> {
@@ -28,8 +37,7 @@ export class GeminiProvider implements AIProvider {
   }
 
   async generate(prompt: string, options?: GenerateOptions): Promise<string> {
-    const { GoogleGenerativeAI } = await import("@google/generative-ai");
-    const genAI = new GoogleGenerativeAI(this.apiKey);
+    const genAI = await this.getGenAI();
     const model = genAI.getGenerativeModel({
       model: this.model,
       generationConfig: {

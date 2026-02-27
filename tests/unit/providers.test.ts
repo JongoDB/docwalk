@@ -6,12 +6,87 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { createProvider } from "../../src/analysis/providers/index.js";
+import { createProvider, resolveApiKey } from "../../src/analysis/providers/index.js";
 import { AnthropicProvider } from "../../src/analysis/providers/anthropic.js";
 import { OpenAIProvider } from "../../src/analysis/providers/openai.js";
 import { GeminiProvider } from "../../src/analysis/providers/gemini.js";
 import { OllamaProvider } from "../../src/analysis/providers/ollama.js";
 import { OpenRouterProvider } from "../../src/analysis/providers/openrouter.js";
+
+// ─── API Key Resolution ──────────────────────────────────────────────────────
+
+describe("resolveApiKey", () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    process.env = { ...originalEnv };
+    // Clear all relevant env vars
+    delete process.env.TEST_API_KEY;
+    delete process.env.DOCWALK_AI_KEY;
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.GEMINI_API_KEY;
+    delete process.env.GOOGLE_API_KEY;
+    delete process.env.OPENROUTER_API_KEY;
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
+  it("returns value from configured env var first", () => {
+    process.env.TEST_API_KEY = "from-configured";
+    process.env.DOCWALK_AI_KEY = "from-universal";
+    process.env.ANTHROPIC_API_KEY = "from-well-known";
+    expect(resolveApiKey("anthropic", "TEST_API_KEY")).toBe("from-configured");
+  });
+
+  it("falls back to DOCWALK_AI_KEY when configured var is missing", () => {
+    process.env.DOCWALK_AI_KEY = "from-universal";
+    process.env.ANTHROPIC_API_KEY = "from-well-known";
+    expect(resolveApiKey("anthropic", "TEST_API_KEY")).toBe("from-universal");
+  });
+
+  it("falls back to well-known ANTHROPIC_API_KEY", () => {
+    process.env.ANTHROPIC_API_KEY = "from-well-known";
+    expect(resolveApiKey("anthropic", "TEST_API_KEY")).toBe("from-well-known");
+  });
+
+  it("falls back to well-known OPENAI_API_KEY", () => {
+    process.env.OPENAI_API_KEY = "from-openai";
+    expect(resolveApiKey("openai", "TEST_API_KEY")).toBe("from-openai");
+  });
+
+  it("falls back to well-known GEMINI_API_KEY", () => {
+    process.env.GEMINI_API_KEY = "from-gemini";
+    expect(resolveApiKey("gemini", "TEST_API_KEY")).toBe("from-gemini");
+  });
+
+  it("falls back to GOOGLE_API_KEY for gemini", () => {
+    process.env.GOOGLE_API_KEY = "from-google";
+    expect(resolveApiKey("gemini", "TEST_API_KEY")).toBe("from-google");
+  });
+
+  it("falls back to well-known OPENROUTER_API_KEY", () => {
+    process.env.OPENROUTER_API_KEY = "from-openrouter";
+    expect(resolveApiKey("openrouter", "TEST_API_KEY")).toBe("from-openrouter");
+  });
+
+  it("returns undefined when nothing is set", () => {
+    expect(resolveApiKey("anthropic", "TEST_API_KEY")).toBeUndefined();
+  });
+
+  it("returns undefined for unknown provider with no configured var", () => {
+    expect(resolveApiKey("unknown", "TEST_API_KEY")).toBeUndefined();
+  });
+
+  it("does not double-check DOCWALK_AI_KEY when it is the configured var", () => {
+    // If configuredEnvVar is already DOCWALK_AI_KEY, skip the universal fallback step
+    // and proceed to well-known vars
+    process.env.ANTHROPIC_API_KEY = "from-well-known";
+    expect(resolveApiKey("anthropic", "DOCWALK_AI_KEY")).toBe("from-well-known");
+  });
+});
 
 // ─── Provider Factory ────────────────────────────────────────────────────────
 

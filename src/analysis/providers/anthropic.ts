@@ -10,10 +10,19 @@ export class AnthropicProvider implements AIProvider {
   readonly name = "Anthropic Claude";
   private readonly model: string;
   private readonly apiKey: string;
+  private _client?: any;
 
   constructor(apiKey: string, model?: string) {
     this.apiKey = apiKey;
     this.model = model || "claude-sonnet-4-20250514";
+  }
+
+  private async getClient() {
+    if (!this._client) {
+      const { default: Anthropic } = await import("@anthropic-ai/sdk");
+      this._client = new Anthropic({ apiKey: this.apiKey });
+    }
+    return this._client;
   }
 
   async summarizeModule(module: ModuleInfo, fileContent: string): Promise<string> {
@@ -29,8 +38,7 @@ export class AnthropicProvider implements AIProvider {
   }
 
   private async callAPI(prompt: string, options?: GenerateOptions): Promise<string> {
-    const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic({ apiKey: this.apiKey });
+    const client = await this.getClient();
 
     const messages: Array<{ role: "user"; content: string }> = [
       { role: "user", content: prompt },

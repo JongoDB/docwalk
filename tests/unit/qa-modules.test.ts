@@ -498,13 +498,28 @@ describe("VectorStore", () => {
 describe("Embedder (generateSimpleEmbeddings)", () => {
   const VOCAB_SIZE = 256;
 
+  it("anthropic provider returns bag-of-words vectors of length 256", async () => {
+    const texts = [{ id: "c1", content: "anthropic does not have an embedding API" }];
+    const results = await generateEmbeddings(texts, {
+      provider: "anthropic",
+      apiKey: "unused",
+    });
+
+    expect(results.length).toBe(1);
+    expect(results[0].vector.length).toBe(VOCAB_SIZE);
+    expect(results[0].chunkId).toBe("c1");
+    // Should be normalized
+    const mag = magnitude(results[0].vector);
+    expect(mag).toBeCloseTo(1.0, 5);
+  });
+
   it("returns embeddings with correct chunkIds", async () => {
     const texts = [
       { id: "chunk-a", content: "hello world this is a test document" },
       { id: "chunk-b", content: "another test document with more words" },
     ];
     const results = await generateEmbeddings(texts, {
-      provider: "anthropic" as any,
+      provider: "anthropic",
       apiKey: "unused",
       model: "unused",
     });
@@ -517,7 +532,7 @@ describe("Embedder (generateSimpleEmbeddings)", () => {
   it("returns vectors of length 256 (VOCAB_SIZE)", async () => {
     const texts = [{ id: "c1", content: "some content for embedding generation" }];
     const results = await generateEmbeddings(texts, {
-      provider: "anthropic" as any,
+      provider: "anthropic",
       apiKey: "unused",
       model: "unused",
     });
@@ -530,7 +545,7 @@ describe("Embedder (generateSimpleEmbeddings)", () => {
       { id: "c1", content: "The quick brown fox jumps over the lazy dog" },
     ];
     const results = await generateEmbeddings(texts, {
-      provider: "anthropic" as any,
+      provider: "anthropic",
       apiKey: "unused",
       model: "unused",
     });
@@ -545,7 +560,7 @@ describe("Embedder (generateSimpleEmbeddings)", () => {
       { id: "c2", content: "TypeScript is a typed programming language built by Microsoft" },
     ];
     const results = await generateEmbeddings(texts, {
-      provider: "anthropic" as any,
+      provider: "anthropic",
       apiKey: "unused",
       model: "unused",
     });
@@ -560,7 +575,7 @@ describe("Embedder (generateSimpleEmbeddings)", () => {
       { id: "c2", content: "chocolate cake recipe requires flour sugar eggs and butter" },
     ];
     const results = await generateEmbeddings(texts, {
-      provider: "anthropic" as any,
+      provider: "anthropic",
       apiKey: "unused",
       model: "unused",
     });
@@ -578,7 +593,7 @@ describe("Embedder (generateSimpleEmbeddings)", () => {
   it("empty content returns zero vector (or near-zero)", async () => {
     const texts = [{ id: "c1", content: "" }];
     const results = await generateEmbeddings(texts, {
-      provider: "anthropic" as any,
+      provider: "anthropic",
       apiKey: "unused",
       model: "unused",
     });
@@ -613,7 +628,7 @@ describe("buildQAIndex", () => {
 
     const result = await buildQAIndex({
       pages,
-      embedder: { provider: "anthropic" as any, apiKey: "unused", model: "unused" },
+      embedder: { provider: "anthropic", apiKey: "unused", model: "unused" },
     });
 
     expect(result.pageCount).toBe(2);
@@ -629,7 +644,7 @@ describe("buildQAIndex", () => {
 
     const result = await buildQAIndex({
       pages,
-      embedder: { provider: "anthropic" as any, apiKey: "unused", model: "unused" },
+      embedder: { provider: "anthropic", apiKey: "unused", model: "unused" },
     });
 
     expect(result.pageCount).toBe(1);
@@ -648,7 +663,7 @@ describe("buildQAIndex", () => {
 
     await buildQAIndex({
       pages,
-      embedder: { provider: "anthropic" as any, apiKey: "unused", model: "unused" },
+      embedder: { provider: "anthropic", apiKey: "unused", model: "unused" },
       onProgress,
     });
 
@@ -667,7 +682,7 @@ describe("buildQAIndex", () => {
 
     const result = await buildQAIndex({
       pages,
-      embedder: { provider: "anthropic" as any, apiKey: "unused", model: "unused" },
+      embedder: { provider: "anthropic", apiKey: "unused", model: "unused" },
     });
 
     expect(result.serialized.version).toBe(1);

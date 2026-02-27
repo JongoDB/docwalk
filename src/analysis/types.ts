@@ -327,6 +327,7 @@ export interface Insight {
   description: string;
   affectedFiles: string[];
   suggestion: string;
+  aiSuggestion?: string;
 }
 
 export interface NavigationItem {

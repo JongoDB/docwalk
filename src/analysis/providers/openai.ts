@@ -11,11 +11,23 @@ export class OpenAIProvider implements AIProvider {
   private readonly model: string;
   private readonly apiKey: string;
   private readonly baseURL?: string;
+  private _client?: any;
 
   constructor(apiKey: string, model?: string, baseURL?: string) {
     this.apiKey = apiKey;
     this.model = model || "gpt-4o-mini";
     this.baseURL = baseURL;
+  }
+
+  private async getClient() {
+    if (!this._client) {
+      const { default: OpenAI } = await import("openai");
+      this._client = new OpenAI({
+        apiKey: this.apiKey,
+        ...(this.baseURL ? { baseURL: this.baseURL } : {}),
+      });
+    }
+    return this._client;
   }
 
   async summarizeModule(module: ModuleInfo, fileContent: string): Promise<string> {
@@ -27,11 +39,7 @@ export class OpenAIProvider implements AIProvider {
   }
 
   async generate(prompt: string, options?: GenerateOptions): Promise<string> {
-    const { default: OpenAI } = await import("openai");
-    const client = new OpenAI({
-      apiKey: this.apiKey,
-      ...(this.baseURL ? { baseURL: this.baseURL } : {}),
-    });
+    const client = await this.getClient();
 
     const messages: Array<{ role: "system" | "user"; content: string }> = [];
     if (options?.systemPrompt) {

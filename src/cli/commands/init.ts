@@ -97,7 +97,13 @@ export async function initCommand(options: InitOptions): Promise<void> {
       type: "list",
       name: "ai_provider",
       message: "AI provider:",
-      choices: ["anthropic", "openai", "local"],
+      choices: [
+        { name: "Anthropic Claude (ANTHROPIC_API_KEY)", value: "anthropic" },
+        { name: "OpenAI GPT (OPENAI_API_KEY)", value: "openai" },
+        { name: "Google Gemini (GEMINI_API_KEY)", value: "gemini" },
+        { name: "OpenRouter (OPENROUTER_API_KEY)", value: "openrouter" },
+        { name: "Local / Ollama (no API key needed)", value: "local" },
+      ],
       when: (answers: any) => answers.ai_summaries,
       default: "anthropic",
     },
@@ -114,6 +120,18 @@ export async function initCommand(options: InitOptions): Promise<void> {
       default: true,
     },
   ]);
+
+  // Show env var hint when AI is enabled
+  if (analysisAnswers.ai_summaries && analysisAnswers.ai_provider !== "local") {
+    const envVarHints: Record<string, string> = {
+      anthropic: "ANTHROPIC_API_KEY",
+      openai: "OPENAI_API_KEY",
+      gemini: "GEMINI_API_KEY",
+      openrouter: "OPENROUTER_API_KEY",
+    };
+    const envVar = envVarHints[analysisAnswers.ai_provider] || "DOCWALK_AI_KEY";
+    log("info", `Set ${chalk.cyan(envVar)} or ${chalk.cyan("DOCWALK_AI_KEY")} in your environment.`);
+  }
 
   // ── Step 3: Deploy Provider ─────────────────────────────────────────────
   blank();
@@ -305,7 +323,6 @@ export async function initCommand(options: InitOptions): Promise<void> {
       ...(analysisAnswers.ai_summaries && {
         ai_provider: {
           name: analysisAnswers.ai_provider,
-          api_key_env: "DOCWALK_AI_KEY",
         },
       }),
       dependency_graph: analysisAnswers.dependency_graph,

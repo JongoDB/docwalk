@@ -187,13 +187,15 @@ export const AnalysisSchema = z.object({
 
   /** Q&A widget configuration */
   qa_config: z.object({
-    provider: z.enum(["openai", "anthropic", "gemini"]).default("openai"),
+    provider: z.enum(["openai", "anthropic", "gemini", "ollama", "local"]).default("openai"),
     model: z.string().optional(),
     embedding_model: z.string().default("text-embedding-3-small"),
     context_window: z.number().default(4000),
     position: z.enum(["bottom-right", "bottom-left"]).default("bottom-right"),
     greeting: z.string().default("Ask me anything about this project."),
     daily_limit: z.number().default(50),
+    api_key_env: z.string().optional().describe("Environment variable name for Q&A API key (overrides ai_provider key)"),
+    base_url: z.string().optional().describe("Custom base URL for Q&A embedding provider"),
   }).optional(),
 });
 

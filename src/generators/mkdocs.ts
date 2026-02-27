@@ -45,7 +45,7 @@ import { generateOverviewPageNarrative } from "./pages/overview.js";
 import { generateGettingStartedPageNarrative } from "./pages/getting-started.js";
 import { generateArchitecturePageNarrative } from "./pages/architecture.js";
 import type { AIProvider } from "../analysis/providers/base.js";
-import { createProvider } from "../analysis/providers/index.js";
+import { createProvider, resolveApiKey } from "../analysis/providers/index.js";
 
 export interface GenerateOptions {
   manifest: AnalysisManifest;
@@ -339,13 +339,18 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
     onProgress?.("Building Q&A index...");
     try {
       const { buildQAIndex } = await import("../qa/index.js");
-      const qaApiKey = process.env[config.analysis.ai_provider?.api_key_env || "DOCWALK_AI_KEY"] || "";
+      const qaProviderName = config.analysis.qa_config.provider || "openai";
+      const qaKeyEnv = config.analysis.qa_config.api_key_env
+        || config.analysis.ai_provider?.api_key_env
+        || "DOCWALK_AI_KEY";
+      const qaApiKey = resolveApiKey(qaProviderName, qaKeyEnv) || "";
       const qaIndex = await buildQAIndex({
         pages,
         embedder: {
-          provider: config.analysis.qa_config.provider || "openai",
+          provider: qaProviderName,
           model: config.analysis.qa_config.embedding_model,
           apiKey: qaApiKey,
+          base_url: config.analysis.qa_config.base_url,
         },
         onProgress,
       });

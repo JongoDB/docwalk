@@ -2,7 +2,7 @@
  * Embedding Generator
  *
  * Generates vector embeddings for content chunks via configured
- * provider (OpenAI text-embedding-3-small, or Gemini embedding).
+ * provider (OpenAI text-embedding-3-small, Gemini embedding, or Ollama).
  */
 
 export interface EmbeddingResult {
@@ -14,11 +14,13 @@ export interface EmbeddingResult {
 
 export interface EmbedderOptions {
   /** Provider to use */
-  provider: "openai" | "anthropic" | "gemini";
+  provider: "openai" | "anthropic" | "gemini" | "ollama" | "local";
   /** Model name */
   model?: string;
   /** API key */
   apiKey: string;
+  /** Custom base URL (used for Ollama/local) */
+  base_url?: string;
 }
 
 /**
@@ -33,6 +35,12 @@ export async function generateEmbeddings(
       return generateOpenAIEmbeddings(texts, options);
     case "gemini":
       return generateGeminiEmbeddings(texts, options);
+    case "ollama":
+    case "local":
+      return generateOllamaEmbeddings(texts, options);
+    case "anthropic":
+      // Anthropic does not offer an embedding API; fall back to bag-of-words
+      return generateSimpleEmbeddings(texts);
     default:
       // Fallback: simple bag-of-words embedding
       return generateSimpleEmbeddings(texts);
@@ -94,6 +102,53 @@ async function generateGeminiEmbeddings(
   }
 
   return results;
+}
+
+/**
+ * Generate embeddings via Ollama's OpenAI-compatible endpoint.
+ * Falls back to bag-of-words on error.
+ */
+async function generateOllamaEmbeddings(
+  texts: Array<{ id: string; content: string }>,
+  options: EmbedderOptions
+): Promise<EmbeddingResult[]> {
+  try {
+    const { default: OpenAI } = await import("openai");
+    const client = new OpenAI({
+      baseURL: options.base_url || "http://localhost:11434/v1",
+      apiKey: "ollama",
+    });
+
+    const model = options.model || "nomic-embed-text";
+    const results: EmbeddingResult[] = [];
+    const batchSize = 100;
+
+    for (let i = 0; i < texts.length; i += batchSize) {
+      const batch = texts.slice(i, i + batchSize);
+      try {
+        const response = await client.embeddings.create({
+          model,
+          input: batch.map((t) => t.content),
+        });
+
+        for (let j = 0; j < batch.length; j++) {
+          results.push({
+            chunkId: batch[j].id,
+            vector: response.data[j].embedding,
+          });
+        }
+      } catch {
+        // Batch failed — fall back to simple embeddings for this batch
+        const fallback = await generateSimpleEmbeddings(batch);
+        results.push(...fallback);
+      }
+    }
+
+    return results;
+  } catch {
+    // SDK import or client creation failed — fall back entirely
+    return generateSimpleEmbeddings(texts);
+  }
 }
 
 /**

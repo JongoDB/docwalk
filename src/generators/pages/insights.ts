@@ -36,10 +36,16 @@ export function generateInsightsPage(insights: Insight[], config: DocWalkConfig)
         categorySections += `    **Affected files:** ${insight.affectedFiles.map((f) => `\`${f}\``).join(", ")}\n\n`;
       }
       categorySections += `    **Suggestion:** ${insight.suggestion}\n\n`;
+      if (insight.aiSuggestion) {
+        categorySections += `    ??? tip "AI Analysis"\n`;
+        // Indent each line of the AI suggestion for proper admonition nesting
+        const indented = insight.aiSuggestion.split("\n").map((line) => `        ${line}`).join("\n");
+        categorySections += `${indented}\n\n`;
+      }
     }
   }
 
-  const hasAiInsights = config.analysis.insights_ai;
+  const hasAiInsights = config.analysis.insights_ai || insights.some((i) => i.aiSuggestion);
 
   const content = `---
 title: Code Insights

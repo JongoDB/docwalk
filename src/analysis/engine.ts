@@ -242,6 +242,30 @@ export async function analyzeCodebase(
     // Insights module not available — skip
   }
 
+  // ── Step 9b: AI-enhanced insights ──────────────────────────────────
+  if (insights?.length && analysis.insights_ai && analysis.ai_provider) {
+    try {
+      const { createProvider } = await import("./providers/index.js");
+      const { enhanceInsightsWithAI } = await import("./ai-insights.js");
+      const provider = createProvider(analysis.ai_provider);
+      if (provider) {
+        insights = await enhanceInsightsWithAI({
+          insights,
+          aiProvider: provider,
+          readFile: async (filePath) => {
+            const absolutePath = path.resolve(repoRoot, filePath);
+            return readFile(absolutePath, "utf-8");
+          },
+          onProgress: onAIProgress
+            ? (current, total, message) => onAIProgress(current, total, message)
+            : undefined,
+        });
+      }
+    } catch {
+      // AI insights enhancement is non-fatal
+    }
+  }
+
   const manifest: AnalysisManifest = {
     docwalkVersion: "0.1.0",
     repo: source.repo,
