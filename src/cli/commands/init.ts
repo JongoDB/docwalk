@@ -494,7 +494,7 @@ async function writeDefaultConfig(options: InitOptions): Promise<void> {
     sync: { trigger: "on_push", diff_strategy: "incremental", impact_analysis: true, state_file: ".docwalk/state.json", auto_commit: false, commit_message: "docs: update documentation [docwalk]" },
     deploy: { provider: options.provider || "gh-pages", project: `${repo.split("/").pop()}-docs`, auto_ssl: true, output_dir: "site" },
     domain: { ...(options.domain && { custom: options.domain }), base_path: "/", dns_auto: true },
-    theme: { preset: options.theme || "developer", palette: "slate", accent: "#5de4c7", features: [options.layout === "sidebar" ? "navigation.sections" : "navigation.tabs", "navigation.sections", "search.suggest", "content.code.copy"] },
+    theme: { preset: options.theme || "developer", layout: options.layout || "tabs", palette: "slate", accent: "#5de4c7", features: ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.tabs.link"] },
     versioning: { enabled: false, source: "tags", default_alias: "latest", max_versions: 10 },
   };
 

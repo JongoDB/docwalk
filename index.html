@@ -2719,34 +2719,33 @@
       resultLink.href = resultUrl;
       resultLink.textContent = resultUrl;
 
-      // Poll for result
+      // Poll for result — typical builds take 30-90s
       let attempts = 0;
-      const maxAttempts = 90; // ~7.5 minutes at 5s intervals
+      const maxAttempts = 60; // ~3 minutes at 3s intervals
+      const POLL_MS = 3000;
       const pollInterval = setInterval(async () => {
         attempts++;
-        const pct = Math.min(25 + (attempts / maxAttempts) * 70, 95);
+        const elapsed = attempts * POLL_MS / 1000;
+        // Progress ramps up faster to match real build times
+        const pct = Math.min(25 + Math.min(elapsed / 90, 1) * 70, 95);
         progressBar.style.width = pct + '%';
 
-        if (attempts < 12) progressLabel.textContent = 'Analyzing codebase...';
-        else if (attempts < 36) progressLabel.textContent = 'Generating documentation...';
-        else if (attempts < 60) progressLabel.textContent = 'Building MkDocs site...';
-        else progressLabel.textContent = 'Deploying to GitHub Pages...';
+        if (elapsed < 15) progressLabel.textContent = 'Queuing build...';
+        else if (elapsed < 35) progressLabel.textContent = 'Analyzing codebase...';
+        else if (elapsed < 55) progressLabel.textContent = 'Generating documentation...';
+        else if (elapsed < 75) progressLabel.textContent = 'Building & deploying...';
+        else progressLabel.textContent = 'Waiting for GitHub Pages...';
 
         try {
-          const check = await fetch(resultUrl, { method: 'HEAD', mode: 'no-cors' });
-          // mode: no-cors means we can't read status, but opaque response = exists
-          if (check.type === 'opaque' || check.ok) {
-            // Verify with a real fetch
-            const verify = await fetch(resultUrl);
-            if (verify.ok) {
-              clearInterval(pollInterval);
-              progressBar.style.width = '100%';
-              progressEl.style.display = 'none';
-              resultEl.style.display = '';
-              btn.textContent = 'Generate Docs';
-              btn.disabled = false;
-              return;
-            }
+          const verify = await fetch(resultUrl, { cache: 'no-store' });
+          if (verify.ok) {
+            clearInterval(pollInterval);
+            progressBar.style.width = '100%';
+            progressEl.style.display = 'none';
+            resultEl.style.display = '';
+            btn.textContent = 'Generate Docs';
+            btn.disabled = false;
+            return;
           }
         } catch {}
 
@@ -2758,7 +2757,7 @@
           btn.textContent = 'Generate Docs';
           btn.disabled = false;
         }
-      }, 5000);
+      }, POLL_MS);
 
     } catch (err) {
       errorEl.textContent = err.message || 'Something went wrong. Please try again.';
