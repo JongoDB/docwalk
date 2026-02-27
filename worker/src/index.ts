@@ -58,7 +58,7 @@ export default {
     }
 
     // Parse body
-    let body: { repo_url?: string; branch?: string };
+    let body: { repo_url?: string; branch?: string; theme?: string; layout?: string };
     try {
       body = await request.json();
     } catch {
@@ -68,7 +68,7 @@ export default {
       );
     }
 
-    const { repo_url, branch = "main" } = body;
+    const { repo_url, branch = "main", theme = "developer", layout = "tabs" } = body;
 
     // Validate repo URL
     if (!repo_url || typeof repo_url !== "string") {
@@ -146,6 +146,8 @@ export default {
         inputs: {
           repo_url,
           branch,
+          theme,
+          layout,
         },
       }),
     });

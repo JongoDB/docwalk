@@ -1,0 +1,108 @@
+# Deploy Marketing Site + MkDocs to GitHub Pages
+#
+# Builds and deploys the full gh-pages structure:
+#   /            ← marketing site (index.html + assets)
+#   /docs/       ← MkDocs-built documentation
+#   /try/        ← preserved ephemeral demo outputs
+#
+# Triggered on push to master.
+
+name: Deploy Site
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'index.html'
+      - 'assets/**'
+      - 'src/**'
+      - 'docwalk.config.yml'
+      - '.github/workflows/deploy-site.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy-site
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          path: source
+
+      - name: Checkout gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+        continue-on-error: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: source/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        working-directory: source
+        run: npm ci
+
+      - name: Install MkDocs
+        run: pip install mkdocs-material mkdocs-minify-plugin mkdocs-glightbox
+
+      - name: Generate documentation
+        working-directory: source
+        run: npx tsx src/cli/index.ts generate
+
+      - name: Build MkDocs site
+        working-directory: source/docwalk-output
+        run: mkdocs build
+
+      - name: Prepare gh-pages structure
+        run: |
+          # Preserve try/ directory from existing gh-pages
+          mkdir -p deploy
+          if [ -d gh-pages/try ]; then
+            cp -r gh-pages/try deploy/try
+          fi
+
+          # Copy marketing site
+          cp source/index.html deploy/index.html
+
+          # Copy screenshot assets
+          mkdir -p deploy/assets/screenshots
+          if [ -d source/assets/screenshots ]; then
+            cp -r source/assets/screenshots/* deploy/assets/screenshots/
+          fi
+
+          # Copy MkDocs output to /docs/
+          mkdir -p deploy/docs
+          cp -r source/docwalk-output/site/* deploy/docs/
+
+          # Add .nojekyll to prevent GitHub Pages from processing with Jekyll
+          touch deploy/.nojekyll
+
+      - name: Deploy to gh-pages
+        run: |
+          cd deploy
+          git init
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b gh-pages
+          git add -A
+          git commit -m "deploy: update marketing site + docs"
+          git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          git push -f origin gh-pages

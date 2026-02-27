@@ -18,6 +18,16 @@ on:
         required: false
         default: "main"
         type: string
+      theme:
+        description: "Theme preset (developer, corporate, startup, minimal)"
+        required: false
+        default: "developer"
+        type: string
+      layout:
+        description: "Navigation layout (tabs, sidebar)"
+        required: false
+        default: "tabs"
+        type: string
 
 permissions:
   contents: write
@@ -80,7 +90,7 @@ jobs:
       - name: Initialize DocWalk config
         working-directory: target-repo
         run: |
-          npx -y tsx ../docwalk-src/src/cli/index.ts init --no-interactive --repo "${{ steps.parse.outputs.owner_repo }}"
+          npx -y tsx ../docwalk-src/src/cli/index.ts init --no-interactive --repo "${{ steps.parse.outputs.owner_repo }}" --theme "${{ github.event.inputs.theme || 'developer' }}" --layout "${{ github.event.inputs.layout || 'tabs' }}"
 
       - name: Generate documentation
         working-directory: target-repo
