@@ -1,9 +1,9 @@
 # Deploy Marketing Site + MkDocs to GitHub Pages
 #
 # Builds and deploys the full gh-pages structure:
-#   /            ← marketing site (index.html + assets)
-#   /docs/       ← MkDocs-built documentation
-#   /try/        ← preserved ephemeral demo outputs
+#   /            <- marketing site (index.html + assets)
+#   /docs/       <- MkDocs-built documentation
+#   /try/        <- preserved ephemeral demo outputs
 #
 # Triggered on push to master.
 
@@ -35,7 +35,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: master
-          path: source
+          path: docwalk
 
       - name: Checkout gh-pages
         uses: actions/checkout@v4
@@ -49,7 +49,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: source/package-lock.json
+          cache-dependency-path: docwalk/package-lock.json
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -57,18 +57,18 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        working-directory: source
+        working-directory: docwalk
         run: npm ci
 
       - name: Install MkDocs
         run: pip install mkdocs-material mkdocs-minify-plugin mkdocs-glightbox
 
       - name: Generate documentation
-        working-directory: source
+        working-directory: docwalk
         run: npx tsx src/cli/index.ts generate
 
       - name: Build MkDocs site
-        working-directory: source/docwalk-output
+        working-directory: docwalk/docwalk-output
         run: mkdocs build
 
       - name: Prepare gh-pages structure
@@ -80,17 +80,17 @@ jobs:
           fi
 
           # Copy marketing site
-          cp source/index.html deploy/index.html
+          cp docwalk/index.html deploy/index.html
 
           # Copy screenshot assets
           mkdir -p deploy/assets/screenshots
-          if [ -d source/assets/screenshots ]; then
-            cp -r source/assets/screenshots/* deploy/assets/screenshots/
+          if [ -d docwalk/assets/screenshots ]; then
+            cp -r docwalk/assets/screenshots/* deploy/assets/screenshots/
           fi
 
           # Copy MkDocs output to /docs/
           mkdir -p deploy/docs
-          cp -r source/docwalk-output/site/* deploy/docs/
+          cp -r docwalk/docwalk-output/site/* deploy/docs/
 
           # Add .nojekyll to prevent GitHub Pages from processing with Jekyll
           touch deploy/.nojekyll

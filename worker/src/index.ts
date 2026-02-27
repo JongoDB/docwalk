@@ -68,7 +68,7 @@ export default {
       );
     }
 
-    const { repo_url, branch = "main", theme = "developer", layout = "tabs" } = body;
+    const { repo_url, branch = "", theme = "developer", layout = "tabs" } = body;
 
     // Validate repo URL
     if (!repo_url || typeof repo_url !== "string") {

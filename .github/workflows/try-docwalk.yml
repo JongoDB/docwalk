@@ -14,9 +14,9 @@ on:
         required: true
         type: string
       branch:
-        description: "Branch to analyze"
+        description: "Branch to analyze (leave empty for repo default)"
         required: false
-        default: "main"
+        default: ""
         type: string
       theme:
         description: "Theme preset (developer, corporate, startup, minimal)"
@@ -64,8 +64,14 @@ jobs:
 
       - name: Clone target repo
         run: |
-          git clone --depth 100 --branch "${{ github.event.inputs.branch }}" \
-            "${{ github.event.inputs.repo_url }}" target-repo
+          BRANCH="${{ github.event.inputs.branch }}"
+          if [ -n "$BRANCH" ]; then
+            git clone --depth 100 --branch "$BRANCH" \
+              "${{ github.event.inputs.repo_url }}" target-repo || \
+            git clone --depth 100 "${{ github.event.inputs.repo_url }}" target-repo
+          else
+            git clone --depth 100 "${{ github.event.inputs.repo_url }}" target-repo
+          fi
           cd target-repo && git fetch --tags
 
       - name: Setup Node.js

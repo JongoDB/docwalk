@@ -39,6 +39,8 @@ program
   .option("-r, --repo <repo>", "Repository (owner/repo or local path)")
   .option("-p, --provider <provider>", "Deploy provider (gh-pages, cloudflare, vercel)")
   .option("-d, --domain <domain>", "Custom domain")
+  .option("-t, --theme <theme>", "Theme preset (developer, corporate, startup, minimal, api-reference, knowledge-base)")
+  .option("-l, --layout <layout>", "Navigation layout (tabs, sidebar)")
   .option("--no-interactive", "Skip interactive prompts, use defaults")
   .action(async (options) => {
     const { initCommand } = await import("./commands/init.js");
