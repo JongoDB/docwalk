@@ -41,6 +41,11 @@ import {
   generateInsightsPage,
 } from "./pages/index.js";
 import type { ModulePageContext } from "./pages/index.js";
+import { generateOverviewPageNarrative } from "./pages/overview.js";
+import { generateGettingStartedPageNarrative } from "./pages/getting-started.js";
+import { generateArchitecturePageNarrative } from "./pages/architecture.js";
+import type { AIProvider } from "../analysis/providers/base.js";
+import { createProvider } from "../analysis/providers/index.js";
 
 export interface GenerateOptions {
   manifest: AnalysisManifest;
@@ -48,6 +53,10 @@ export interface GenerateOptions {
   outputDir: string;
   onProgress?: (message: string) => void;
   hooks?: HooksConfig;
+  /** Function to read source files (for AI context building) */
+  readFile?: (filePath: string) => Promise<string>;
+  /** Try mode: limits pages and appends upsell banners */
+  tryMode?: boolean;
 }
 
 /**
@@ -99,7 +108,7 @@ async function safeGenerateAsync(
  * Generate a complete MkDocs Material documentation site.
  */
 export async function generateDocs(options: GenerateOptions): Promise<void> {
-  const { manifest, config, outputDir, onProgress, hooks } = options;
+  const { manifest, config, outputDir, onProgress, hooks, readFile, tryMode } = options;
 
   // ── Pre-build hooks ────────────────────────────────────────────────────
   await executeHooks("pre_build", hooks, { cwd: outputDir });
@@ -107,22 +116,59 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
   const docsDir = path.join(outputDir, "docs");
   await mkdir(docsDir, { recursive: true });
 
+  // ── Resolve AI provider for narrative generation ──────────────────────
+  let aiProvider: AIProvider | undefined;
+  if (config.analysis.ai_summaries && config.analysis.ai_provider) {
+    aiProvider = createProvider(config.analysis.ai_provider) as AIProvider | undefined;
+  }
+  const useNarrative = !!(config.analysis.ai_narrative && aiProvider && readFile);
+
+  // ── 0. Optional: AI-driven structure analysis ──────────────────────────
+  let structurePlan: import("../analysis/structure-advisor.js").StructurePlan | undefined;
+  if (config.analysis.ai_structure && aiProvider) {
+    try {
+      onProgress?.("Analyzing codebase structure...");
+      const { analyzeStructure } = await import("../analysis/structure-advisor.js");
+      structurePlan = await analyzeStructure(manifest, aiProvider);
+    } catch {
+      // Structure analysis failure is non-fatal
+    }
+  }
+
   // ── 1. Generate pages ──────────────────────────────────────────────────
   const pages: GeneratedPage[] = [];
 
   // Index / overview page
   onProgress?.("Generating overview page...");
-  const overviewResult = safeGenerate("Overview", () => generateOverviewPage(manifest, config), onProgress);
-  pages.push(...(Array.isArray(overviewResult) ? overviewResult : [overviewResult]));
+  if (useNarrative) {
+    const overviewPage = await safeGenerateAsync("Overview",
+      () => generateOverviewPageNarrative(manifest, config, aiProvider!, readFile!), onProgress);
+    pages.push(overviewPage);
+  } else {
+    const overviewResult = safeGenerate("Overview", () => generateOverviewPage(manifest, config), onProgress);
+    pages.push(...(Array.isArray(overviewResult) ? overviewResult : [overviewResult]));
+  }
 
   // Getting Started
-  const gettingStartedResult = safeGenerate("Getting Started", () => generateGettingStartedPage(manifest, config), onProgress);
-  pages.push(...(Array.isArray(gettingStartedResult) ? gettingStartedResult : [gettingStartedResult]));
+  if (useNarrative) {
+    const gsPage = await safeGenerateAsync("Getting Started",
+      () => generateGettingStartedPageNarrative(manifest, config, aiProvider!, readFile!), onProgress);
+    pages.push(gsPage);
+  } else {
+    const gettingStartedResult = safeGenerate("Getting Started", () => generateGettingStartedPage(manifest, config), onProgress);
+    pages.push(...(Array.isArray(gettingStartedResult) ? gettingStartedResult : [gettingStartedResult]));
+  }
 
   // Architecture pages (tiered or flat)
   if (config.analysis.dependency_graph) {
     onProgress?.("Generating architecture pages...");
-    if (config.analysis.architecture_tiers !== false) {
+    if (useNarrative && config.analysis.architecture_tiers === false) {
+      // Use narrative variant for flat architecture page
+      const repoUrl = config.source.repo.includes("/") ? config.source.repo : undefined;
+      const archPage = await safeGenerateAsync("Architecture",
+        () => generateArchitecturePageNarrative(manifest, aiProvider!, readFile!, repoUrl, config.source.branch), onProgress);
+      pages.push(archPage);
+    } else if (config.analysis.architecture_tiers !== false) {
       const archResult = safeGenerate("Architecture", () => generateTieredArchitecturePages(manifest), onProgress);
       pages.push(...(Array.isArray(archResult) ? archResult : [archResult]));
     } else {
@@ -185,11 +231,99 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
     pages.push(changelogPage);
   }
 
+  // ── End-user documentation pages ──────────────────────────────────────
+  if (config.analysis.user_docs !== false && !tryMode) {
+    onProgress?.("Generating end-user documentation...");
+    const userDocsConfig = config.analysis.user_docs_config;
+    const { generateUserGuidePage, generateUserGettingStartedPage, generateFeaturesPage,
+            generateTroubleshootingPage, generateFAQPage,
+            generateUserGuidePageNarrative, generateUserGettingStartedPageNarrative,
+            generateFeaturesPageNarrative, generateTroubleshootingPageNarrative,
+            generateFAQPageNarrative } = await import("./pages/index.js");
+
+    if (userDocsConfig?.overview !== false) {
+      if (useNarrative) {
+        const page = await safeGenerateAsync("User Guide",
+          () => generateUserGuidePageNarrative(manifest, config, aiProvider!), onProgress);
+        pages.push(page);
+      } else {
+        const result = safeGenerate("User Guide", () => generateUserGuidePage(manifest, config), onProgress);
+        pages.push(...(Array.isArray(result) ? result : [result]));
+      }
+    }
+
+    if (userDocsConfig?.getting_started !== false) {
+      if (useNarrative) {
+        const page = await safeGenerateAsync("User Getting Started",
+          () => generateUserGettingStartedPageNarrative(manifest, config, aiProvider!), onProgress);
+        pages.push(page);
+      } else {
+        const result = safeGenerate("User Getting Started", () => generateUserGettingStartedPage(manifest, config), onProgress);
+        pages.push(...(Array.isArray(result) ? result : [result]));
+      }
+    }
+
+    if (userDocsConfig?.features !== false) {
+      if (useNarrative) {
+        const page = await safeGenerateAsync("Features",
+          () => generateFeaturesPageNarrative(manifest, config, aiProvider!), onProgress);
+        pages.push(page);
+      } else {
+        const result = safeGenerate("Features", () => generateFeaturesPage(manifest, config), onProgress);
+        pages.push(...(Array.isArray(result) ? result : [result]));
+      }
+    }
+
+    if (userDocsConfig?.troubleshooting !== false) {
+      if (useNarrative) {
+        const page = await safeGenerateAsync("Troubleshooting",
+          () => generateTroubleshootingPageNarrative(manifest, config, aiProvider!), onProgress);
+        pages.push(page);
+      } else {
+        const result = safeGenerate("Troubleshooting", () => generateTroubleshootingPage(manifest, config), onProgress);
+        pages.push(...(Array.isArray(result) ? result : [result]));
+      }
+    }
+
+    if (userDocsConfig?.faq !== false) {
+      if (useNarrative) {
+        const page = await safeGenerateAsync("FAQ",
+          () => generateFAQPageNarrative(manifest, config, aiProvider!), onProgress);
+        pages.push(page);
+      } else {
+        const result = safeGenerate("FAQ", () => generateFAQPage(manifest, config), onProgress);
+        pages.push(...(Array.isArray(result) ? result : [result]));
+      }
+    }
+  }
+
   // Insights page
   if (config.analysis.insights !== false && manifest.insights && manifest.insights.length > 0) {
     onProgress?.("Generating insights page...");
     const insightsResult = safeGenerate("Insights", () => generateInsightsPage(manifest.insights!, config), onProgress);
     pages.push(...(Array.isArray(insightsResult) ? insightsResult : [insightsResult]));
+  }
+
+  // ── AI-driven concept pages ───────────────────────────────────────────
+  if (structurePlan && structurePlan.conceptPages.length > 0 && aiProvider && readFile) {
+    onProgress?.("Generating concept pages...");
+    const { generateConceptPage } = await import("./pages/concept.js");
+    const repoUrl = config.source.repo.includes("/") ? config.source.repo : undefined;
+
+    for (const suggestion of structurePlan.conceptPages) {
+      const page = await safeGenerateAsync(suggestion.title,
+        () => generateConceptPage(suggestion, manifest, aiProvider!, readFile!, repoUrl, config.source.branch),
+        onProgress);
+      pages.push(page);
+    }
+  }
+
+  // ── Try mode: append upsell banners ───────────────────────────────────
+  if (tryMode) {
+    const totalModules = manifest.modules.length;
+    for (const page of pages) {
+      page.content += `\n\n!!! tip "Unlock Full Documentation"\n    This is a preview. DocWalk Pro includes complete API reference for all ${totalModules} modules, AI-powered narratives, end-user guides, and more.\n`;
+    }
   }
 
   // ── 2. Write all pages ─────────────────────────────────────────────────
@@ -198,6 +332,40 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
     await mkdir(path.dirname(pagePath), { recursive: true });
     await writeFile(pagePath, page.content);
     onProgress?.(`Written: ${page.path}`);
+  }
+
+  // ── 2b. Build Q&A index if enabled ──────────────────────────────────
+  if (config.analysis.qa_widget && config.analysis.qa_config) {
+    onProgress?.("Building Q&A index...");
+    try {
+      const { buildQAIndex } = await import("../qa/index.js");
+      const qaApiKey = process.env[config.analysis.ai_provider?.api_key_env || "DOCWALK_AI_KEY"] || "";
+      const qaIndex = await buildQAIndex({
+        pages,
+        embedder: {
+          provider: config.analysis.qa_config.provider || "openai",
+          model: config.analysis.qa_config.embedding_model,
+          apiKey: qaApiKey,
+        },
+        onProgress,
+      });
+
+      // Write index
+      const qaDir = path.join(docsDir, "_docwalk");
+      await mkdir(qaDir, { recursive: true });
+      await writeFile(
+        path.join(qaDir, "qa-index.json"),
+        JSON.stringify(qaIndex.serialized)
+      );
+      onProgress?.(`Q&A index built: ${qaIndex.chunkCount} chunks from ${qaIndex.pageCount} pages`);
+
+      // Inject widget assets
+      const { injectQAWidget } = await import("./qa-widget/inject.js");
+      await injectQAWidget(outputDir, config.analysis.qa_config, "https://qa.docwalk.dev/api/ask");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      onProgress?.(`Warning: Q&A index build failed: ${msg}`);
+    }
   }
 
   // ── 3. Write preset CSS ──────────────────────────────────────────────
@@ -295,7 +463,7 @@ function buildNavigation(pages: GeneratedPage[], audienceSeparation?: boolean): 
 function buildAudienceNavigation(pages: GeneratedPage[]): NavigationItem[] {
   const userPages = pages.filter((p) => p.audience === "user" || p.audience === "both");
   const devPages = pages.filter((p) => p.audience === "developer" || p.audience === "both");
-  // Pages with no audience set go to both
+  // Pages with no audience set go to developer section
   const unassigned = pages.filter((p) => !p.audience);
 
   const userGuide: NavigationItem = {
@@ -308,10 +476,24 @@ function buildAudienceNavigation(pages: GeneratedPage[]): NavigationItem[] {
     children: [],
   };
 
-  // User Guide: Overview, Getting Started, Configuration, Types, Dependencies, Usage Guide, Changelog
-  for (const page of [...userPages, ...unassigned].sort((a, b) => a.navOrder - b.navOrder)) {
-    if (!page.path.startsWith("api/") && !page.path.startsWith("architecture/")) {
-      userGuide.children!.push({ title: page.title, path: page.path });
+  // User Guide: dedicated user pages sorted by navOrder
+  for (const page of userPages.sort((a, b) => a.navOrder - b.navOrder)) {
+    userGuide.children!.push({ title: page.title, path: page.path });
+  }
+
+  // If no user pages, put unassigned non-api pages in user guide (backward compat)
+  if (userPages.length === 0) {
+    for (const page of unassigned.sort((a, b) => a.navOrder - b.navOrder)) {
+      if (!page.path.startsWith("api/") && !page.path.startsWith("architecture/")) {
+        userGuide.children!.push({ title: page.title, path: page.path });
+      }
+    }
+  } else {
+    // Put unassigned non-api non-arch pages under developer reference
+    for (const page of unassigned.sort((a, b) => a.navOrder - b.navOrder)) {
+      if (!page.path.startsWith("api/") && !page.path.startsWith("architecture/")) {
+        devRef.children!.push({ title: page.title, path: page.path });
+      }
     }
   }
 

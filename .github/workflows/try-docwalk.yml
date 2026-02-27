@@ -28,6 +28,11 @@ on:
         required: false
         default: "tabs"
         type: string
+      gemini_token:
+        description: "Optional Gemini API key for AI-enhanced docs"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -100,8 +105,16 @@ jobs:
 
       - name: Generate documentation
         working-directory: target-repo
+        env:
+          DOCWALK_AI_KEY: ${{ github.event.inputs.gemini_token }}
         run: |
-          npx -y tsx ../docwalk-src/src/cli/index.ts generate -v
+          EXTRA_FLAGS=""
+          if [ -n "$DOCWALK_AI_KEY" ]; then
+            EXTRA_FLAGS="--ai --try-mode"
+          else
+            EXTRA_FLAGS="--try-mode"
+          fi
+          npx -y tsx ../docwalk-src/src/cli/index.ts generate -v $EXTRA_FLAGS
 
       - name: Build MkDocs site
         working-directory: target-repo/docwalk-output

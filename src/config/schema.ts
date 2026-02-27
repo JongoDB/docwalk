@@ -99,15 +99,16 @@ export const AnalysisSchema = z.object({
   /** Enable AI-powered summaries for modules and functions */
   ai_summaries: z.boolean().default(false),
 
-  /** AI provider for summaries */
+  /** AI provider for summaries and narrative generation */
   ai_provider: z
     .object({
-      name: z.enum(["openai", "anthropic", "local"]).default("anthropic"),
+      name: z.enum(["openai", "anthropic", "gemini", "ollama", "openrouter", "local"]).default("anthropic"),
       model: z.string().optional(),
       api_key_env: z
         .string()
         .default("DOCWALK_AI_KEY")
         .describe("Environment variable name holding the API key"),
+      base_url: z.string().optional().describe("Custom base URL for the provider (e.g., Ollama endpoint)"),
     })
     .optional(),
 
@@ -155,6 +156,45 @@ export const AnalysisSchema = z.object({
 
   /** Enable AI-powered insights (requires license + API key) */
   insights_ai: z.boolean().default(false),
+
+  /** Enable AI-generated narrative prose on pages (requires AI provider) */
+  ai_narrative: z.boolean().default(false),
+
+  /** Enable AI-generated diagrams (sequence, flowcharts) */
+  ai_diagrams: z.boolean().default(false),
+
+  /** Enable AI-driven dynamic page structure suggestions */
+  ai_structure: z.boolean().default(false),
+
+  /** Enable monorepo workspace package resolution for dependency graphs */
+  monorepo: z.boolean().default(true),
+
+  /** Generate end-user documentation (user guides, troubleshooting, FAQ) */
+  user_docs: z.boolean().default(true),
+
+  /** Per-page toggles for end-user documentation */
+  user_docs_config: z.object({
+    overview: z.boolean().default(true),
+    getting_started: z.boolean().default(true),
+    features: z.boolean().default(true),
+    troubleshooting: z.boolean().default(true),
+    faq: z.boolean().default(true),
+    section_title: z.string().default("User Guide"),
+  }).optional(),
+
+  /** Enable Q&A chat widget in generated docs (Team feature) */
+  qa_widget: z.boolean().default(false),
+
+  /** Q&A widget configuration */
+  qa_config: z.object({
+    provider: z.enum(["openai", "anthropic", "gemini"]).default("openai"),
+    model: z.string().optional(),
+    embedding_model: z.string().default("text-embedding-3-small"),
+    context_window: z.number().default(4000),
+    position: z.enum(["bottom-right", "bottom-left"]).default("bottom-right"),
+    greeting: z.string().default("Ask me anything about this project."),
+    daily_limit: z.number().default(50),
+  }).optional(),
 });
 
 // ─── Sync Configuration ─────────────────────────────────────────────────────

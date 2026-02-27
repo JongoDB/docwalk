@@ -1,8 +1,10 @@
 import path from "path";
 import type { DocWalkConfig } from "../../config/schema.js";
 import type { AnalysisManifest, GeneratedPage } from "../../analysis/types.js";
+import type { AIProvider } from "../../analysis/providers/base.js";
 import { getLanguageDisplayName, type LanguageId } from "../../analysis/language-detect.js";
 import { resolveProjectName, groupModulesLogically } from "../utils.js";
+import { generateOverviewNarrative, renderCitations } from "../narrative-engine.js";
 
 export function generateOverviewPage(manifest: AnalysisManifest, config: DocWalkConfig): GeneratedPage {
   const { projectMeta: meta, stats } = manifest;
@@ -115,4 +117,50 @@ ${meta.entryPoints.map((e) => {
     navGroup: "",
     navOrder: 0,
   };
+}
+
+/**
+ * Generate an AI-enhanced overview page with narrative prose.
+ */
+export async function generateOverviewPageNarrative(
+  manifest: AnalysisManifest,
+  config: DocWalkConfig,
+  provider: AIProvider,
+  readFile: (filePath: string) => Promise<string>
+): Promise<GeneratedPage> {
+  const basePage = generateOverviewPage(manifest, config);
+
+  try {
+    const narrative = await generateOverviewNarrative({
+      provider,
+      manifest,
+      readFile,
+    });
+
+    const repoUrl = config.source.repo.includes("/") ? config.source.repo : undefined;
+    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, config.source.branch);
+
+    // Insert narrative prose after the title, before the template content
+    const projectName = resolveProjectName(manifest);
+    const narrativeContent = `---
+title: ${projectName} Documentation
+description: Technical documentation for ${projectName}
+---
+
+# ${projectName}
+
+${prose}
+
+---
+
+${basePage.content.split("---\n").slice(2).join("---\n")}`;
+
+    return {
+      ...basePage,
+      content: narrativeContent,
+    };
+  } catch {
+    // Fallback to template-based page on AI failure
+    return basePage;
+  }
 }

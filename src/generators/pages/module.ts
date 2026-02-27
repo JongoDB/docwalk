@@ -1,9 +1,11 @@
 import path from "path";
 import type { DocWalkConfig } from "../../config/schema.js";
 import type { AnalysisManifest, ModuleInfo, Symbol, GeneratedPage, DependencyEdge } from "../../analysis/types.js";
+import type { AIProvider } from "../../analysis/providers/base.js";
 import { getLanguageDisplayName, type LanguageId } from "../../analysis/language-detect.js";
 import { getLanguageTag, getKindBadge, sanitizeMermaidId, renderSymbol } from "../utils.js";
 import type { RenderSymbolOptions } from "../utils.js";
+import { generateModuleNarrative, renderCitations } from "../narrative-engine.js";
 
 export interface ModulePageContext {
   config: DocWalkConfig;
@@ -184,4 +186,41 @@ ${description}
     navGroup: group || "API Reference",
     navOrder: 10,
   };
+}
+
+/**
+ * Generate an AI-enhanced module page with narrative descriptions.
+ */
+export async function generateModulePageNarrative(
+  mod: ModuleInfo,
+  group: string,
+  ctx: ModulePageContext,
+  provider: AIProvider,
+  readFile: (filePath: string) => Promise<string>
+): Promise<GeneratedPage> {
+  const basePage = generateModulePage(mod, group, ctx);
+
+  try {
+    const narrative = await generateModuleNarrative(mod, {
+      provider,
+      manifest: ctx.manifest,
+      readFile,
+    });
+
+    const repoUrl = ctx.config.source.repo.includes("/") ? ctx.config.source.repo : undefined;
+    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, ctx.config.source.branch);
+
+    // Insert narrative prose after the module metadata table
+    const insertPoint = basePage.content.indexOf("---\n\n## Exports");
+    if (insertPoint > 0) {
+      const content = basePage.content.slice(0, insertPoint) +
+        `\n## Overview\n\n${prose}\n\n` +
+        basePage.content.slice(insertPoint);
+      return { ...basePage, content };
+    }
+
+    return basePage;
+  } catch {
+    return basePage;
+  }
 }

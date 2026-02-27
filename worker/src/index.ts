@@ -58,7 +58,7 @@ export default {
     }
 
     // Parse body
-    let body: { repo_url?: string; branch?: string; theme?: string; layout?: string };
+    let body: { repo_url?: string; branch?: string; theme?: string; layout?: string; gemini_token?: string };
     try {
       body = await request.json();
     } catch {
@@ -68,7 +68,7 @@ export default {
       );
     }
 
-    const { repo_url, branch = "", theme = "developer", layout = "tabs" } = body;
+    const { repo_url, branch = "", theme = "developer", layout = "tabs", gemini_token = "" } = body;
 
     // Validate repo URL
     if (!repo_url || typeof repo_url !== "string") {
@@ -148,6 +148,7 @@ export default {
           branch,
           theme,
           layout,
+          gemini_token,
         },
       }),
     });

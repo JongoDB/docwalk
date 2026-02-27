@@ -340,3 +340,23 @@ export interface GenerationResult {
   navigation: NavigationItem[];
   mkdocsConfig: Record<string, unknown>;
 }
+
+// ─── AI Narrative Types ─────────────────────────────────────────────────────
+
+export interface Citation {
+  /** Display text for the citation */
+  text: string;
+  /** File path relative to repo root */
+  filePath: string;
+  /** Line number in the file */
+  line: number;
+}
+
+export interface DiagramSuggestion {
+  /** Type of diagram to generate */
+  type: "class" | "sequence" | "flowchart" | "dependency";
+  /** Human-readable title */
+  title: string;
+  /** Mermaid diagram source code */
+  mermaidCode: string;
+}

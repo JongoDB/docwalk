@@ -10,9 +10,10 @@ import {
   SummaryCache,
   createProvider,
   summarizeModules,
-  AnthropicSummaryProvider,
-  OpenAISummaryProvider,
 } from "../../src/analysis/ai-summarizer.js";
+import { AnthropicProvider } from "../../src/analysis/providers/anthropic.js";
+import { OpenAIProvider } from "../../src/analysis/providers/openai.js";
+import { OllamaProvider } from "../../src/analysis/providers/ollama.js";
 import type { ModuleInfo } from "../../src/analysis/types.js";
 
 // ─── Summary Cache ──────────────────────────────────────────────────────────
@@ -86,7 +87,7 @@ describe("createProvider", () => {
       name: "anthropic",
       api_key_env: "DOCWALK_AI_KEY",
     });
-    expect(provider).toBeInstanceOf(AnthropicSummaryProvider);
+    expect(provider).toBeInstanceOf(AnthropicProvider);
     expect(provider!.name).toBe("Anthropic Claude");
   });
 
@@ -96,17 +97,18 @@ describe("createProvider", () => {
       name: "openai",
       api_key_env: "MY_OPENAI_KEY",
     });
-    expect(provider).toBeInstanceOf(OpenAISummaryProvider);
+    expect(provider).toBeInstanceOf(OpenAIProvider);
     expect(provider!.name).toBe("OpenAI GPT");
   });
 
-  it("returns undefined for local provider", () => {
+  it("creates Ollama provider for local provider name", () => {
     process.env.DOCWALK_AI_KEY = "test-key";
     const provider = createProvider({
       name: "local",
       api_key_env: "DOCWALK_AI_KEY",
     });
-    expect(provider).toBeUndefined();
+    expect(provider).toBeInstanceOf(OllamaProvider);
+    expect(provider!.name).toBe("Ollama (Local)");
   });
 
   it("uses custom env var name", () => {
@@ -115,7 +117,7 @@ describe("createProvider", () => {
       name: "anthropic",
       api_key_env: "CUSTOM_KEY",
     });
-    expect(provider).toBeInstanceOf(AnthropicSummaryProvider);
+    expect(provider).toBeInstanceOf(AnthropicProvider);
   });
 });
 

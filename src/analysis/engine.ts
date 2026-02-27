@@ -31,6 +31,7 @@ import { log } from "../utils/logger.js";
 import { readFile, stat } from "fs/promises";
 import path from "path";
 import fg from "fast-glob";
+import { detectWorkspaces, type WorkspaceInfo } from "./workspace-resolver.js";
 
 export interface AnalysisOptions {
   source: SourceConfig;
@@ -79,6 +80,19 @@ export async function analyzeCodebase(
 
   // ── Step 1: File Discovery ──────────────────────────────────────────────
   const files = targetFiles ?? (await discoverFiles(repoRoot, source));
+
+  // ── Step 1b: Workspace detection (monorepo) ───────────────────────────
+  let workspaceInfo: WorkspaceInfo | undefined;
+  if (analysis.monorepo !== false) {
+    try {
+      workspaceInfo = await detectWorkspaces(repoRoot);
+      if (workspaceInfo.type !== "none") {
+        log("info", `Detected ${workspaceInfo.type} workspace with ${workspaceInfo.packages.size} packages`);
+      }
+    } catch {
+      // Workspace detection failure is non-fatal
+    }
+  }
 
   // ── Guard: No files found ───────────────────────────────────────────────
   if (files.length === 0) {
@@ -187,7 +201,7 @@ export async function analyzeCodebase(
   const allModules = mergeModules(modules, previousManifest, targetFiles);
 
   // ── Step 6: Cross-file dependency resolution ───────────────────────────
-  const dependencyGraph = buildDependencyGraph(allModules);
+  const dependencyGraph = buildDependencyGraph(allModules, workspaceInfo);
 
   // ── Step 7: Optional AI summarization ─────────────────────────────────
   let finalModules = allModules;
@@ -275,7 +289,7 @@ function mergeModules(
 /**
  * Build cross-file dependency graph from import/export analysis.
  */
-function buildDependencyGraph(modules: ModuleInfo[]): DependencyGraph {
+function buildDependencyGraph(modules: ModuleInfo[], workspaceInfo?: WorkspaceInfo): DependencyGraph {
   const nodes = modules.map((m) => m.filePath);
   const edges: DependencyEdge[] = [];
 
@@ -293,7 +307,8 @@ function buildDependencyGraph(modules: ModuleInfo[]): DependencyGraph {
       const resolvedTarget = resolveImportSource(
         imp.source,
         mod.filePath,
-        nodes
+        nodes,
+        workspaceInfo
       );
       if (resolvedTarget) {
         edges.push({
@@ -310,49 +325,99 @@ function buildDependencyGraph(modules: ModuleInfo[]): DependencyGraph {
 }
 
 /**
- * Resolve a relative import path to a file in the module list.
- * Handles common patterns: ./foo, ../bar, @/utils, etc.
+ * Resolve an import path to a file in the module list.
+ * Resolution order: relative imports → workspace packages → return undefined (external).
  */
 function resolveImportSource(
   source: string,
   fromFile: string,
-  knownFiles: string[]
+  knownFiles: string[],
+  workspaceInfo?: WorkspaceInfo
 ): string | undefined {
-  if (!source.startsWith(".") && !source.startsWith("@/")) {
-    return undefined; // external package — skip
+  // 1. Relative imports (existing behavior)
+  if (source.startsWith(".") || source.startsWith("@/")) {
+    const dir = path.dirname(fromFile);
+    let resolved = source.startsWith("@/")
+      ? source.replace("@/", "src/")
+      : path.join(dir, source);
+
+    // Strip .js/.mjs/.cjs extension for TS → JS extension mapping
+    const strippedExt = resolved.replace(/\.(m|c)?js$/, "");
+
+    const candidates = [
+      resolved,
+      strippedExt,
+      `${resolved}.ts`,
+      `${resolved}.tsx`,
+      `${resolved}.js`,
+      `${resolved}.jsx`,
+      `${strippedExt}.ts`,
+      `${strippedExt}.tsx`,
+      `${strippedExt}.js`,
+      `${strippedExt}.jsx`,
+      `${resolved}/index.ts`,
+      `${resolved}/index.tsx`,
+      `${resolved}/index.js`,
+      `${resolved}/index.jsx`,
+      `${strippedExt}/index.ts`,
+      `${strippedExt}/index.tsx`,
+      `${strippedExt}/index.js`,
+      `${strippedExt}/index.jsx`,
+    ].map((c) => path.normalize(c));
+
+    return knownFiles.find((f) => candidates.includes(path.normalize(f)));
   }
 
-  const dir = path.dirname(fromFile);
-  let resolved = source.startsWith("@/")
-    ? source.replace("@/", "src/")
-    : path.join(dir, source);
+  // 2. Workspace package resolution (new)
+  if (workspaceInfo && workspaceInfo.packages.size > 0) {
+    // Check if the import matches a workspace package name
+    // e.g., "@org/utils" or "@org/utils/deep-import"
+    for (const [pkgName, pkgDir] of workspaceInfo.packages) {
+      if (source === pkgName || source.startsWith(`${pkgName}/`)) {
+        // Resolve to the package's entry point or subpath
+        const subpath = source === pkgName
+          ? ""
+          : source.slice(pkgName.length + 1);
 
-  // Strip .js/.mjs/.cjs extension for TS → JS extension mapping
-  const strippedExt = resolved.replace(/\.(m|c)?js$/, "");
+        const basePath = subpath
+          ? `${pkgDir}/src/${subpath}`
+          : pkgDir;
 
-  // Try common extensions
-  const candidates = [
-    resolved,
-    strippedExt,
-    `${resolved}.ts`,
-    `${resolved}.tsx`,
-    `${resolved}.js`,
-    `${resolved}.jsx`,
-    `${strippedExt}.ts`,
-    `${strippedExt}.tsx`,
-    `${strippedExt}.js`,
-    `${strippedExt}.jsx`,
-    `${resolved}/index.ts`,
-    `${resolved}/index.tsx`,
-    `${resolved}/index.js`,
-    `${resolved}/index.jsx`,
-    `${strippedExt}/index.ts`,
-    `${strippedExt}/index.tsx`,
-    `${strippedExt}/index.js`,
-    `${strippedExt}/index.jsx`,
-  ].map((c) => path.normalize(c));
+        // Try entry points within the workspace package
+        const candidates = subpath
+          ? [
+              `${basePath}.ts`,
+              `${basePath}.tsx`,
+              `${basePath}.js`,
+              `${basePath}.jsx`,
+              `${basePath}/index.ts`,
+              `${basePath}/index.tsx`,
+              `${basePath}/index.js`,
+              `${basePath}/index.jsx`,
+            ]
+          : [
+              `${pkgDir}/src/index.ts`,
+              `${pkgDir}/src/index.tsx`,
+              `${pkgDir}/src/index.js`,
+              `${pkgDir}/src/index.jsx`,
+              `${pkgDir}/index.ts`,
+              `${pkgDir}/index.tsx`,
+              `${pkgDir}/index.js`,
+              `${pkgDir}/index.jsx`,
+              `${pkgDir}/lib/index.ts`,
+              `${pkgDir}/lib/index.js`,
+            ];
 
-  return knownFiles.find((f) => candidates.includes(path.normalize(f)));
+        const match = knownFiles.find((f) =>
+          candidates.some((c) => path.normalize(f) === path.normalize(c))
+        );
+        if (match) return match;
+      }
+    }
+  }
+
+  // 3. External package — skip
+  return undefined;
 }
 
 function computeProjectMeta(

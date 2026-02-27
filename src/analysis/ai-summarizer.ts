@@ -2,20 +2,24 @@
  * DocWalk AI Summarizer
  *
  * Generates human-readable summaries for modules and symbols
- * using LLM providers (Anthropic Claude, OpenAI GPT).
+ * using LLM providers. Provider implementations live in ./providers/.
  *
- * Features:
- * - Provider-agnostic interface with Anthropic and OpenAI implementations
- * - Rate limiting with configurable concurrency and delay
- * - Content-hash-based caching to avoid re-summarizing unchanged code
- * - Graceful fallback when API keys are missing or calls fail
- * - Batch processing with progress reporting
+ * This module contains:
+ * - RateLimiter for API call throttling
+ * - SummaryCache for content-hash-based caching
+ * - summarizeModules() orchestrator
+ * - createProvider() factory (re-exported from providers)
  */
 
 import type { AnalysisConfig } from "../config/schema.js";
 import type { ModuleInfo, Symbol } from "./types.js";
+import type { AISummaryProvider } from "./providers/base.js";
+import { createProvider as _createProvider } from "./providers/index.js";
 
-// ─── Provider Interface ─────────────────────────────────────────────────────
+// Re-export provider types and factory
+export type { AISummaryProvider } from "./providers/base.js";
+export type { AIProvider, GenerateOptions } from "./providers/base.js";
+export { createProvider } from "./providers/index.js";
 
 /** Result from a single summarization call. */
 export interface SummaryResult {
@@ -31,18 +35,6 @@ export interface SummaryCacheEntry {
   contentHash: string;
   summary: string;
   generatedAt: string;
-}
-
-/** Provider-agnostic interface for LLM summarization. */
-export interface AISummaryProvider {
-  /** Provider name for logging. */
-  readonly name: string;
-
-  /** Generate a summary for a module (file-level overview). */
-  summarizeModule(module: ModuleInfo, fileContent: string): Promise<string>;
-
-  /** Generate a summary for a specific symbol (function, class, etc.). */
-  summarizeSymbol(symbol: Symbol, fileContent: string, filePath: string): Promise<string>;
 }
 
 // ─── Rate Limiter ────────────────────────────────────────────────────────────
@@ -82,166 +74,6 @@ class RateLimiter {
       this.running++;
       next();
     }
-  }
-}
-
-// ─── Anthropic Provider ──────────────────────────────────────────────────────
-
-/** Summarization provider using Anthropic's Claude API. */
-export class AnthropicSummaryProvider implements AISummaryProvider {
-  readonly name = "Anthropic Claude";
-  private readonly model: string;
-  private readonly apiKey: string;
-
-  constructor(apiKey: string, model?: string) {
-    this.apiKey = apiKey;
-    this.model = model || "claude-sonnet-4-20250514";
-  }
-
-  async summarizeModule(module: ModuleInfo, fileContent: string): Promise<string> {
-    const symbolList = module.symbols
-      .filter((s) => s.exported)
-      .map((s) => `- ${s.kind} ${s.name}${s.docs?.summary ? `: ${s.docs.summary}` : ""}`)
-      .join("\n");
-
-    const prompt = `You are a technical documentation assistant. Summarize this source file in 2-3 sentences for a documentation site. Focus on what the module does and its role in the project. Be concise and precise.
-
-File: ${module.filePath}
-Language: ${module.language}
-Exported symbols:
-${symbolList || "(none)"}
-
-File content (truncated to first 200 lines):
-\`\`\`
-${fileContent.split("\n").slice(0, 200).join("\n")}
-\`\`\`
-
-Write only the summary, no preamble.`;
-
-    return this.callAPI(prompt);
-  }
-
-  async summarizeSymbol(symbol: Symbol, fileContent: string, filePath: string): Promise<string> {
-    const lines = fileContent.split("\n");
-    const startLine = symbol.location.line - 1;
-    const endLine = symbol.location.endLine
-      ? symbol.location.endLine
-      : Math.min(startLine + 30, lines.length);
-    const snippet = lines.slice(startLine, endLine).join("\n");
-
-    const prompt = `You are a technical documentation assistant. Write a brief 1-2 sentence summary for this ${symbol.kind}. Focus on what it does and when to use it.
-
-File: ${filePath}
-Symbol: ${symbol.name} (${symbol.kind})
-${symbol.parameters ? `Parameters: ${symbol.parameters.map((p) => p.name).join(", ")}` : ""}
-${symbol.returns?.type ? `Returns: ${symbol.returns.type}` : ""}
-
-Code:
-\`\`\`
-${snippet}
-\`\`\`
-
-Write only the summary, no preamble.`;
-
-    return this.callAPI(prompt);
-  }
-
-  private async callAPI(prompt: string): Promise<string> {
-    const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic({ apiKey: this.apiKey });
-
-    const response = await client.messages.create({
-      model: this.model,
-      max_tokens: 256,
-      messages: [{ role: "user", content: prompt }],
-    });
-
-    const block = response.content[0];
-    if (block.type === "text") {
-      return block.text.trim();
-    }
-    return "";
-  }
-}
-
-// ─── OpenAI Provider ─────────────────────────────────────────────────────────
-
-/** Summarization provider using OpenAI's GPT API. */
-export class OpenAISummaryProvider implements AISummaryProvider {
-  readonly name = "OpenAI GPT";
-  private readonly model: string;
-  private readonly apiKey: string;
-
-  constructor(apiKey: string, model?: string) {
-    this.apiKey = apiKey;
-    this.model = model || "gpt-4o-mini";
-  }
-
-  async summarizeModule(module: ModuleInfo, fileContent: string): Promise<string> {
-    const symbolList = module.symbols
-      .filter((s) => s.exported)
-      .map((s) => `- ${s.kind} ${s.name}${s.docs?.summary ? `: ${s.docs.summary}` : ""}`)
-      .join("\n");
-
-    const prompt = `Summarize this source file in 2-3 sentences for a documentation site. Focus on what the module does and its role in the project. Be concise and precise.
-
-File: ${module.filePath}
-Language: ${module.language}
-Exported symbols:
-${symbolList || "(none)"}
-
-File content (truncated to first 200 lines):
-\`\`\`
-${fileContent.split("\n").slice(0, 200).join("\n")}
-\`\`\`
-
-Write only the summary, no preamble.`;
-
-    return this.callAPI(prompt);
-  }
-
-  async summarizeSymbol(symbol: Symbol, fileContent: string, filePath: string): Promise<string> {
-    const lines = fileContent.split("\n");
-    const startLine = symbol.location.line - 1;
-    const endLine = symbol.location.endLine
-      ? symbol.location.endLine
-      : Math.min(startLine + 30, lines.length);
-    const snippet = lines.slice(startLine, endLine).join("\n");
-
-    const prompt = `Write a brief 1-2 sentence summary for this ${symbol.kind}. Focus on what it does and when to use it.
-
-File: ${filePath}
-Symbol: ${symbol.name} (${symbol.kind})
-${symbol.parameters ? `Parameters: ${symbol.parameters.map((p) => p.name).join(", ")}` : ""}
-${symbol.returns?.type ? `Returns: ${symbol.returns.type}` : ""}
-
-Code:
-\`\`\`
-${snippet}
-\`\`\`
-
-Write only the summary, no preamble.`;
-
-    return this.callAPI(prompt);
-  }
-
-  private async callAPI(prompt: string): Promise<string> {
-    const { default: OpenAI } = await import("openai");
-    const client = new OpenAI({ apiKey: this.apiKey });
-
-    const response = await client.chat.completions.create({
-      model: this.model,
-      max_tokens: 256,
-      messages: [
-        {
-          role: "system",
-          content: "You are a technical documentation assistant. Be concise and precise.",
-        },
-        { role: "user", content: prompt },
-      ],
-    });
-
-    return response.choices[0]?.message?.content?.trim() || "";
   }
 }
 
@@ -328,32 +160,6 @@ export interface SummarizeResult {
 }
 
 /**
- * Create the appropriate AI provider based on config.
- * Returns undefined if the API key is not available.
- */
-export function createProvider(
-  config: NonNullable<AnalysisConfig["ai_provider"]>
-): AISummaryProvider | undefined {
-  const apiKey = process.env[config.api_key_env];
-
-  if (!apiKey) {
-    return undefined;
-  }
-
-  switch (config.name) {
-    case "anthropic":
-      return new AnthropicSummaryProvider(apiKey, config.model);
-    case "openai":
-      return new OpenAISummaryProvider(apiKey, config.model);
-    case "local":
-      // Local provider not yet implemented
-      return undefined;
-    default:
-      return undefined;
-  }
-}
-
-/**
  * Run AI summarization on all modules.
  *
  * This is designed to be fault-tolerant:
@@ -376,7 +182,7 @@ export async function summarizeModules(
   } = options;
 
   // Create provider — gracefully bail if no API key
-  const provider = createProvider(providerConfig);
+  const provider = _createProvider(providerConfig);
   if (!provider) {
     return {
       modules,

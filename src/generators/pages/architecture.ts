@@ -1,6 +1,8 @@
 import path from "path";
 import type { AnalysisManifest, GeneratedPage } from "../../analysis/types.js";
+import type { AIProvider } from "../../analysis/providers/base.js";
 import { sanitizeMermaidId } from "../utils.js";
+import { generateArchitectureNarrative, renderCitations } from "../narrative-engine.js";
 
 export function generateArchitecturePage(
   manifest: AnalysisManifest
@@ -353,4 +355,45 @@ graph ${nodes.length > 15 ? "TD" : "LR"}
   }
 
   return pages;
+}
+
+/**
+ * Generate an AI-enhanced architecture page with narrative prose.
+ */
+export async function generateArchitecturePageNarrative(
+  manifest: AnalysisManifest,
+  provider: AIProvider,
+  readFile: (filePath: string) => Promise<string>,
+  repoUrl?: string,
+  branch?: string
+): Promise<GeneratedPage> {
+  const basePage = generateArchitecturePage(manifest);
+
+  try {
+    const narrative = await generateArchitectureNarrative({
+      provider,
+      manifest,
+      readFile,
+    });
+
+    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, branch);
+
+    // Insert AI narrative after the dependency graph section
+    const diagramSections = narrative.suggestedDiagrams
+      .map((d) => `### ${d.title}\n\n\`\`\`mermaid\n${d.mermaidCode}\n\`\`\`\n`)
+      .join("\n");
+
+    const narrativeSection = `\n## Architecture Overview\n\n${prose}\n\n${diagramSections ? `## AI-Generated Diagrams\n\n${diagramSections}` : ""}`;
+
+    // Insert after the dependency graph, before module relationships
+    const insertPoint = basePage.content.indexOf("## Module Relationships");
+    if (insertPoint > 0) {
+      const content = basePage.content.slice(0, insertPoint) + narrativeSection + "\n" + basePage.content.slice(insertPoint);
+      return { ...basePage, content };
+    }
+
+    return { ...basePage, content: basePage.content + narrativeSection };
+  } catch {
+    return basePage;
+  }
 }

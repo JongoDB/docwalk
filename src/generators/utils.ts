@@ -212,6 +212,13 @@ export function resolveProjectName(manifest: AnalysisManifest): string {
   return path.basename(process.cwd());
 }
 
+// ─── Token Estimation ────────────────────────────────────────────────────────
+
+/** Estimate token count from text length (rough approximation: 1 token ≈ 4 chars). */
+export function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
+}
+
 // ─── Mermaid ────────────────────────────────────────────────────────────────
 
 export function sanitizeMermaidId(filePath: string): string {
@@ -270,6 +277,20 @@ export function parseConventionalType(message: string): string {
 }
 
 // ─── Symbol Cross-Reference Map ─────────────────────────────────────────────
+
+// ─── Try Mode Upsell ─────────────────────────────────────────────────────
+
+/**
+ * Append an upsell banner to a page's content for try-mode builds.
+ */
+export function appendTryUpsell(content: string, totalModules: number): string {
+  return content + `
+
+!!! tip "Unlock Full Documentation"
+    This is a preview. DocWalk Pro includes complete API reference for all ${totalModules} modules,
+    AI-powered narratives, end-user guides, and more.
+`;
+}
 
 export function buildSymbolPageMap(modules: ModuleInfo[]): Map<string, string> {
   const map = new Map<string, string>();
