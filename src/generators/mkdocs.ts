@@ -138,42 +138,53 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
   // ── 1. Generate pages ──────────────────────────────────────────────────
   const pages: GeneratedPage[] = [];
 
-  // Index / overview page
-  onProgress?.("Generating overview page...");
+  // Launch narrative pages in parallel when AI is enabled
   if (useNarrative) {
-    const overviewPage = await safeGenerateAsync("Overview",
-      () => generateOverviewPageNarrative(manifest, config, aiProvider!, readFile!), onProgress);
-    pages.push(overviewPage);
-  } else {
-    const overviewResult = safeGenerate("Overview", () => generateOverviewPage(manifest, config), onProgress);
-    pages.push(...(Array.isArray(overviewResult) ? overviewResult : [overviewResult]));
-  }
+    onProgress?.("Generating narrative pages (overview, getting started, architecture)...");
+    const narrativePromises: Array<Promise<GeneratedPage>> = [];
 
-  // Getting Started
-  if (useNarrative) {
-    const gsPage = await safeGenerateAsync("Getting Started",
-      () => generateGettingStartedPageNarrative(manifest, config, aiProvider!, readFile!), onProgress);
-    pages.push(gsPage);
-  } else {
-    const gettingStartedResult = safeGenerate("Getting Started", () => generateGettingStartedPage(manifest, config), onProgress);
-    pages.push(...(Array.isArray(gettingStartedResult) ? gettingStartedResult : [gettingStartedResult]));
-  }
+    narrativePromises.push(
+      safeGenerateAsync("Overview",
+        () => generateOverviewPageNarrative(manifest, config, aiProvider!, readFile!), onProgress)
+    );
+    narrativePromises.push(
+      safeGenerateAsync("Getting Started",
+        () => generateGettingStartedPageNarrative(manifest, config, aiProvider!, readFile!), onProgress)
+    );
 
-  // Architecture pages (tiered or flat)
-  if (config.analysis.dependency_graph) {
-    onProgress?.("Generating architecture pages...");
-    if (useNarrative && config.analysis.architecture_tiers === false) {
-      // Use narrative variant for flat architecture page
+    if (config.analysis.dependency_graph && config.analysis.architecture_tiers === false) {
       const repoUrl = config.source.repo.includes("/") ? config.source.repo : undefined;
-      const archPage = await safeGenerateAsync("Architecture",
-        () => generateArchitecturePageNarrative(manifest, aiProvider!, readFile!, repoUrl, config.source.branch), onProgress);
-      pages.push(archPage);
-    } else if (config.analysis.architecture_tiers !== false) {
+      narrativePromises.push(
+        safeGenerateAsync("Architecture",
+          () => generateArchitecturePageNarrative(manifest, aiProvider!, readFile!, repoUrl, config.source.branch), onProgress)
+      );
+    }
+
+    const narrativeResults = await Promise.all(narrativePromises);
+    pages.push(...narrativeResults);
+
+    // Add non-narrative architecture pages if not already handled
+    if (config.analysis.dependency_graph && config.analysis.architecture_tiers !== false) {
       const archResult = safeGenerate("Architecture", () => generateTieredArchitecturePages(manifest), onProgress);
       pages.push(...(Array.isArray(archResult) ? archResult : [archResult]));
-    } else {
-      const archResult = safeGenerate("Architecture", () => generateArchitecturePage(manifest), onProgress);
-      pages.push(...(Array.isArray(archResult) ? archResult : [archResult]));
+    }
+  } else {
+    // Non-narrative fallback (sequential, no LLM calls)
+    const overviewResult = safeGenerate("Overview", () => generateOverviewPage(manifest, config), onProgress);
+    pages.push(...(Array.isArray(overviewResult) ? overviewResult : [overviewResult]));
+
+    const gettingStartedResult = safeGenerate("Getting Started", () => generateGettingStartedPage(manifest, config), onProgress);
+    pages.push(...(Array.isArray(gettingStartedResult) ? gettingStartedResult : [gettingStartedResult]));
+
+    if (config.analysis.dependency_graph) {
+      onProgress?.("Generating architecture pages...");
+      if (config.analysis.architecture_tiers !== false) {
+        const archResult = safeGenerate("Architecture", () => generateTieredArchitecturePages(manifest), onProgress);
+        pages.push(...(Array.isArray(archResult) ? archResult : [archResult]));
+      } else {
+        const archResult = safeGenerate("Architecture", () => generateArchitecturePage(manifest), onProgress);
+        pages.push(...(Array.isArray(archResult) ? archResult : [archResult]));
+      }
     }
   }
 
@@ -241,56 +252,51 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
             generateFeaturesPageNarrative, generateTroubleshootingPageNarrative,
             generateFAQPageNarrative } = await import("./pages/index.js");
 
-    if (userDocsConfig?.overview !== false) {
-      if (useNarrative) {
-        const page = await safeGenerateAsync("User Guide",
-          () => generateUserGuidePageNarrative(manifest, config, aiProvider!), onProgress);
-        pages.push(page);
-      } else {
+    if (useNarrative) {
+      // Launch all user doc narrative pages in parallel
+      const userDocPromises: Array<Promise<GeneratedPage>> = [];
+
+      if (userDocsConfig?.overview !== false) {
+        userDocPromises.push(safeGenerateAsync("User Guide",
+          () => generateUserGuidePageNarrative(manifest, config, aiProvider!), onProgress));
+      }
+      if (userDocsConfig?.getting_started !== false) {
+        userDocPromises.push(safeGenerateAsync("User Getting Started",
+          () => generateUserGettingStartedPageNarrative(manifest, config, aiProvider!), onProgress));
+      }
+      if (userDocsConfig?.features !== false) {
+        userDocPromises.push(safeGenerateAsync("Features",
+          () => generateFeaturesPageNarrative(manifest, config, aiProvider!), onProgress));
+      }
+      if (userDocsConfig?.troubleshooting !== false) {
+        userDocPromises.push(safeGenerateAsync("Troubleshooting",
+          () => generateTroubleshootingPageNarrative(manifest, config, aiProvider!), onProgress));
+      }
+      if (userDocsConfig?.faq !== false) {
+        userDocPromises.push(safeGenerateAsync("FAQ",
+          () => generateFAQPageNarrative(manifest, config, aiProvider!), onProgress));
+      }
+
+      const userDocResults = await Promise.all(userDocPromises);
+      pages.push(...userDocResults);
+    } else {
+      if (userDocsConfig?.overview !== false) {
         const result = safeGenerate("User Guide", () => generateUserGuidePage(manifest, config), onProgress);
         pages.push(...(Array.isArray(result) ? result : [result]));
       }
-    }
-
-    if (userDocsConfig?.getting_started !== false) {
-      if (useNarrative) {
-        const page = await safeGenerateAsync("User Getting Started",
-          () => generateUserGettingStartedPageNarrative(manifest, config, aiProvider!), onProgress);
-        pages.push(page);
-      } else {
+      if (userDocsConfig?.getting_started !== false) {
         const result = safeGenerate("User Getting Started", () => generateUserGettingStartedPage(manifest, config), onProgress);
         pages.push(...(Array.isArray(result) ? result : [result]));
       }
-    }
-
-    if (userDocsConfig?.features !== false) {
-      if (useNarrative) {
-        const page = await safeGenerateAsync("Features",
-          () => generateFeaturesPageNarrative(manifest, config, aiProvider!), onProgress);
-        pages.push(page);
-      } else {
+      if (userDocsConfig?.features !== false) {
         const result = safeGenerate("Features", () => generateFeaturesPage(manifest, config), onProgress);
         pages.push(...(Array.isArray(result) ? result : [result]));
       }
-    }
-
-    if (userDocsConfig?.troubleshooting !== false) {
-      if (useNarrative) {
-        const page = await safeGenerateAsync("Troubleshooting",
-          () => generateTroubleshootingPageNarrative(manifest, config, aiProvider!), onProgress);
-        pages.push(page);
-      } else {
+      if (userDocsConfig?.troubleshooting !== false) {
         const result = safeGenerate("Troubleshooting", () => generateTroubleshootingPage(manifest, config), onProgress);
         pages.push(...(Array.isArray(result) ? result : [result]));
       }
-    }
-
-    if (userDocsConfig?.faq !== false) {
-      if (useNarrative) {
-        const page = await safeGenerateAsync("FAQ",
-          () => generateFAQPageNarrative(manifest, config, aiProvider!), onProgress);
-        pages.push(page);
-      } else {
+      if (userDocsConfig?.faq !== false) {
         const result = safeGenerate("FAQ", () => generateFAQPage(manifest, config), onProgress);
         pages.push(...(Array.isArray(result) ? result : [result]));
       }

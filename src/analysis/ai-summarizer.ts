@@ -177,8 +177,8 @@ export async function summarizeModules(
     readFile,
     previousCache,
     onProgress,
-    concurrency = 3,
-    delayMs = 200,
+    concurrency = 10,
+    delayMs = 0,
   } = options;
 
   // Create provider — gracefully bail if no API key
@@ -199,12 +199,14 @@ export async function summarizeModules(
   let cached = 0;
   let failed = 0;
 
-  // Process modules
-  const updatedModules: ModuleInfo[] = [];
+  // Determine if we should skip symbol-level summaries (local/small models)
+  const isLocal = providerConfig.name === "local" || providerConfig.name === "ollama";
 
-  for (let i = 0; i < modules.length; i++) {
-    const mod = modules[i];
-    onProgress?.(i + 1, modules.length, `Summarizing ${mod.filePath}`);
+  // Process modules in parallel, bounded by the rate limiter
+  let progressCount = 0;
+
+  async function processModule(mod: ModuleInfo): Promise<ModuleInfo> {
+    onProgress?.(++progressCount, modules.length, `Summarizing ${mod.filePath}`);
 
     // Check cache for module summary
     const cachedModuleSummary = cache.get(mod.contentHash);
@@ -217,7 +219,7 @@ export async function summarizeModules(
       try {
         await limiter.acquire();
         const content = await readFile(mod.filePath);
-        moduleSummary = await provider.summarizeModule(mod, content);
+        moduleSummary = await provider!.summarizeModule(mod, content);
         cache.set(mod.contentHash, moduleSummary);
         generated++;
       } catch {
@@ -227,42 +229,46 @@ export async function summarizeModules(
       }
     }
 
-    // Summarize exported symbols (only public API surface)
+    // Symbol-level summaries — skip for local models (low quality on small models,
+    // and the call volume is the main bottleneck)
     const updatedSymbols = [...mod.symbols];
-    const exportedSymbols = updatedSymbols.filter(
-      (s) => s.exported && (s.kind === "function" || s.kind === "class" || s.kind === "interface")
-    );
+    if (!isLocal) {
+      const exportedSymbols = updatedSymbols.filter(
+        (s) => s.exported && (s.kind === "function" || s.kind === "class" || s.kind === "interface")
+      );
 
-    for (const sym of exportedSymbols) {
-      // Build a content-based cache key for the symbol
-      const symbolCacheKey = `${mod.contentHash}:${sym.id}`;
-      const cachedSymSummary = cache.get(symbolCacheKey);
+      await Promise.all(exportedSymbols.map(async (sym) => {
+        const symbolCacheKey = `${mod.contentHash}:${sym.id}`;
+        const cachedSymSummary = cache.get(symbolCacheKey);
 
-      if (cachedSymSummary) {
-        sym.aiSummary = cachedSymSummary;
-        cached++;
-      } else {
-        try {
-          await limiter.acquire();
-          const content = await readFile(mod.filePath);
-          const summary = await provider.summarizeSymbol(sym, content, mod.filePath);
-          sym.aiSummary = summary;
-          cache.set(symbolCacheKey, summary);
-          generated++;
-        } catch {
-          failed++;
-        } finally {
-          await limiter.release();
+        if (cachedSymSummary) {
+          sym.aiSummary = cachedSymSummary;
+          cached++;
+        } else {
+          try {
+            await limiter.acquire();
+            const content = await readFile(mod.filePath);
+            const summary = await provider!.summarizeSymbol(sym, content, mod.filePath);
+            sym.aiSummary = summary;
+            cache.set(symbolCacheKey, summary);
+            generated++;
+          } catch {
+            failed++;
+          } finally {
+            await limiter.release();
+          }
         }
-      }
+      }));
     }
 
-    updatedModules.push({
+    return {
       ...mod,
       aiSummary: moduleSummary,
       symbols: updatedSymbols,
-    });
+    };
   }
+
+  const updatedModules = await Promise.all(modules.map(processModule));
 
   return {
     modules: updatedModules,
