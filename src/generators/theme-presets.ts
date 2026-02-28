@@ -838,8 +838,14 @@ if (typeof document$ !== "undefined") {
   function attachZoom(svg) {
     if (svg.dataset.dwZoom) return;
     svg.dataset.dwZoom = "1";
-    svg.style.cursor = "zoom-in";
-    svg.addEventListener("click", function(e) {
+    var parent = svg.parentNode;
+    if (!parent) return;
+    /* Transparent overlay captures clicks above Mermaid's internal handlers */
+    var hit = document.createElement("div");
+    hit.style.cssText = "position:absolute;inset:0;cursor:zoom-in;z-index:1";
+    parent.style.position = "relative";
+    parent.appendChild(hit);
+    hit.addEventListener("click", function(e) {
       e.preventDefault();
       e.stopPropagation();
       openOverlay(svg);
