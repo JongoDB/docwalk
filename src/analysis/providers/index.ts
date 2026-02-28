@@ -11,6 +11,7 @@ export { OpenAIProvider } from "./openai.js";
 export { GeminiProvider } from "./gemini.js";
 export { OllamaProvider } from "./ollama.js";
 export { OpenRouterProvider } from "./openrouter.js";
+export { DocWalkProxyProvider } from "./docwalk-proxy.js";
 
 import type { AnalysisConfig } from "../../config/schema.js";
 import type { AIProvider } from "./base.js";
@@ -19,6 +20,7 @@ import { OpenAIProvider } from "./openai.js";
 import { GeminiProvider } from "./gemini.js";
 import { OllamaProvider } from "./ollama.js";
 import { OpenRouterProvider } from "./openrouter.js";
+import { DocWalkProxyProvider } from "./docwalk-proxy.js";
 
 /** Well-known environment variable names for each provider. */
 const WELL_KNOWN_ENV_VARS: Record<string, string[]> = {
@@ -96,7 +98,18 @@ export function createProvider(
       // "local" is an alias for Ollama
       return new OllamaProvider(config.model, config.base_url || undefined);
     }
+    case "docwalk-proxy": {
+      return new DocWalkProxyProvider(config.base_url || undefined);
+    }
     default:
       return undefined;
   }
+}
+
+/**
+ * Convenience factory for the DocWalk proxy provider.
+ * Used by the CLI auto-fallback when no API key is available.
+ */
+export function createProxyFallback(baseURL?: string): AIProvider {
+  return new DocWalkProxyProvider(baseURL);
 }

@@ -102,7 +102,7 @@ export const AnalysisSchema = z.object({
   /** AI provider for summaries and narrative generation */
   ai_provider: z
     .object({
-      name: z.enum(["openai", "anthropic", "gemini", "ollama", "openrouter", "local"]).default("anthropic"),
+      name: z.enum(["openai", "anthropic", "gemini", "ollama", "openrouter", "local", "docwalk-proxy"]).default("anthropic"),
       model: z.string().optional(),
       api_key_env: z
         .string()

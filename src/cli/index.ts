@@ -58,6 +58,8 @@ program
   .option("--dry-run", "Show what would be generated without writing files")
   .option("--ai", "Enable AI features using DOCWALK_AI_KEY environment variable")
   .option("--try-mode", "Try mode: limit output and append upsell banners")
+  .option("-t, --theme <theme>", "Theme preset (developer, corporate, startup, minimal)")
+  .option("-l, --layout <layout>", "Navigation layout (tabs, sidebar, tabs-sticky)")
   .option("-v, --verbose", "Verbose output")
   .action(async (options) => {
     const { generateCommand } = await import("./commands/generate.js");

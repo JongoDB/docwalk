@@ -798,6 +798,20 @@ if (typeof document$ !== "undefined") {
         }
       }));
     }
+    /* Make Mermaid diagrams zoomable via glightbox */
+    document.querySelectorAll("pre.mermaid svg, .mermaid svg").forEach(function(svg) {
+      if (svg.closest("a[data-glightbox]")) return;
+      var serializer = new XMLSerializer();
+      var svgStr = serializer.serializeToString(svg);
+      var dataUri = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgStr);
+      var link = document.createElement("a");
+      link.href = dataUri;
+      link.setAttribute("data-glightbox", "type: image; description-position: bottom");
+      link.setAttribute("data-title", "Diagram");
+      link.style.cursor = "zoom-in";
+      svg.parentNode.insertBefore(link, svg);
+      link.appendChild(svg);
+    });
   });
 }
 `,

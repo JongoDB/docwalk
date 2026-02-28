@@ -13,6 +13,7 @@ import { readFile as fsReadFile } from "fs/promises";
 import { loadConfig, loadConfigFile } from "../../config/loader.js";
 import { analyzeCodebase } from "../../analysis/engine.js";
 import { generateDocs } from "../../generators/mkdocs.js";
+import { resolveApiKey } from "../../analysis/providers/index.js";
 import { log, header, blank, setVerbose } from "../../utils/logger.js";
 import { resolveRepoRoot } from "../../utils/index.js";
 import simpleGit from "simple-git";
@@ -25,6 +26,8 @@ interface GenerateOptions {
   verbose?: boolean;
   ai?: boolean;
   tryMode?: boolean;
+  theme?: string;
+  layout?: string;
 }
 
 export async function generateCommand(options: GenerateOptions): Promise<void> {
@@ -41,6 +44,16 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
 
   log("success", `Config loaded from ${chalk.dim(filepath)}`);
 
+  // ── Apply --theme / --layout overrides ──────────────────────────────────
+  if (options.theme) {
+    config.theme.preset = options.theme;
+    log("info", `Theme preset: ${chalk.bold(options.theme)}`);
+  }
+  if (options.layout) {
+    config.theme.layout = options.layout as "tabs" | "sidebar" | "tabs-sticky";
+    log("info", `Layout: ${chalk.bold(options.layout)}`);
+  }
+
   // ── Apply --ai flag overrides ───────────────────────────────────────────
   if (options.ai) {
     config.analysis.ai_summaries = true;
@@ -54,6 +67,16 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
         model: "gemini-2.0-flash",
         api_key_env: "DOCWALK_AI_KEY",
       };
+    }
+
+    // Auto-fallback: if the provider needs an API key but none is found,
+    // swap to the DocWalk proxy (free Gemini Flash via api.docwalk.dev)
+    const provName = config.analysis.ai_provider.name;
+    const keyEnv = config.analysis.ai_provider.api_key_env;
+    const needsKey = provName !== "ollama" && provName !== "local" && provName !== "docwalk-proxy";
+    if (needsKey && !resolveApiKey(provName, keyEnv)) {
+      log("info", "No API key found — using DocWalk's free AI service (powered by Gemini Flash)");
+      config.analysis.ai_provider.name = "docwalk-proxy";
     }
   }
 
@@ -138,7 +161,7 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
       log("success", `AI summaries: ${aiModules.length}/${manifest.modules.length} modules (${aiTime}s via ${providerLabel})`);
     } else if (!config.analysis.ai_provider) {
       log("warn", "AI summaries enabled but no ai_provider configured");
-    } else if (config.analysis.ai_provider.name !== "ollama" && config.analysis.ai_provider.name !== "local") {
+    } else if (config.analysis.ai_provider.name !== "ollama" && config.analysis.ai_provider.name !== "local" && config.analysis.ai_provider.name !== "docwalk-proxy") {
       const keyEnv = config.analysis.ai_provider.api_key_env;
       log("warn", `AI summaries enabled but ${keyEnv} environment variable not set`);
     } else {
