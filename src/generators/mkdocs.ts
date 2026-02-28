@@ -674,7 +674,15 @@ function generateMkdocsConfig(
   let pluginsYaml = `plugins:
   - search:
       lang: en
-  - glightbox
+  - glightbox:
+      touchNavigation: true
+      loop: false
+      effect: zoom
+      slide_effect: slide
+      width: 100%
+      height: auto
+      zoomable: true
+      draggable: true
   - minify:
       minify_html: true`;
 
