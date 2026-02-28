@@ -11,7 +11,7 @@ import type { ModuleInfo, Symbol } from "../types.js";
 import type { AIProvider, GenerateOptions } from "./base.js";
 import { buildModuleSummaryPrompt, buildSymbolSummaryPrompt } from "./base.js";
 
-const DEFAULT_BASE_URL = "https://api.docwalk.dev";
+const DEFAULT_BASE_URL = "https://docwalk-ai-proxy.jonathanrannabargar.workers.dev";
 
 export class DocWalkProxyProvider implements AIProvider {
   readonly name = "DocWalk Proxy (Gemini Flash)";
