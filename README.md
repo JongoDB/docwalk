@@ -6,7 +6,7 @@
 
 **Your codebase, documented. Automatically.**
 
-Analyze any repository, generate a full [MkDocs Material](https://squidfunk.github.io/mkdocs-material/) documentation site with AI-written narrative prose, and keep it in sync with every commit. Deploy anywhere in one command.
+Analyze any repository, generate a full documentation site with AI-written narrative prose, and keep it in sync with every commit. Deploy anywhere in one command.
 
 [![npm version](https://img.shields.io/npm/v/docwalk?color=%235de4c7&style=flat-square)](https://www.npmjs.com/package/docwalk)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
@@ -22,7 +22,7 @@ Analyze any repository, generate a full [MkDocs Material](https://squidfunk.gith
 DocWalk is a CLI tool that turns any codebase into a professional documentation site. It:
 
 1. **Analyzes** your repository — AST parsing, symbol extraction, dependency graphs across 19 languages
-2. **Generates** a complete MkDocs Material site — developer reference, end-user guides, architecture diagrams, and more
+2. **Generates** a complete documentation site — developer reference, end-user guides, architecture diagrams, and more
 3. **Writes** AI-powered narrative documentation — not just templates, but real prose explaining your code
 4. **Deploys** to GitHub Pages, Cloudflare Pages, Vercel, Netlify, or S3 — with custom domain support
 5. **Syncs** incrementally — uses `git diff` to only re-analyze changed files, keeping docs up-to-date in seconds
@@ -31,24 +31,53 @@ DocWalk is a CLI tool that turns any codebase into a professional documentation 
 
 ```bash
 # Initialize DocWalk in your repo
-npx docwalk init --repo your-org/your-repo
+npx docwalk init
 
-# Analyze and generate documentation
+# Generate documentation
 npx docwalk generate
 
 # Preview locally
 npx docwalk dev
 
-# Deploy to your chosen provider
-npx docwalk deploy --provider cloudflare --domain docs.yoursite.com/project
+# Deploy
+npx docwalk deploy
+```
+
+That's it. No API keys, no config files, no accounts required for the basics.
+
+### With AI (zero config)
+
+```bash
+# AI summaries, narratives, and diagrams — no API key needed
+npx docwalk generate --ai
+```
+
+When you pass `--ai` without any API key configured, DocWalk automatically routes through its free AI proxy service (powered by Gemini Flash). No setup required.
+
+### With your own API key
+
+```bash
+# Use your own key for higher rate limits
+export DOCWALK_AI_KEY=your-key-here
+npx docwalk generate --ai
+```
+
+### Customize theme and layout
+
+```bash
+# Pick a theme and layout directly from the CLI
+npx docwalk generate --theme startup --layout sidebar
+
+# Or use the interactive init wizard for full customization
+npx docwalk init
 ```
 
 ## How It Works
 
 ```
 ┌──────────┐     ┌──────────────┐     ┌───────────────┐     ┌──────────┐
-│   Git    │────▶│  DocWalk     │────▶│  MkDocs       │────▶│  Edge    │
-│   Repo   │     │  Engine      │     │  Material     │     │  Network │
+│   Git    │────▶│  DocWalk     │────▶│  Zensical     │────▶│  Edge    │
+│   Repo   │     │  Engine      │     │  (MkDocs)     │     │  Network │
 └──────────┘     └──────────────┘     └───────────────┘     └──────────┘
   Source         AST parsing,          Static site          Cloudflare,
   code           AI narratives,        generation with      GitHub Pages,
@@ -78,17 +107,24 @@ npx docwalk sync --full
 
 ## AI-Powered Documentation
 
-When AI is enabled, DocWalk generates LLM-written narrative prose instead of template strings. The AI engine supports multiple providers — bring your own API key.
+DocWalk's AI engine writes narrative documentation, generates diagrams, and builds user guides. It works out of the box with zero configuration via the built-in proxy, or you can bring your own API key for higher rate limits.
 
-### Multi-Provider LLM Support
+### AI Providers
 
-| Provider | Model | Notes |
+| Provider | Model | Setup |
 |----------|-------|-------|
-| **Anthropic** | Claude | Default for Pro tier |
-| **OpenAI** | GPT-4o | Full API support |
-| **Google Gemini** | Gemini 2.0 Flash | Free tier available |
-| **Ollama** | Any local model | Self-hosted, private |
-| **OpenRouter** | Any model | Multi-model gateway |
+| **DocWalk Proxy** | Gemini 2.5 Flash | Zero config — used automatically when no key is set |
+| **Google Gemini** | Gemini 2.5 Flash | `export GEMINI_API_KEY=...` or `export DOCWALK_AI_KEY=...` |
+| **Anthropic** | Claude | `export ANTHROPIC_API_KEY=...` |
+| **OpenAI** | GPT-4o | `export OPENAI_API_KEY=...` |
+| **OpenRouter** | Any model | `export OPENROUTER_API_KEY=...` |
+| **Ollama** | Any local model | Self-hosted, no key needed |
+
+DocWalk checks for API keys in this order:
+1. The configured `api_key_env` variable (default: `DOCWALK_AI_KEY`)
+2. `DOCWALK_AI_KEY` (universal override)
+3. Provider-specific well-known variables (e.g. `ANTHROPIC_API_KEY`)
+4. If nothing is found → automatic fallback to the free DocWalk proxy
 
 ### What AI Generates
 
@@ -96,6 +132,7 @@ When AI is enabled, DocWalk generates LLM-written narrative prose instead of tem
 - **Source citations** linking prose back to specific files and line numbers
 - **Sequence diagrams** showing interaction flows between components
 - **Flowcharts** visualizing data pipelines and processing steps
+- **Module summaries** for every file in your codebase
 - **FAQ answers** generated from project signals
 - **Troubleshooting guides** based on detected error types
 - **Dynamic page structure** — the AI analyzes your codebase and suggests which conceptual pages to generate
@@ -108,13 +145,30 @@ Instead of dumping entire files into prompts, DocWalk's context builder assemble
 - Transitive dependencies, same-directory files, and README sections fill the token budget
 - Result: focused, relevant context for every LLM call
 
+## Theme Presets
+
+DocWalk ships with four built-in themes. Pass `--theme` to `init` or `generate`, or set `theme.preset` in config.
+
+| Preset | Style |
+|--------|-------|
+| **developer** | Dark-first, code-dense, mint accent (default) |
+| **corporate** | Clean, professional, navy palette |
+| **startup** | Vibrant, modern, purple + amber |
+| **minimal** | Reading-focused, distraction-free |
+
+Layout modes: `tabs` (default), `sidebar`, `tabs-sticky`
+
+```bash
+npx docwalk generate --theme corporate --layout tabs-sticky
+```
+
 ## End-User Documentation
 
 DocWalk generates two documentation audiences in a single build:
 
-**Developer Reference** (existing) — architecture, API reference, module docs, types, dependencies
+**Developer Reference** — architecture, API reference, module docs, types, dependencies
 
-**User Guide** (new) — documentation for people who *use* the software, not just build it:
+**User Guide** — documentation for people who *use* the software, not just build it:
 
 | Page | Content |
 |------|---------|
@@ -126,14 +180,6 @@ DocWalk generates two documentation audiences in a single build:
 
 User content is extracted from CLI commands (Commander/Yargs/argparse patterns), API routes (Express/Koa/Flask), config schemas (Zod/JSON Schema), and error classes.
 
-## Q&A Widget
-
-Embed an interactive chat widget in your generated docs that answers questions about your codebase using RAG:
-
-1. **Build-time:** Pages are chunked, embedded, and serialized to a search index
-2. **Query-time:** Widget sends questions to the Q&A API, which finds relevant chunks via cosine similarity and prompts the LLM with context
-3. **Result:** Answers with citations back to your documentation pages
-
 ## Architecture Diagrams
 
 DocWalk generates multiple diagram types using [Mermaid](https://mermaid.js.org/):
@@ -143,13 +189,15 @@ DocWalk generates multiple diagram types using [Mermaid](https://mermaid.js.org/
 - **Sequence diagrams** — component interaction flows (AI-generated)
 - **Flowcharts** — data processing pipelines (AI-generated)
 
+All diagrams are zoomable — click any diagram to open a full-screen zoom/pan overlay.
+
 ## Monorepo Support
 
 DocWalk detects workspace structures (npm workspaces, pnpm-workspace.yaml, Lerna) and resolves cross-package imports. Architecture diagrams show edges between workspace packages instead of dead ends.
 
 ## Configuration
 
-DocWalk is configured via a single `docwalk.config.yml` in your repo root:
+DocWalk is configured via `docwalk.config.yml` in your repo root. Run `npx docwalk init` to generate one interactively, or create it manually:
 
 ```yaml
 source:
@@ -163,8 +211,8 @@ analysis:
   depth: full              # full | surface | api-only
   ai_summaries: true       # Enable AI-powered descriptions
   ai_provider:
-    name: gemini           # anthropic | openai | gemini | ollama | openrouter
-    model: gemini-2.0-flash
+    name: gemini           # anthropic | openai | gemini | ollama | openrouter | docwalk-proxy
+    model: gemini-2.5-flash
   ai_narrative: true       # LLM-written prose on pages
   ai_diagrams: true        # AI-generated sequence/flow diagrams
   ai_structure: false      # AI-suggested page structure
@@ -196,6 +244,8 @@ domain:
   dns_auto: true
 
 theme:
+  preset: developer        # developer | corporate | startup | minimal
+  layout: tabs             # tabs | sidebar | tabs-sticky
   palette: slate
   accent: "#5de4c7"
   features:
@@ -204,8 +254,6 @@ theme:
     - search.suggest
     - content.code.copy
 ```
-
-Run `npx docwalk init` for an interactive setup wizard that generates this for you.
 
 ## Deploy Providers
 
@@ -218,87 +266,40 @@ Run `npx docwalk init` for an interactive setup wizard that generates this for y
 | **AWS S3** | AWS CLI | CloudFront | Manual | `.github/workflows/docwalk-deploy.yml` |
 
 ```bash
-# Generate CI/CD pipeline for your provider
+# Deploy to your configured provider
+npx docwalk deploy
+
+# Override provider and domain
+npx docwalk deploy --provider cloudflare --domain docs.yoursite.com
+
+# Generate CI/CD pipeline for automatic deploys
 npx docwalk ci-setup
 ```
-
-## Custom Domains
-
-DocWalk handles domain configuration automatically:
-
-```bash
-# Subdomain
-npx docwalk deploy --domain docs.yoursite.com
-
-# Subdomain + subpath
-npx docwalk deploy --domain docs.yoursite.com/project
-
-# Root domain
-npx docwalk deploy --domain docs.yourproduct.dev
-```
-
-DNS records, SSL certificates, and reverse proxy configs are provisioned automatically through your provider's API.
-
-## Supported Languages
-
-TypeScript, JavaScript, Python, Go, Rust, Java, C#, Ruby, PHP, Swift, Kotlin, Scala, Elixir, Dart, Lua, Zig, Haskell, C, C++
-
-Uses [tree-sitter](https://tree-sitter.github.io/tree-sitter/) for accurate AST parsing. Custom language parsers can be added via the plugin API.
 
 ## CLI Reference
 
 | Command | Description |
 |---------|-------------|
-| `docwalk init` | Interactive setup wizard |
+| `docwalk init` | Interactive setup wizard — creates `docwalk.config.yml` |
 | `docwalk generate` | Analyze codebase and generate docs |
+| `docwalk generate --ai` | Generate with AI summaries, narratives, and diagrams |
+| `docwalk generate --theme <preset>` | Generate with a specific theme preset |
+| `docwalk generate --layout <mode>` | Generate with a specific layout (tabs, sidebar, tabs-sticky) |
 | `docwalk sync` | Incremental sync via git-diff |
 | `docwalk deploy` | Deploy to hosting provider |
+| `docwalk undeploy` | Remove deployment from hosting provider |
 | `docwalk dev` | Start local preview server |
+| `docwalk dev --watch` | Preview with auto-regeneration on file changes |
 | `docwalk status` | Show sync state and project info |
+| `docwalk doctor` | Check prerequisites (Zensical/Python) |
+| `docwalk doctor --install` | Auto-install missing dependencies |
 | `docwalk ci-setup` | Generate CI/CD pipeline config |
+| `docwalk version list` | List available documentation versions |
+| `docwalk version deploy <tag>` | Deploy a specific version tag |
 
-## Project Structure
+## Supported Languages
 
-```
-docwalk/
-├── src/
-│   ├── cli/              # Commander.js CLI + subcommands
-│   │   ├── index.ts      # CLI entry point
-│   │   └── commands/     # init, generate, sync, deploy, dev, status, ci-setup
-│   ├── analysis/         # Static analysis engine
-│   │   ├── engine.ts     # Multi-pass analysis orchestrator
-│   │   ├── parsers/      # Per-language tree-sitter parsers
-│   │   ├── providers/    # AI providers (Anthropic, OpenAI, Gemini, Ollama, OpenRouter)
-│   │   ├── context-builder.ts   # Smart context assembly for LLM calls
-│   │   ├── workspace-resolver.ts # Monorepo workspace detection
-│   │   ├── structure-advisor.ts  # AI-driven page structure suggestions
-│   │   ├── types.ts      # Core type definitions
-│   │   ├── language-detect.ts
-│   │   └── file-discovery.ts
-│   ├── generators/       # MkDocs Material site generator
-│   │   ├── mkdocs.ts     # Page orchestration + mkdocs.yml
-│   │   ├── narrative-engine.ts  # AI prose generation with citations
-│   │   ├── diagrams.ts          # Multi-type Mermaid diagram generation
-│   │   ├── user-content-extractor.ts  # CLI/route/config signal extraction
-│   │   ├── pages/        # Per-page generators (overview, architecture, module,
-│   │   │                 #   user-guide, features, troubleshooting, faq, etc.)
-│   │   └── qa-widget/    # Embeddable Q&A chat component
-│   ├── qa/               # Q&A RAG pipeline (chunker, embedder, vector store)
-│   ├── sync/             # Git-diff incremental sync engine
-│   │   └── engine.ts     # Diff computation, impact analysis
-│   ├── deploy/           # Hosting provider integrations
-│   │   ├── index.ts      # Provider interface + registry
-│   │   └── providers/    # gh-pages, cloudflare, vercel, netlify, s3
-│   ├── config/           # Zod-validated configuration
-│   │   ├── schema.ts     # Config schema definitions
-│   │   └── loader.ts     # cosmiconfig-based loader
-│   ├── utils/            # Shared utilities
-│   └── index.ts          # Public API exports
-├── worker/               # Cloudflare Workers (Try It, Q&A API)
-├── tests/                # Unit + integration tests (506 tests)
-├── docs/                 # DocWalk's own documentation
-└── package.json
-```
+TypeScript, JavaScript, Python, Go, Rust, Java, C#, Ruby, PHP, Swift, Kotlin, Scala, Elixir, Dart, Lua, Zig, Haskell, C, C++
 
 ## Development
 
@@ -308,11 +309,11 @@ cd docwalk
 npm install
 
 # Run in dev mode
-npm run docwalk -- init --repo your-org/your-repo
+npm run docwalk -- init
 npm run docwalk -- generate
 npm run docwalk -- dev
 
-# Tests
+# Tests (517 tests)
 npm test
 
 # Type check
