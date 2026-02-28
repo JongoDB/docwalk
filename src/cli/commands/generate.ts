@@ -190,13 +190,13 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
   blank();
   log("success", `Documentation generated: ${pageCount} pages written`);
 
-  // Non-blocking check: nudge if MkDocs Material isn't installed
+  // Non-blocking check: nudge if Zensical isn't installed
   try {
     const { execa } = await import("execa");
-    await execa("python3", ["-c", "import material"]);
+    await execa("python3", ["-c", "import zensical"]);
   } catch {
     blank();
-    log("warn", "MkDocs Material not installed — needed for preview/deploy");
+    log("warn", "Zensical not installed — needed for preview/deploy");
     console.log(`    Run: ${chalk.cyan("docwalk doctor --install")}`);
   }
 

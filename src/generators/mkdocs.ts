@@ -1,9 +1,9 @@
 /**
- * DocWalk Generator — MkDocs Material
+ * DocWalk Generator — Zensical (MkDocs-compatible)
  *
- * Transforms an AnalysisManifest into a complete MkDocs Material
- * documentation site: Markdown pages, mkdocs.yml, navigation tree,
- * and supporting assets.
+ * Transforms an AnalysisManifest into a complete documentation site:
+ * Markdown pages, mkdocs.yml, navigation tree, and supporting assets.
+ * Zensical reads mkdocs.yml natively, so the output format is unchanged.
  *
  * Page generators are split into individual modules under ./pages/.
  * Shared utilities live in ./utils.ts.
@@ -105,7 +105,7 @@ async function safeGenerateAsync(
 }
 
 /**
- * Generate a complete MkDocs Material documentation site.
+ * Generate a complete documentation site (Zensical / MkDocs-compatible).
  */
 export async function generateDocs(options: GenerateOptions): Promise<void> {
   const { manifest, config, outputDir, onProgress, hooks, readFile, tryMode } = options;

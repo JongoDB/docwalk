@@ -2,16 +2,16 @@
  * CLI Tool Detection Utilities
  *
  * Provides user-friendly error messages when required external
- * CLI tools (wrangler, vercel, mkdocs, gh) are not installed.
+ * CLI tools (wrangler, vercel, zensical, gh) are not installed.
  */
 
 import chalk from "chalk";
 
-/** Required Python packages for MkDocs Material documentation sites. */
-export const MKDOCS_PACKAGES = ["mkdocs-material", "mkdocs-minify-plugin", "mkdocs-glightbox"];
+/** Required Python packages for Zensical documentation sites. */
+export const ZENSICAL_PACKAGES = ["zensical"];
 
-/** pip install command for all required MkDocs packages. */
-export const MKDOCS_INSTALL_CMD = `pip install ${MKDOCS_PACKAGES.join(" ")}`;
+/** pip install command for Zensical. */
+export const ZENSICAL_INSTALL_CMD = `pip install ${ZENSICAL_PACKAGES.join(" ")}`;
 
 /** Known CLI tools with install instructions. */
 const TOOL_INFO: Record<string, { name: string; install: string; docs: string }> = {
@@ -25,10 +25,10 @@ const TOOL_INFO: Record<string, { name: string; install: string; docs: string }>
     install: "npm install -g vercel",
     docs: "https://vercel.com/docs/cli",
   },
-  mkdocs: {
-    name: "MkDocs",
-    install: MKDOCS_INSTALL_CMD,
-    docs: "https://squidfunk.github.io/mkdocs-material/getting-started/",
+  zensical: {
+    name: "Zensical",
+    install: ZENSICAL_INSTALL_CMD,
+    docs: "https://zensical.dev/getting-started/",
   },
   gh: {
     name: "GitHub CLI",
@@ -44,11 +44,6 @@ const TOOL_INFO: Record<string, { name: string; install: string; docs: string }>
     name: "AWS CLI",
     install: "https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html",
     docs: "https://docs.aws.amazon.com/cli/latest/reference/",
-  },
-  mike: {
-    name: "mike (MkDocs versioning)",
-    install: "pip install mike",
-    docs: "https://github.com/jimporter/mike",
   },
 };
 

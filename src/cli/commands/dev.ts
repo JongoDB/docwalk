@@ -1,14 +1,14 @@
 /**
  * DocWalk CLI — dev command
  *
- * Starts MkDocs' built-in dev server for local preview.
+ * Starts Zensical's built-in dev server for local preview.
  * Supports --watch to auto-regenerate docs when source files change.
  */
 
 import chalk from "chalk";
 import path from "path";
 import { loadConfig, loadConfigFile } from "../../config/loader.js";
-import { ToolNotFoundError, runTool, MKDOCS_INSTALL_CMD } from "../../utils/cli-tools.js";
+import { ToolNotFoundError, runTool, ZENSICAL_INSTALL_CMD } from "../../utils/cli-tools.js";
 import { log, header, blank, setVerbose } from "../../utils/logger.js";
 import { resolveRepoRoot } from "../../utils/index.js";
 
@@ -71,7 +71,7 @@ async function startWatcher(
         cwd: repoRoot,
         stdio: verbose ? "inherit" : "pipe",
       });
-      log("success", "Docs regenerated. MkDocs will pick up changes automatically.");
+      log("success", "Docs regenerated. Zensical will pick up changes automatically.");
     } catch {
       log("warn", "Regeneration failed — check your source files for errors.");
     }
@@ -133,13 +133,13 @@ export async function devCommand(options: DevOptions): Promise<void> {
     await startWatcher(repoRoot, config.source.include, !!options.verbose);
   }
 
-  // ── Start MkDocs dev server ────────────────────────────────────────────
+  // ── Start Zensical dev server ──────────────────────────────────────────
   log("info", `Starting dev server on ${options.host}:${options.port}...`);
   blank();
 
   try {
     await runTool(
-      "mkdocs",
+      "zensical",
       [
         "serve",
         "--config-file",
@@ -151,25 +151,25 @@ export async function devCommand(options: DevOptions): Promise<void> {
     );
   } catch (error) {
     if (error instanceof ToolNotFoundError) {
-      log("error", "MkDocs Material is required to preview docs.");
+      log("error", "Zensical is required to preview docs.");
       blank();
       log("info", "Install it with:");
-      console.log(`    ${chalk.cyan(MKDOCS_INSTALL_CMD)}`);
+      console.log(`    ${chalk.cyan(ZENSICAL_INSTALL_CMD)}`);
       blank();
       log("info", "If you don't have Python installed:");
       console.log(`    ${chalk.cyan("brew install python")}     ${chalk.dim("# macOS")}`);
       console.log(`    ${chalk.cyan("sudo apt install python3")} ${chalk.dim("# Ubuntu/Debian")}`);
       blank();
       log("info", "Then run:");
-      console.log(`    ${chalk.cyan(MKDOCS_INSTALL_CMD)}`);
+      console.log(`    ${chalk.cyan(ZENSICAL_INSTALL_CMD)}`);
       console.log(`    ${chalk.cyan("docwalk dev")}`);
       process.exit(1);
     }
 
-    log("error", "Failed to start MkDocs dev server.");
+    log("error", "Failed to start Zensical dev server.");
     blank();
-    log("info", "Make sure MkDocs Material is installed:");
-    console.log(`    ${chalk.cyan(MKDOCS_INSTALL_CMD)}`);
+    log("info", "Make sure Zensical is installed:");
+    console.log(`    ${chalk.cyan(ZENSICAL_INSTALL_CMD)}`);
     blank();
     log("info", "Then generate docs first:");
     console.log(`    ${chalk.cyan("docwalk generate")}`);

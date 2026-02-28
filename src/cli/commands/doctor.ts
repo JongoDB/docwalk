@@ -1,12 +1,12 @@
 /**
  * DocWalk CLI — doctor command
  *
- * Checks all MkDocs prerequisites (Python, pip, required packages)
+ * Checks all Zensical prerequisites (Python, pip, required packages)
  * and optionally installs missing packages with --install.
  */
 
 import chalk from "chalk";
-import { MKDOCS_PACKAGES } from "../../utils/cli-tools.js";
+import { ZENSICAL_PACKAGES } from "../../utils/cli-tools.js";
 import { log, header, blank } from "../../utils/logger.js";
 
 interface DoctorOptions {
@@ -83,7 +83,7 @@ export async function doctorCommand(options: DoctorOptions): Promise<void> {
   results.push(await checkPip());
 
   // Check each required package
-  for (const pkg of MKDOCS_PACKAGES) {
+  for (const pkg of ZENSICAL_PACKAGES) {
     results.push(await checkPackage(pkg));
   }
 

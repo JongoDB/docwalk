@@ -113,15 +113,15 @@ EOF
     echo "  ⚠ Index page suspiciously small ($INDEX_SIZE bytes)"
   fi
 
-  # Run mkdocs build if available
+  # Run zensical build if available
   MKDOCS_WARNINGS=0
-  if command -v mkdocs &>/dev/null; then
-    echo "  Running mkdocs build..."
-    MKDOCS_OUTPUT=$(cd "$OUTPUT_DIR" && mkdocs build 2>&1) || true
+  if command -v zensical &>/dev/null; then
+    echo "  Running zensical build..."
+    MKDOCS_OUTPUT=$(cd "$OUTPUT_DIR" && zensical build 2>&1) || true
     MKDOCS_WARNINGS=$(echo "$MKDOCS_OUTPUT" | grep -c "WARNING" || true)
-    echo "  MkDocs warnings: $MKDOCS_WARNINGS"
+    echo "  Build warnings: $MKDOCS_WARNINGS"
   else
-    echo "  (mkdocs not installed — skipping build check)"
+    echo "  (zensical not installed — skipping build check)"
   fi
 
   # Extract analyzed file count from output

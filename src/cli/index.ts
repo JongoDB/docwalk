@@ -24,7 +24,7 @@ const program = new Command();
 program
   .name("docwalk")
   .description(
-    "Your codebase, documented. Automatically.\nAnalyze repos, generate MkDocs Material sites, deploy anywhere."
+    "Your codebase, documented. Automatically.\nAnalyze repos, generate documentation sites, deploy anywhere."
   )
   .version("0.1.0")
   .hook("preAction", () => {
@@ -138,7 +138,7 @@ program
 
 program
   .command("doctor")
-  .description("Check MkDocs prerequisites and optionally install missing packages")
+  .description("Check Zensical prerequisites and optionally install missing packages")
   .option("--install", "Install missing Python packages")
   .action(async (options) => {
     const { doctorCommand } = await import("./commands/doctor.js");

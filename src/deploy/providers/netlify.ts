@@ -9,7 +9,7 @@
 
 import type { DeployProvider, DeployResult, DNSRecord } from "../index.js";
 import type { DeployConfig, DomainConfig } from "../../config/schema.js";
-import { runTool, ToolNotFoundError, MKDOCS_INSTALL_CMD } from "../../utils/cli-tools.js";
+import { runTool, ToolNotFoundError, ZENSICAL_INSTALL_CMD } from "../../utils/cli-tools.js";
 
 export class NetlifyProvider implements DeployProvider {
   id = "netlify";
@@ -179,16 +179,16 @@ jobs:
       - name: Install DocWalk
         run: npm install -g docwalk
 
-      - name: Install MkDocs Material
-        run: ${MKDOCS_INSTALL_CMD}
+      - name: Install Zensical
+        run: ${ZENSICAL_INSTALL_CMD}
 
       - name: DocWalk Sync and Generate
         run: |
           docwalk sync
           docwalk generate
 
-      - name: Build MkDocs
-        run: mkdocs build --config-file docwalk-output/mkdocs.yml --site-dir site
+      - name: Build Site
+        run: zensical build --config-file docwalk-output/mkdocs.yml --site-dir site
 
       - name: Deploy to Netlify
         uses: nwtgck/actions-netlify@v3
@@ -246,14 +246,14 @@ jobs:
       - name: Install DocWalk
         run: npm install -g docwalk
 
-      - name: Install MkDocs Material
-        run: ${MKDOCS_INSTALL_CMD}
+      - name: Install Zensical
+        run: ${ZENSICAL_INSTALL_CMD}
 
       - name: DocWalk Generate
         run: docwalk generate --full
 
-      - name: Build MkDocs
-        run: mkdocs build --config-file docwalk-output/mkdocs.yml --site-dir site
+      - name: Build Site
+        run: zensical build --config-file docwalk-output/mkdocs.yml --site-dir site
 
       - name: Deploy Preview to Netlify
         id: deploy

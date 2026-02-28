@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * DocWalk postinstall — installs required Python/MkDocs packages.
+ * DocWalk postinstall — installs required Python/Zensical packages.
  *
  * Runs automatically after `npm install`. Gracefully warns if Python
  * or pip is unavailable instead of failing the install.
@@ -9,7 +9,7 @@
 
 import { execFileSync } from "child_process";
 
-const PACKAGES = ["mkdocs-material", "mkdocs-minify-plugin", "mkdocs-glightbox"];
+const PACKAGES = ["zensical"];
 
 function run(cmd, args) {
   return execFileSync(cmd, args, { stdio: "pipe", encoding: "utf-8" });
@@ -28,19 +28,19 @@ function tryInstall() {
 
   if (!pip) {
     console.warn(
-      "\n⚠  DocWalk: Python/pip not found — MkDocs packages not installed." +
+      "\n⚠  DocWalk: Python/pip not found — Zensical not installed." +
       "\n   Install Python 3, then run: docwalk doctor --install\n"
     );
     return;
   }
 
-  console.log("DocWalk: Installing MkDocs dependencies...");
+  console.log("DocWalk: Installing Zensical...");
 
   try {
     execFileSync(pip, ["install", ...PACKAGES], { stdio: "inherit" });
   } catch {
     console.warn(
-      "\n⚠  DocWalk: Failed to install MkDocs packages." +
+      "\n⚠  DocWalk: Failed to install Zensical." +
       "\n   Run manually: docwalk doctor --install\n"
     );
   }

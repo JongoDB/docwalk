@@ -95,8 +95,8 @@ jobs:
         working-directory: docwalk-src
         run: npm ci
 
-      - name: Install MkDocs
-        run: pip install mkdocs-material mkdocs-minify-plugin mkdocs-glightbox
+      - name: Install Zensical
+        run: pip install zensical
 
       - name: Initialize DocWalk config
         working-directory: target-repo
@@ -116,9 +116,9 @@ jobs:
           fi
           npx -y tsx ../docwalk-src/src/cli/index.ts generate -v $EXTRA_FLAGS
 
-      - name: Build MkDocs site
+      - name: Build documentation site
         working-directory: target-repo/docwalk-output
-        run: mkdocs build
+        run: zensical build
 
       - name: Deploy to gh-pages
         run: |

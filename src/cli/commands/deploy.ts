@@ -9,7 +9,7 @@ import chalk from "chalk";
 import path from "path";
 import { loadConfig, loadConfigFile } from "../../config/loader.js";
 import { getProvider } from "../../deploy/index.js";
-import { ToolNotFoundError, formatToolError, runTool, MKDOCS_INSTALL_CMD } from "../../utils/cli-tools.js";
+import { ToolNotFoundError, formatToolError, runTool, ZENSICAL_INSTALL_CMD } from "../../utils/cli-tools.js";
 import { log, header, blank, setVerbose } from "../../utils/logger.js";
 import { executeHooks } from "../../utils/hooks.js";
 
@@ -77,10 +77,10 @@ export async function deployCommand(options: DeployOptions): Promise<void> {
   const buildDir = path.resolve(deployConfig.output_dir || "site");
 
   if (!options.skipBuild) {
-    log("info", "Building MkDocs site...");
+    log("info", "Building documentation site...");
 
     try {
-      await runTool("mkdocs", [
+      await runTool("zensical", [
         "build",
         "--config-file",
         "docwalk-output/mkdocs.yml",
@@ -93,8 +93,8 @@ export async function deployCommand(options: DeployOptions): Promise<void> {
         console.log(formatToolError(error));
         process.exit(1);
       }
-      log("error", "MkDocs build failed. Is mkdocs-material installed?");
-      log("info", `Run: ${chalk.cyan(MKDOCS_INSTALL_CMD)}`);
+      log("error", "Build failed. Is Zensical installed?");
+      log("info", `Run: ${chalk.cyan(ZENSICAL_INSTALL_CMD)}`);
       process.exit(1);
     }
   }

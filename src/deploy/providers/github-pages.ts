@@ -10,7 +10,7 @@
 
 import type { DeployProvider, DeployResult, DNSRecord } from "../index.js";
 import type { DeployConfig, DomainConfig } from "../../config/schema.js";
-import { runTool, MKDOCS_INSTALL_CMD } from "../../utils/cli-tools.js";
+import { runTool, ZENSICAL_INSTALL_CMD } from "../../utils/cli-tools.js";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 
@@ -164,16 +164,16 @@ jobs:
       - name: Install DocWalk
         run: npm install -g docwalk
 
-      - name: Install MkDocs Material
-        run: ${MKDOCS_INSTALL_CMD}
+      - name: Install Zensical
+        run: ${ZENSICAL_INSTALL_CMD}
 
       - name: DocWalk Sync and Generate
         run: |
           docwalk sync
           docwalk generate
 
-      - name: Build MkDocs
-        run: mkdocs build --config-file docwalk-output/mkdocs.yml --site-dir site
+      - name: Build Site
+        run: zensical build --config-file docwalk-output/mkdocs.yml --site-dir site
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -241,14 +241,14 @@ jobs:
       - name: Install DocWalk
         run: npm install -g docwalk
 
-      - name: Install MkDocs Material
-        run: ${MKDOCS_INSTALL_CMD}
+      - name: Install Zensical
+        run: ${ZENSICAL_INSTALL_CMD}
 
       - name: DocWalk Generate
         run: docwalk generate --full
 
-      - name: Build MkDocs
-        run: mkdocs build --config-file docwalk-output/mkdocs.yml --site-dir site
+      - name: Build Site
+        run: zensical build --config-file docwalk-output/mkdocs.yml --site-dir site
 
       - name: Upload preview artifact
         uses: actions/upload-artifact@v4

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Captures screenshots of generated docs for each theme preset.
- * Requires: mkdocs, mkdocs-material, playwright (with chromium)
+ * Requires: zensical, playwright (with chromium)
  */
 
 import { execSync } from "child_process";
@@ -13,7 +13,7 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 const CONFIG_PATH = path.join(ROOT, "docwalk.config.yml");
 const OUTPUT_DIR = path.join(ROOT, "docwalk-output");
 const SCREENSHOT_DIR = path.join(ROOT, "assets", "screenshots");
-const MKDOCS_PATH = process.env.MKDOCS_PATH || "mkdocs";
+const MKDOCS_PATH = process.env.MKDOCS_PATH || "zensical";
 
 // Save original config
 const originalConfig = readFileSync(CONFIG_PATH, "utf-8");
@@ -79,8 +79,8 @@ async function main() {
     console.log("  Generating docs...");
     run("npx tsx src/cli/index.ts generate");
 
-    // Build mkdocs site
-    console.log("  Building MkDocs site...");
+    // Build documentation site
+    console.log("  Building documentation site...");
     try {
       run(`${MKDOCS_PATH} build`, { cwd: OUTPUT_DIR });
     } catch (e) {

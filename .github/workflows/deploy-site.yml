@@ -60,16 +60,16 @@ jobs:
         working-directory: docwalk
         run: npm ci
 
-      - name: Install MkDocs
-        run: pip install mkdocs-material mkdocs-minify-plugin mkdocs-glightbox
+      - name: Install Zensical
+        run: pip install zensical
 
       - name: Generate documentation
         working-directory: docwalk
         run: npx tsx src/cli/index.ts generate
 
-      - name: Build MkDocs site
+      - name: Build documentation site
         working-directory: docwalk/docwalk-output
-        run: mkdocs build
+        run: zensical build
 
       - name: Prepare gh-pages structure
         run: |

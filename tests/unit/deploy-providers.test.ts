@@ -55,7 +55,7 @@ describe("GitHub Pages Provider", () => {
     expect(ci.content).toContain("actions/checkout@v4");
     expect(ci.content).toContain("actions/deploy-pages@v4");
     expect(ci.content).toContain("docwalk sync");
-    expect(ci.content).toContain("mkdocs build");
+    expect(ci.content).toContain("zensical build");
   });
 
   it("generates valid preview workflow YAML", async () => {
@@ -187,12 +187,12 @@ describe("S3 Provider", () => {
 });
 
 describe("Workflow Common Patterns", () => {
-  it("all deploy workflows install docwalk and mkdocs", async () => {
+  it("all deploy workflows install docwalk and zensical", async () => {
     for (const id of ["gh-pages", "cloudflare", "vercel", "netlify", "s3"]) {
       const provider = getProvider(id)!;
       const ci = await provider.generateCIConfig(defaultDeploy, defaultDomain);
       expect(ci.content).toContain("npm install -g docwalk");
-      expect(ci.content).toContain("pip install mkdocs-material");
+      expect(ci.content).toContain("pip install zensical");
       expect(ci.content).toContain('node-version: "20"');
     }
   });
