@@ -1,7 +1,7 @@
 /**
  * Google Gemini AI Provider
  *
- * Uses the @google/generative-ai SDK. Default model: gemini-2.0-flash.
+ * Uses the @google/generative-ai SDK. Default model: gemini-2.5-flash.
  * The Gemini free tier powers "try" builds.
  */
 
@@ -17,7 +17,7 @@ export class GeminiProvider implements AIProvider {
 
   constructor(apiKey: string, model?: string) {
     this.apiKey = apiKey;
-    this.model = model || "gemini-2.0-flash";
+    this.model = model || "gemini-2.5-flash";
   }
 
   private async getGenAI() {
