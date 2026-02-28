@@ -2465,7 +2465,7 @@
   <div class="section-label">Pricing</div>
   <h2 class="section-title">Start free. Scale when ready.</h2>
   <p class="section-desc">
-    Open-source core with premium features for teams and enterprises. No vendor lock-in — your docs are always standard MkDocs Material.
+    Open-source core with premium features for professionals and teams. No vendor lock-in — your docs are always standard MkDocs Material.
   </p>
 
   <div class="pricing-grid">
@@ -2475,32 +2475,31 @@
       <div class="price-desc">For individual developers and OSS projects</div>
       <ul class="price-features">
         <li>Unlimited public repos</li>
-        <li>Up to 1,000 files per repo</li>
-        <li>All 5 deploy providers</li>
+        <li>Up to 50 pages per repo</li>
+        <li>GitHub Pages deploy</li>
         <li>4 built-in themes</li>
         <li>Git-diff smart sync</li>
         <li>Static code insights</li>
         <li>AST-based API reference</li>
         <li>Dependency + class diagrams</li>
-        <li>End-user docs (static extraction)</li>
         <li>Community support</li>
       </ul>
       <button class="price-btn price-btn-outline">Get Started Free</button>
     </div>
     <div class="price-card featured">
       <div class="price-tier">Pro</div>
-      <div class="price-amount">$15<span>/mo per seat</span></div>
+      <div class="price-amount">$12<span>/mo</span></div>
       <div class="price-desc">AI-powered docs for serious projects</div>
       <ul class="price-features">
         <li>Everything in Community</li>
-        <li>Unlimited private repos + files</li>
+        <li>Unlimited private repos + pages</li>
+        <li>All 5 deploy providers</li>
         <li>All 6 themes + custom CSS</li>
         <li>AI narrative documentation</li>
         <li>Multi-provider LLM (Gemini, Anthropic, OpenAI, Ollama)</li>
         <li>AI-enhanced diagrams (sequence, flow)</li>
         <li>AI end-user docs (guides, troubleshooting, FAQ)</li>
         <li>Source citations</li>
-        <li>Dynamic page structure</li>
         <li>Versioned docs</li>
         <li>Custom domains (5)</li>
         <li>CI sync triggers</li>
@@ -2509,7 +2508,7 @@
     </div>
     <div class="price-card">
       <div class="price-tier">Team</div>
-      <div class="price-amount">$39<span>/mo per seat</span></div>
+      <div class="price-amount">$25<span>/mo per seat</span></div>
       <div class="price-desc">Hosted docs + collaboration for teams</div>
       <ul class="price-features">
         <li>Everything in Pro (min 3 seats)</li>
@@ -2523,27 +2522,12 @@
       </ul>
       <button class="price-btn price-btn-outline">Start Team Trial</button>
     </div>
-    <div class="price-card">
-      <div class="price-tier">Enterprise</div>
-      <div class="price-amount">Custom<span> from $199/mo</span></div>
-      <div class="price-desc">For organizations with compliance needs</div>
-      <ul class="price-features">
-        <li>Everything in Team</li>
-        <li>Self-hosted / air-gapped deployment</li>
-        <li>SAML/OIDC SSO</li>
-        <li>Private LLM (Azure OpenAI, Bedrock)</li>
-        <li>Audit logs + RBAC</li>
-        <li>SLA 99.9% uptime</li>
-        <li>Dedicated support</li>
-      </ul>
-      <button class="price-btn price-btn-outline">Contact Sales</button>
-    </div>
   </div>
 </section>
 
 <!-- ═══ ENTERPRISE SPECS ═══ -->
 <section id="specs" class="fade-in">
-  <div class="section-label">Enterprise Specification</div>
+  <div class="section-label">Technical Specification</div>
   <h2 class="section-title">Technical deep-dive</h2>
   <p class="section-desc">
     Full product specification for technical evaluation and procurement.
@@ -2579,7 +2563,7 @@
       <div class="specs-val"><strong>GitHub Pages:</strong> Pushes to gh-pages branch via GitHub Actions. Generates <code>.github/workflows/docwalk.yml</code>. <strong>Cloudflare:</strong> Uses Wrangler CLI / Cloudflare API to create Pages project, upload assets, configure DNS. <strong>Vercel:</strong> Uses Vercel API to create project, deploy, and configure domain. <strong>Netlify:</strong> Uses Netlify CLI for deploy + _redirects config. <strong>S3:</strong> Direct upload with CloudFront invalidation support.</div>
     </div>
     <div class="specs-row">
-      <div class="specs-key">Web UI Dashboard <span style="background:var(--accent); color:#0a0a0c; font-size:9px; font-weight:700; padding:2px 6px; border-radius:3px; text-transform:uppercase; letter-spacing:0.5px; margin-left:8px; vertical-align:middle;">Pro</span></div>
+      <div class="specs-key">Web UI Dashboard <span style="background:var(--accent); color:#0a0a0c; font-size:9px; font-weight:700; padding:2px 6px; border-radius:3px; text-transform:uppercase; letter-spacing:0.5px; margin-left:8px; vertical-align:middle;">Team</span></div>
       <div class="specs-val">Browser-based deployment management. View sync status across all repos, trigger manual rebuilds, manage custom domains, and monitor build logs — all from a single dashboard. No CLI required for day-to-day operations.</div>
     </div>
     <div class="specs-row">
@@ -2592,7 +2576,7 @@
     </div>
     <div class="specs-row">
       <div class="specs-key">Security</div>
-      <div class="specs-val">Secrets stored in CI environment variables — never in config files. GitHub App installation for repo access (no PATs). Cloudflare/Vercel tokens scoped to specific projects. Optional: deploy previews restricted to authenticated users via provider access policies. Enterprise: RBAC for who can trigger syncs and deploys.</div>
+      <div class="specs-val">Secrets stored in CI environment variables — never in config files. GitHub App installation for repo access (no PATs). Cloudflare/Vercel tokens scoped to specific projects. Optional: deploy previews restricted to authenticated users via provider access policies.</div>
     </div>
     <div class="specs-row">
       <div class="specs-key">Extensibility</div>
@@ -2629,7 +2613,7 @@
     </span>
   </div>
   <p>Your codebase, documented. Automatically.</p>
-  <p style="margin-top:8px">© 2026 DocWalk — Open-source core, enterprise-ready.</p>
+  <p style="margin-top:8px">© 2026 DocWalk — Open-source core, built for teams.</p>
 </footer>
 
 <script>
