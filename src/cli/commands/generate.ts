@@ -97,15 +97,28 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
       log("debug", `[${current}/${total}] ${file}`);
     },
     onAIProgress: (current, total, message) => {
-      if (!aiStartTime) {
-        aiStartTime = Date.now();
-        log("info", `Generating AI summaries (${total} modules)...`);
-      }
-      // Log every 10% or every 5 modules, whichever is more frequent
-      const step = Math.max(1, Math.min(5, Math.floor(total / 10)));
-      if (current % step === 0 || current === total) {
-        const pct = Math.round((current / total) * 100);
-        log("info", `  AI progress: ${current}/${total} (${pct}%)`);
+      // Detect phase switch: AI insights reuses this callback with different messages
+      const isInsightsPhase = message.startsWith("AI analyzing:");
+      if (isInsightsPhase) {
+        if (current === 1) {
+          log("info", `Enhancing insights with AI (${total} insights)...`);
+        }
+        const step = Math.max(1, Math.min(5, Math.floor(total / 10)));
+        if (current % step === 0 || current === total) {
+          const pct = Math.round((current / total) * 100);
+          log("info", `  AI insights: ${current}/${total} (${pct}%)`);
+        }
+      } else {
+        if (!aiStartTime) {
+          aiStartTime = Date.now();
+          log("info", `Generating AI summaries (${total} modules)...`);
+        }
+        // Log every 10% or every 5 modules, whichever is more frequent
+        const step = Math.max(1, Math.min(5, Math.floor(total / 10)));
+        if (current % step === 0 || current === total) {
+          const pct = Math.round((current / total) * 100);
+          log("info", `  AI progress: ${current}/${total} (${pct}%)`);
+        }
       }
       lastAIProgress = current;
       log("debug", `[AI ${current}/${total}] ${message}`);
