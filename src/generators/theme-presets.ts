@@ -801,65 +801,30 @@ if (typeof document$ !== "undefined") {
   });
 }
 
-/* Click-to-zoom for Mermaid diagrams and images.
-   Self-contained overlay — no glightbox dependency. Uses MutationObserver
-   to catch Mermaid SVGs as Zensical renders them (async, after page load). */
+/* Click-to-zoom for Mermaid diagrams.
+   Uses capture-phase listener on document so it fires before Mermaid's
+   own handlers can swallow the event. No MutationObserver, no timing. */
 (function() {
-  var OVERLAY_ID = "dw-zoom-overlay";
-
-  function openOverlay(svgEl) {
-    if (document.getElementById(OVERLAY_ID)) return;
+  document.addEventListener("click", function(e) {
+    var el = e.target.closest ? e.target.closest(".mermaid") : null;
+    if (!el) return;
+    var svg = el.querySelector("svg");
+    if (!svg) return;
+    e.preventDefault();
+    e.stopPropagation();
     var overlay = document.createElement("div");
-    overlay.id = OVERLAY_ID;
-    overlay.style.cssText = "position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:2rem;backdrop-filter:blur(4px);opacity:0;transition:opacity .2s";
-    var container = document.createElement("div");
-    container.style.cssText = "max-width:95vw;max-height:95vh;overflow:auto";
-    var clone = svgEl.cloneNode(true);
-    clone.style.cssText = "width:100%;height:auto;max-height:90vh";
+    overlay.style.cssText = "position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.88);display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:2rem;backdrop-filter:blur(4px)";
+    var clone = svg.cloneNode(true);
+    clone.style.cssText = "max-width:92vw;max-height:90vh;width:auto;height:auto";
     clone.removeAttribute("max-width");
-    clone.setAttribute("width", "100%");
-    container.appendChild(clone);
-    overlay.appendChild(container);
+    overlay.appendChild(clone);
     document.body.appendChild(overlay);
-    requestAnimationFrame(function() { overlay.style.opacity = "1"; });
-    overlay.addEventListener("click", function() {
-      overlay.style.opacity = "0";
-      setTimeout(function() { overlay.remove(); }, 200);
+    function close() { overlay.remove(); }
+    overlay.addEventListener("click", close);
+    document.addEventListener("keydown", function esc(ev) {
+      if (ev.key === "Escape") { close(); document.removeEventListener("keydown", esc); }
     });
-    document.addEventListener("keydown", function esc(e) {
-      if (e.key === "Escape") {
-        overlay.style.opacity = "0";
-        setTimeout(function() { overlay.remove(); }, 200);
-        document.removeEventListener("keydown", esc);
-      }
-    });
-  }
-
-  function attachZoom(svg) {
-    if (svg.dataset.dwZoom) return;
-    svg.dataset.dwZoom = "1";
-    var parent = svg.parentNode;
-    if (!parent) return;
-    /* Transparent overlay captures clicks above Mermaid's internal handlers */
-    var hit = document.createElement("div");
-    hit.style.cssText = "position:absolute;inset:0;cursor:zoom-in;z-index:1";
-    parent.style.position = "relative";
-    parent.appendChild(hit);
-    hit.addEventListener("click", function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      openOverlay(svg);
-    });
-  }
-
-  /* Observe DOM for Mermaid SVGs (Zensical renders them async) */
-  var observer = new MutationObserver(function() {
-    document.querySelectorAll(".mermaid svg").forEach(attachZoom);
-  });
-  observer.observe(document.body, { childList: true, subtree: true });
-
-  /* Also catch already-rendered diagrams */
-  document.querySelectorAll(".mermaid svg").forEach(attachZoom);
+  }, true);
 })();
 `,
   },
