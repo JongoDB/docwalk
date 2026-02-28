@@ -225,10 +225,12 @@ export async function analyzeCodebase(
   }
 
   // ── Step 8: Compute project metadata and stats ─────────────────────────
+  log("info", "Building dependency graph and computing stats...");
   const projectMeta = computeProjectMeta(finalModules, repoRoot, source);
   const stats = computeStats(finalModules, skippedFiles, startTime);
 
   // ── Step 9: Static code insights ─────────────────────────────────────
+  log("info", "Running static code analysis...");
   let insights: import("./types.js").Insight[] | undefined;
   try {
     const { runStaticInsights } = await import("./insights.js");
@@ -238,6 +240,9 @@ export async function analyzeCodebase(
       projectMeta,
     } as import("./types.js").AnalysisManifest;
     insights = runStaticInsights(tempManifest);
+    if (insights?.length) {
+      log("info", `Found ${insights.length} code insights`);
+    }
   } catch {
     // Insights module not available — skip
   }
