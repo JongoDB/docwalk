@@ -798,7 +798,14 @@ if (typeof document$ !== "undefined") {
         }
       }));
     }
-    /* Make Mermaid diagrams zoomable via glightbox */
+  });
+}
+
+/* Make Mermaid diagrams zoomable via glightbox.
+   Uses MutationObserver because Mermaid renders SVGs asynchronously
+   after document$ fires — querySelectorAll at subscribe-time finds nothing. */
+(function() {
+  function wrapMermaidSvgs() {
     document.querySelectorAll("pre.mermaid svg, .mermaid svg").forEach(function(svg) {
       if (svg.closest("a[data-glightbox]")) return;
       var serializer = new XMLSerializer();
@@ -812,8 +819,27 @@ if (typeof document$ !== "undefined") {
       svg.parentNode.insertBefore(link, svg);
       link.appendChild(svg);
     });
+    /* Re-init glightbox so it binds to the new <a> elements */
+    if (typeof GLightbox !== "undefined") {
+      GLightbox({ selector: "[data-glightbox]", touchNavigation: true, zoomable: true, draggable: true });
+    }
+  }
+
+  var observer = new MutationObserver(function(mutations) {
+    for (var i = 0; i < mutations.length; i++) {
+      for (var j = 0; j < mutations[i].addedNodes.length; j++) {
+        var node = mutations[i].addedNodes[j];
+        if (node.nodeName === "svg" && node.closest && node.closest(".mermaid")) {
+          /* Debounce: Mermaid adds multiple SVGs in one batch */
+          clearTimeout(observer._t);
+          observer._t = setTimeout(wrapMermaidSvgs, 200);
+          return;
+        }
+      }
+    }
   });
-}
+  observer.observe(document.body, { childList: true, subtree: true });
+})();
 `,
   },
 
