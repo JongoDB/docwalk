@@ -674,7 +674,9 @@ function generateMkdocsConfig(
   let pluginsYaml = `plugins:
   - search:
       lang: en
-  - glightbox`;
+  - glightbox
+  - minify:
+      minify_html: true`;
 
   // Versioning — add mike plugin
   if (config.versioning.enabled) {
@@ -727,6 +729,15 @@ markdown_extensions:
   - md_in_html
   - toc:
       permalink: true
+  - abbr
+  - def_list
+  - footnotes
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.inlinehilite
+  - pymdownx.mark
+  - pymdownx.keys
 
 ${pluginsYaml}
 ${extraCssYaml}${extraJsYaml}

@@ -7,6 +7,12 @@
 
 import chalk from "chalk";
 
+/** Required Python packages for MkDocs Material documentation sites. */
+export const MKDOCS_PACKAGES = ["mkdocs-material", "mkdocs-minify-plugin", "mkdocs-glightbox"];
+
+/** pip install command for all required MkDocs packages. */
+export const MKDOCS_INSTALL_CMD = `pip install ${MKDOCS_PACKAGES.join(" ")}`;
+
 /** Known CLI tools with install instructions. */
 const TOOL_INFO: Record<string, { name: string; install: string; docs: string }> = {
   wrangler: {
@@ -21,7 +27,7 @@ const TOOL_INFO: Record<string, { name: string; install: string; docs: string }>
   },
   mkdocs: {
     name: "MkDocs",
-    install: "pip install mkdocs-material mkdocs-minify-plugin mkdocs-glightbox",
+    install: MKDOCS_INSTALL_CMD,
     docs: "https://squidfunk.github.io/mkdocs-material/getting-started/",
   },
   gh: {

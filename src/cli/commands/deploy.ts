@@ -9,7 +9,7 @@ import chalk from "chalk";
 import path from "path";
 import { loadConfig, loadConfigFile } from "../../config/loader.js";
 import { getProvider } from "../../deploy/index.js";
-import { ToolNotFoundError, formatToolError, runTool } from "../../utils/cli-tools.js";
+import { ToolNotFoundError, formatToolError, runTool, MKDOCS_INSTALL_CMD } from "../../utils/cli-tools.js";
 import { log, header, blank, setVerbose } from "../../utils/logger.js";
 import { executeHooks } from "../../utils/hooks.js";
 
@@ -94,7 +94,7 @@ export async function deployCommand(options: DeployOptions): Promise<void> {
         process.exit(1);
       }
       log("error", "MkDocs build failed. Is mkdocs-material installed?");
-      log("info", `Run: ${chalk.cyan("pip install mkdocs-material mkdocs-minify-plugin mkdocs-glightbox")}`);
+      log("info", `Run: ${chalk.cyan(MKDOCS_INSTALL_CMD)}`);
       process.exit(1);
     }
   }

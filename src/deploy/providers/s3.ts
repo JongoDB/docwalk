@@ -10,7 +10,7 @@
 
 import type { DeployProvider, DeployResult, DNSRecord } from "../index.js";
 import type { DeployConfig, DomainConfig } from "../../config/schema.js";
-import { runTool, ToolNotFoundError } from "../../utils/cli-tools.js";
+import { runTool, ToolNotFoundError, MKDOCS_INSTALL_CMD } from "../../utils/cli-tools.js";
 
 export class S3Provider implements DeployProvider {
   id = "s3";
@@ -235,7 +235,7 @@ jobs:
         run: npm install -g docwalk
 
       - name: Install MkDocs Material
-        run: pip install mkdocs-material mkdocs-minify-plugin mkdocs-glightbox
+        run: ${MKDOCS_INSTALL_CMD}
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -306,7 +306,7 @@ jobs:
         run: npm install -g docwalk
 
       - name: Install MkDocs Material
-        run: pip install mkdocs-material mkdocs-minify-plugin mkdocs-glightbox
+        run: ${MKDOCS_INSTALL_CMD}
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4

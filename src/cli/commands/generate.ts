@@ -176,6 +176,17 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
 
   blank();
   log("success", `Documentation generated: ${pageCount} pages written`);
+
+  // Non-blocking check: nudge if MkDocs Material isn't installed
+  try {
+    const { execa } = await import("execa");
+    await execa("python3", ["-c", "import material"]);
+  } catch {
+    blank();
+    log("warn", "MkDocs Material not installed — needed for preview/deploy");
+    console.log(`    Run: ${chalk.cyan("docwalk doctor --install")}`);
+  }
+
   blank();
   console.log(chalk.dim("  Next steps:"));
   console.log(`    ${chalk.cyan("docwalk dev")}     — Preview locally`);

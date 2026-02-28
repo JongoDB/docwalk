@@ -9,7 +9,7 @@
 
 import type { DeployProvider, DeployResult, DNSRecord } from "../index.js";
 import type { DeployConfig, DomainConfig } from "../../config/schema.js";
-import { runTool, ToolNotFoundError } from "../../utils/cli-tools.js";
+import { runTool, ToolNotFoundError, MKDOCS_INSTALL_CMD } from "../../utils/cli-tools.js";
 
 export class CloudflareProvider implements DeployProvider {
   id = "cloudflare";
@@ -206,7 +206,7 @@ jobs:
         run: npm install -g docwalk
 
       - name: Install MkDocs Material
-        run: pip install mkdocs-material mkdocs-minify-plugin mkdocs-glightbox
+        run: ${MKDOCS_INSTALL_CMD}
 
       - name: DocWalk Sync and Generate
         run: |
@@ -273,7 +273,7 @@ jobs:
         run: npm install -g docwalk
 
       - name: Install MkDocs Material
-        run: pip install mkdocs-material mkdocs-minify-plugin mkdocs-glightbox
+        run: ${MKDOCS_INSTALL_CMD}
 
       - name: DocWalk Generate
         run: docwalk generate --full

@@ -134,6 +134,17 @@ program
     await statusCommand(options);
   });
 
+// ─── DOCTOR ─────────────────────────────────────────────────────────────────
+
+program
+  .command("doctor")
+  .description("Check MkDocs prerequisites and optionally install missing packages")
+  .option("--install", "Install missing Python packages")
+  .action(async (options) => {
+    const { doctorCommand } = await import("./commands/doctor.js");
+    await doctorCommand(options);
+  });
+
 // ─── CI-SETUP ───────────────────────────────────────────────────────────────
 
 program

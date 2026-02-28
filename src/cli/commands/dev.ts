@@ -8,7 +8,7 @@
 import chalk from "chalk";
 import path from "path";
 import { loadConfig, loadConfigFile } from "../../config/loader.js";
-import { ToolNotFoundError, runTool } from "../../utils/cli-tools.js";
+import { ToolNotFoundError, runTool, MKDOCS_INSTALL_CMD } from "../../utils/cli-tools.js";
 import { log, header, blank, setVerbose } from "../../utils/logger.js";
 import { resolveRepoRoot } from "../../utils/index.js";
 
@@ -154,14 +154,14 @@ export async function devCommand(options: DevOptions): Promise<void> {
       log("error", "MkDocs Material is required to preview docs.");
       blank();
       log("info", "Install it with:");
-      console.log(`    ${chalk.cyan("pip install mkdocs-material mkdocs-glightbox")}`);
+      console.log(`    ${chalk.cyan(MKDOCS_INSTALL_CMD)}`);
       blank();
       log("info", "If you don't have Python installed:");
       console.log(`    ${chalk.cyan("brew install python")}     ${chalk.dim("# macOS")}`);
       console.log(`    ${chalk.cyan("sudo apt install python3")} ${chalk.dim("# Ubuntu/Debian")}`);
       blank();
       log("info", "Then run:");
-      console.log(`    ${chalk.cyan("pip install mkdocs-material mkdocs-glightbox")}`);
+      console.log(`    ${chalk.cyan(MKDOCS_INSTALL_CMD)}`);
       console.log(`    ${chalk.cyan("docwalk dev")}`);
       process.exit(1);
     }
@@ -169,7 +169,7 @@ export async function devCommand(options: DevOptions): Promise<void> {
     log("error", "Failed to start MkDocs dev server.");
     blank();
     log("info", "Make sure MkDocs Material is installed:");
-    console.log(`    ${chalk.cyan("pip install mkdocs-material mkdocs-glightbox")}`);
+    console.log(`    ${chalk.cyan(MKDOCS_INSTALL_CMD)}`);
     blank();
     log("info", "Then generate docs first:");
     console.log(`    ${chalk.cyan("docwalk generate")}`);
