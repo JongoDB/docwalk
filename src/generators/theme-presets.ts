@@ -801,50 +801,60 @@ if (typeof document$ !== "undefined") {
   });
 }
 
-/* Make Mermaid diagrams zoomable via glightbox.
-   Mermaid renders SVGs client-side after page load. Glightbox only wraps
-   <img> tags during Python build, so it never sees Mermaid output.
-   We wait for Mermaid to finish, wrap SVGs in glightbox anchors with
-   base64 data URIs, then create a fresh GLightbox instance. */
-if (typeof document$ !== "undefined") {
-  document$.subscribe(function() {
-    setTimeout(function() {
-      var svgs = document.querySelectorAll(".mermaid svg");
-      if (!svgs.length) return;
-      var wrapped = false;
-      svgs.forEach(function(svg) {
-        if (svg.closest("a.glightbox")) return;
-        var parent = svg.parentNode;
-        if (!parent) return;
-        /* Serialize SVG to base64 data URI for glightbox overlay */
-        var svgStr = new XMLSerializer().serializeToString(svg);
-        var b64 = btoa(unescape(encodeURIComponent(svgStr)));
-        var link = document.createElement("a");
-        link.href = "data:image/svg+xml;base64," + b64;
-        link.className = "glightbox";
-        link.setAttribute("data-type", "image");
-        link.setAttribute("data-width", "100%");
-        link.setAttribute("data-height", "auto");
-        link.setAttribute("data-desc-position", "bottom");
-        link.style.cursor = "zoom-in";
-        link.style.display = "block";
-        parent.insertBefore(link, svg);
-        link.appendChild(svg);
-        wrapped = true;
-      });
-      if (wrapped && typeof GLightbox !== "undefined") {
-        GLightbox({
-          selector: ".glightbox",
-          touchNavigation: true,
-          loop: false,
-          zoomable: true,
-          draggable: true,
-          effect: "zoom"
-        });
+/* Click-to-zoom for Mermaid diagrams and images.
+   Self-contained overlay — no glightbox dependency. Uses MutationObserver
+   to catch Mermaid SVGs as Zensical renders them (async, after page load). */
+(function() {
+  var OVERLAY_ID = "dw-zoom-overlay";
+
+  function openOverlay(svgEl) {
+    if (document.getElementById(OVERLAY_ID)) return;
+    var overlay = document.createElement("div");
+    overlay.id = OVERLAY_ID;
+    overlay.style.cssText = "position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:2rem;backdrop-filter:blur(4px);opacity:0;transition:opacity .2s";
+    var container = document.createElement("div");
+    container.style.cssText = "max-width:95vw;max-height:95vh;overflow:auto";
+    var clone = svgEl.cloneNode(true);
+    clone.style.cssText = "width:100%;height:auto;max-height:90vh";
+    clone.removeAttribute("max-width");
+    clone.setAttribute("width", "100%");
+    container.appendChild(clone);
+    overlay.appendChild(container);
+    document.body.appendChild(overlay);
+    requestAnimationFrame(function() { overlay.style.opacity = "1"; });
+    overlay.addEventListener("click", function() {
+      overlay.style.opacity = "0";
+      setTimeout(function() { overlay.remove(); }, 200);
+    });
+    document.addEventListener("keydown", function esc(e) {
+      if (e.key === "Escape") {
+        overlay.style.opacity = "0";
+        setTimeout(function() { overlay.remove(); }, 200);
+        document.removeEventListener("keydown", esc);
       }
-    }, 500);
+    });
+  }
+
+  function attachZoom(svg) {
+    if (svg.dataset.dwZoom) return;
+    svg.dataset.dwZoom = "1";
+    svg.style.cursor = "zoom-in";
+    svg.addEventListener("click", function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      openOverlay(svg);
+    });
+  }
+
+  /* Observe DOM for Mermaid SVGs (Zensical renders them async) */
+  var observer = new MutationObserver(function() {
+    document.querySelectorAll(".mermaid svg").forEach(attachZoom);
   });
-}
+  observer.observe(document.body, { childList: true, subtree: true });
+
+  /* Also catch already-rendered diagrams */
+  document.querySelectorAll(".mermaid svg").forEach(attachZoom);
+})();
 `,
   },
 
