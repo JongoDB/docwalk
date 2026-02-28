@@ -802,44 +802,49 @@ if (typeof document$ !== "undefined") {
 }
 
 /* Make Mermaid diagrams zoomable via glightbox.
-   Uses MutationObserver because Mermaid renders SVGs asynchronously
-   after document$ fires — querySelectorAll at subscribe-time finds nothing. */
-(function() {
-  function wrapMermaidSvgs() {
-    document.querySelectorAll("pre.mermaid svg, .mermaid svg").forEach(function(svg) {
-      if (svg.closest("a[data-glightbox]")) return;
-      var serializer = new XMLSerializer();
-      var svgStr = serializer.serializeToString(svg);
-      var dataUri = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgStr);
-      var link = document.createElement("a");
-      link.href = dataUri;
-      link.setAttribute("data-glightbox", "type: image; description-position: bottom");
-      link.setAttribute("data-title", "Diagram");
-      link.style.cursor = "zoom-in";
-      svg.parentNode.insertBefore(link, svg);
-      link.appendChild(svg);
-    });
-    /* Re-init glightbox so it binds to the new <a> elements */
-    if (typeof GLightbox !== "undefined") {
-      GLightbox({ selector: "[data-glightbox]", touchNavigation: true, zoomable: true, draggable: true });
-    }
-  }
-
-  var observer = new MutationObserver(function(mutations) {
-    for (var i = 0; i < mutations.length; i++) {
-      for (var j = 0; j < mutations[i].addedNodes.length; j++) {
-        var node = mutations[i].addedNodes[j];
-        if (node.nodeName === "svg" && node.closest && node.closest(".mermaid")) {
-          /* Debounce: Mermaid adds multiple SVGs in one batch */
-          clearTimeout(observer._t);
-          observer._t = setTimeout(wrapMermaidSvgs, 200);
-          return;
-        }
+   Mermaid renders SVGs client-side after page load. Glightbox only wraps
+   <img> tags during Python build, so it never sees Mermaid output.
+   We wait for Mermaid to finish, wrap SVGs in glightbox anchors with
+   base64 data URIs, then create a fresh GLightbox instance. */
+if (typeof document$ !== "undefined") {
+  document$.subscribe(function() {
+    setTimeout(function() {
+      var svgs = document.querySelectorAll(".mermaid svg");
+      if (!svgs.length) return;
+      var wrapped = false;
+      svgs.forEach(function(svg) {
+        if (svg.closest("a.glightbox")) return;
+        var parent = svg.parentNode;
+        if (!parent) return;
+        /* Serialize SVG to base64 data URI for glightbox overlay */
+        var svgStr = new XMLSerializer().serializeToString(svg);
+        var b64 = btoa(unescape(encodeURIComponent(svgStr)));
+        var link = document.createElement("a");
+        link.href = "data:image/svg+xml;base64," + b64;
+        link.className = "glightbox";
+        link.setAttribute("data-type", "image");
+        link.setAttribute("data-width", "100%");
+        link.setAttribute("data-height", "auto");
+        link.setAttribute("data-desc-position", "bottom");
+        link.style.cursor = "zoom-in";
+        link.style.display = "block";
+        parent.insertBefore(link, svg);
+        link.appendChild(svg);
+        wrapped = true;
+      });
+      if (wrapped && typeof GLightbox !== "undefined") {
+        GLightbox({
+          selector: ".glightbox",
+          touchNavigation: true,
+          loop: false,
+          zoomable: true,
+          draggable: true,
+          effect: "zoom"
+        });
       }
-    }
+    }, 500);
   });
-  observer.observe(document.body, { childList: true, subtree: true });
-})();
+}
 `,
   },
 
