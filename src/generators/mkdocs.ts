@@ -386,6 +386,14 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
     await mkdir(stylesDir, { recursive: true });
     await writeFile(path.join(stylesDir, "preset.css"), preset.customCss);
     onProgress?.("Written: stylesheets/preset.css");
+
+    // Write preset JS if defined
+    if (preset.customJs) {
+      const jsDir = path.join(docsDir, "javascripts");
+      await mkdir(jsDir, { recursive: true });
+      await writeFile(path.join(jsDir, "preset.js"), preset.customJs);
+      onProgress?.("Written: javascripts/preset.js");
+    }
   }
 
   // ── 4. Generate mkdocs.yml ─────────────────────────────────────────────
@@ -666,7 +674,13 @@ function generateMkdocsConfig(
     : "";
 
   // Build extra_javascript list
-  const extraJs = theme.custom_js ?? [];
+  const extraJs: string[] = [];
+  if (preset?.customJs) {
+    extraJs.push("javascripts/preset.js");
+  }
+  if (theme.custom_js) {
+    extraJs.push(...theme.custom_js);
+  }
   const extraJsYaml = extraJs.length > 0
     ? `\nextra_javascript:\n${extraJs.map((j) => `  - ${j}`).join("\n")}\n`
     : "";

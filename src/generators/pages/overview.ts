@@ -13,14 +13,6 @@ export function generateOverviewPage(manifest: AnalysisManifest, config: DocWalk
 
   // Group modules by logical section for categorized navigation
   const modulesByGroup = groupModulesLogically(manifest.modules);
-  const sectionLinks = Object.entries(modulesByGroup)
-    .sort(([, a], [, b]) => b.length - a.length)
-    .map(([section, modules]) => {
-      const topModule = modules[0];
-      const slug = topModule.filePath.replace(/\.[^.]+$/, "");
-      return `| **[${section}](api/${slug}.md)** | ${modules.length} modules | ${modules.map((m) => `\`${path.basename(m.filePath)}\``).slice(0, 4).join(", ")}${modules.length > 4 ? `, +${modules.length - 4} more` : ""} |`;
-    })
-    .join("\n");
 
   // Top connected modules for the architecture overview
   const connectionCounts = new Map<string, number>();
@@ -30,16 +22,7 @@ export function generateOverviewPage(manifest: AnalysisManifest, config: DocWalk
   }
   const topModules = [...connectionCounts.entries()]
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
-
-  const coreModulesSection = topModules.length > 0
-    ? `## Core Modules\n\nThe most interconnected modules in the codebase:\n\n${topModules.map(([file, count]) => {
-        const slug = file.replace(/\.[^.]+$/, "");
-        const mod = manifest.modules.find((m) => m.filePath === file);
-        const desc = mod?.moduleDoc?.summary || "";
-        return `- **[\`${path.basename(file)}\`](api/${slug}.md)** — ${desc || `${count} connections`}`;
-      }).join("\n")}\n`
-    : "";
+    .slice(0, 6);
 
   const langList = meta.languages
     .map((l) => `**${getLanguageDisplayName(l.name as LanguageId)}** (${l.fileCount} files, ${l.percentage}%)`)
@@ -52,6 +35,129 @@ export function generateOverviewPage(manifest: AnalysisManifest, config: DocWalk
     || meta.readmeDescription
     || `A ${primaryLang} project. This reference covers the full API surface, architecture, and module structure.`;
 
+  // Stats cards
+  const langCount = meta.languages.length;
+  const statsCards = `<div class="grid cards" markdown>
+
+-   :material-file-document-outline:{ .lg .middle } **${stats.totalFiles} Files**
+
+    ---
+
+    Source files analyzed across the codebase
+
+-   :material-code-tags:{ .lg .middle } **${stats.totalSymbols} Symbols**
+
+    ---
+
+    Functions, classes, types, and interfaces
+
+-   :material-text-long:{ .lg .middle } **${stats.totalLines.toLocaleString()} Lines**
+
+    ---
+
+    Total lines of source code
+
+-   :material-translate:{ .lg .middle } **${langCount} Language${langCount !== 1 ? "s" : ""}**
+
+    ---
+
+    ${langList}
+
+</div>`;
+
+  // Getting started cards
+  let gettingStartedCards = `<div class="grid cards" markdown>
+
+-   :material-rocket-launch:{ .lg .middle } **[Getting Started](getting-started.md)**
+
+    ---
+
+    Prerequisites, installation, and project structure
+
+-   :material-sitemap:{ .lg .middle } **[Architecture](${archLink})**
+
+    ---
+
+    System design, dependency graph, and module relationships
+
+-   :material-book-open-variant:{ .lg .middle } **[API Reference](#api-by-section)**
+
+    ---
+
+    Complete reference organized by component
+`;
+  if (config.analysis.config_docs) {
+    gettingStartedCards += `
+-   :material-cog:{ .lg .middle } **[Configuration](configuration.md)**
+
+    ---
+
+    Configuration schemas and settings
+`;
+  }
+  if (config.analysis.types_page) {
+    gettingStartedCards += `
+-   :material-shape-outline:{ .lg .middle } **[Types & Interfaces](types.md)**
+
+    ---
+
+    All exported types, interfaces, and enums
+`;
+  }
+  if (config.analysis.dependencies_page) {
+    gettingStartedCards += `
+-   :material-package-variant:{ .lg .middle } **[Dependencies](dependencies.md)**
+
+    ---
+
+    External packages and their usage
+`;
+  }
+  gettingStartedCards += `\n</div>`;
+
+  // API by Section cards
+  const sectionCards = Object.entries(modulesByGroup)
+    .sort(([, a], [, b]) => b.length - a.length)
+    .map(([section, modules]) => {
+      const topModule = modules[0];
+      const slug = topModule.filePath.replace(/\.[^.]+$/, "");
+      const keyFiles = modules.map((m) => `\`${path.basename(m.filePath)}\``).slice(0, 4).join(", ");
+      const extra = modules.length > 4 ? ` +${modules.length - 4} more` : "";
+      return `-   :material-folder-outline:{ .lg .middle } **[${section}](api/${slug}.md)**
+
+    ---
+
+    ${modules.length} module${modules.length !== 1 ? "s" : ""} · ${keyFiles}${extra}
+`;
+    })
+    .join("\n");
+
+  // Core modules cards
+  let coreModulesSection = "";
+  if (topModules.length > 0) {
+    const coreCards = topModules.map(([file, count]) => {
+      const slug = file.replace(/\.[^.]+$/, "");
+      const mod = manifest.modules.find((m) => m.filePath === file);
+      const desc = mod?.moduleDoc?.summary || `${count} connections`;
+      return `-   :material-star:{ .lg .middle } **[\`${path.basename(file)}\`](api/${slug}.md)**
+
+    ---
+
+    ${desc}
+`;
+    }).join("\n");
+
+    coreModulesSection = `## Core Modules
+
+The most interconnected modules in the codebase:
+
+<div class="grid cards" markdown>
+
+${coreCards}
+</div>
+`;
+  }
+
   const content = `---
 title: ${projectName} Documentation
 description: Technical documentation for ${projectName}
@@ -63,20 +169,15 @@ ${projectDescription}
 
 ---
 
+${statsCards}
+
+---
+
 ## Getting Started
 
 New to this project? Start here:
 
-- **[Getting Started](getting-started.md)** — Prerequisites, installation, and project structure
-- **[Architecture](${archLink})** — System design, dependency graph, and module relationships
-- **[API Reference](#api-by-section)** — Complete reference organized by component
-${config.analysis.config_docs ? `- **[Configuration](configuration.md)** — Configuration schemas and settings\n` : ""}${config.analysis.types_page ? `- **[Types & Interfaces](types.md)** — All exported types, interfaces, and enums\n` : ""}${config.analysis.dependencies_page ? `- **[Dependencies](dependencies.md)** — External packages and their usage\n` : ""}
-
----
-
-## Languages
-
-${langList}
+${gettingStartedCards}
 
 ---
 
@@ -86,9 +187,10 @@ ${coreModulesSection}
 
 ## API by Section
 
-| Section | Modules | Key Files |
-|---------|:-------:|-----------|
-${sectionLinks}
+<div class="grid cards" markdown>
+
+${sectionCards}
+</div>
 
 ---
 

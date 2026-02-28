@@ -3,7 +3,7 @@ import type { DocWalkConfig } from "../../config/schema.js";
 import type { AnalysisManifest, GeneratedPage } from "../../analysis/types.js";
 import type { AIProvider } from "../../analysis/providers/base.js";
 import { getLanguageDisplayName, type LanguageId } from "../../analysis/language-detect.js";
-import { resolveProjectName, detectPackageManager, getInstallCommand, getRunCommand, generateDirectoryTree, groupModulesLogically } from "../utils.js";
+import { resolveProjectName, detectPackageManager, getInstallCommand, getRunCommand, getAlternativeInstallCommands, generateDirectoryTree, groupModulesLogically } from "../utils.js";
 import { generateGettingStartedNarrative, renderCitations } from "../narrative-engine.js";
 
 export function generateGettingStartedPage(
@@ -18,6 +18,7 @@ export function generateGettingStartedPage(
   const pkgManager = detectPackageManager(manifest.modules);
 
   const installCmd = getInstallCommand(pkgManager);
+  const altInstalls = getAlternativeInstallCommands(pkgManager);
 
   // Build grouped structure overview
   const modulesByGroup = groupModulesLogically(manifest.modules);
@@ -37,6 +38,32 @@ export function generateGettingStartedPage(
     ? `${meta.readmeDescription}\n\n---\n\n`
     : "";
 
+  // Prerequisites as task list checkboxes
+  const prerequisites = meta.languages.map((l) =>
+    `- [x] ${getLanguageDisplayName(l.name as LanguageId)} development environment`
+  ).join("\n");
+
+  // Installation section — tabbed if JS project, plain otherwise
+  let installSection: string;
+  if (altInstalls) {
+    installSection = `\`\`\`bash
+# Clone the repository
+git clone ${repoUrl}
+cd ${projectName}
+\`\`\`
+
+${altInstalls.map((alt) => `=== "${alt.label}"\n\n    \`\`\`bash\n    ${alt.command}\n    \`\`\``).join("\n\n")}`;
+  } else {
+    installSection = `\`\`\`bash
+# Clone the repository
+git clone ${repoUrl}
+cd ${projectName}
+
+# Install dependencies
+${installCmd}
+\`\`\``;
+  }
+
   const content = `---
 title: Getting Started
 description: Setup and installation guide for ${projectName}
@@ -50,20 +77,13 @@ ${readmeIntro}This guide covers the prerequisites, installation, and project str
 
 ## Prerequisites
 
-${meta.languages.map((l) => `- ${getLanguageDisplayName(l.name as LanguageId)} development environment`).join("\n")}
+${prerequisites}
 
 ---
 
 ## Installation
 
-\`\`\`bash
-# Clone the repository
-git clone ${repoUrl}
-cd ${projectName}
-
-# Install dependencies
-${installCmd}
-\`\`\`
+${installSection}
 
 ---
 
@@ -96,8 +116,21 @@ ${meta.entryPoints.map((e) => {
 
 ## Next Steps
 
-- **[Architecture](${archLink})** — Understand the system design and dependency graph
-- **[API Reference](index.md#api-by-section)** — Browse the full API organized by component
+<div class="grid cards" markdown>
+
+-   :material-sitemap:{ .lg .middle } **[Architecture](${archLink})**
+
+    ---
+
+    Understand the system design and dependency graph
+
+-   :material-book-open-variant:{ .lg .middle } **[API Reference](index.md#api-by-section)**
+
+    ---
+
+    Browse the full API organized by component
+
+</div>
 
 ---
 

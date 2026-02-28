@@ -176,6 +176,22 @@ export function getRunCommand(pm: PackageManager): string {
   }
 }
 
+/**
+ * Get alternative install commands for tabbed display (npm/yarn/pnpm).
+ * Only returns alternatives for JS-based package managers.
+ * Returns null if the project doesn't use a JS package manager.
+ */
+export function getAlternativeInstallCommands(pm: PackageManager): { label: string; command: string }[] | null {
+  const jsManagers = ["npm", "yarn", "pnpm"];
+  if (!jsManagers.includes(pm.id)) return null;
+
+  return [
+    { label: "npm", command: "npm install" },
+    { label: "yarn", command: "yarn install" },
+    { label: "pnpm", command: "pnpm install" },
+  ];
+}
+
 // ─── Directory Tree ─────────────────────────────────────────────────────────
 
 export function generateDirectoryTree(modules: ModuleInfo[]): string {

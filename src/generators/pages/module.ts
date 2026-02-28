@@ -60,7 +60,7 @@ ${description}
       .filter((imp) => imp.source.startsWith(".") || imp.source.startsWith("@/"))
       .map((imp) => imp.source)
       .slice(0, 5);
-    content += `??? info "Relevant source files"\n`;
+    content += `???+ info "Relevant source files"\n`;
     content += `    - [\`${mod.filePath}\`](${sourceUrl}) (${mod.lineCount} lines)\n`;
     if (depFiles.length > 0) {
       content += `    - Dependencies: ${depFiles.map((d) => `\`${d}\``).join(", ")}\n`;
@@ -79,17 +79,43 @@ ${description}
     content += `!!! abstract "AI Summary"\n    ${mod.aiSummary}\n\n`;
   }
 
+  // Determine if we should use tabs for exports vs internals
+  const useTabs = publicSymbols.length > 0 && privateSymbols.length > 0;
+
   // Exports summary table
   if (publicSymbols.length > 0) {
     content += `---\n\n## Exports\n\n`;
-    content += `| Name | Kind | Description |\n`;
-    content += `|------|------|-------------|\n`;
-    for (const sym of publicSymbols) {
-      const kindBadge = getKindBadge(sym.kind);
-      const symAnchor = sym.name.toLowerCase().replace(/[^a-z0-9-_]/g, "");
-      content += `| [\`${sym.name}\`](#${symAnchor}) | ${kindBadge} | ${sym.docs?.summary || sym.aiSummary || ""} |\n`;
+    if (useTabs) {
+      content += `=== "Exports (${publicSymbols.length})"\n\n`;
+      content += `    | Name | Kind | Description |\n`;
+      content += `    |------|------|-------------|\n`;
+      for (const sym of publicSymbols) {
+        const kindBadge = getKindBadge(sym.kind);
+        const symAnchor = sym.name.toLowerCase().replace(/[^a-z0-9-_]/g, "");
+        const deprecated = sym.docs?.deprecated || sym.decorators?.some((d) => d.toLowerCase().includes("deprecated"));
+        const nameDisplay = deprecated ? `==\`${sym.name}\`== :material-alert: deprecated` : `[\`${sym.name}\`](#${symAnchor})`;
+        content += `    | ${nameDisplay} | ${kindBadge} | ${sym.docs?.summary || sym.aiSummary || ""} |\n`;
+      }
+      content += "\n";
+
+      content += `=== "Internal (${privateSymbols.length})"\n\n`;
+      for (const sym of privateSymbols) {
+        const kindBadge = getKindBadge(sym.kind);
+        content += `    - \`${sym.name}\` — ${kindBadge}${sym.docs?.summary ? ` — ${sym.docs.summary}` : ""}\n`;
+      }
+      content += "\n";
+    } else {
+      content += `| Name | Kind | Description |\n`;
+      content += `|------|------|-------------|\n`;
+      for (const sym of publicSymbols) {
+        const kindBadge = getKindBadge(sym.kind);
+        const symAnchor = sym.name.toLowerCase().replace(/[^a-z0-9-_]/g, "");
+        const deprecated = sym.docs?.deprecated || sym.decorators?.some((d) => d.toLowerCase().includes("deprecated"));
+        const nameDisplay = deprecated ? `==\`${sym.name}\`== :material-alert: deprecated` : `[\`${sym.name}\`](#${symAnchor})`;
+        content += `| ${nameDisplay} | ${kindBadge} | ${sym.docs?.summary || sym.aiSummary || ""} |\n`;
+      }
+      content += "\n";
     }
-    content += "\n";
   }
 
   // Detailed symbol docs
@@ -166,8 +192,8 @@ ${description}
     content += "\n";
   }
 
-  // Internal symbols (collapsible)
-  if (privateSymbols.length > 0) {
+  // Internal symbols (collapsible) — skip if already shown in tabs
+  if (privateSymbols.length > 0 && !useTabs) {
     content += `---\n\n## Internal\n\n`;
     content += `??? note "Show ${privateSymbols.length} internal symbols"\n\n`;
     for (const sym of privateSymbols) {
