@@ -12,6 +12,7 @@
   "files": [
     "dist",
     "bin",
+    "scripts",
     "src/generators/templates"
   ],
   "scripts": {
@@ -24,6 +25,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
+    "postinstall": "node scripts/postinstall.js",
     "prepublishOnly": "npm run build",
     "docwalk": "tsx src/cli/index.ts"
   },
