@@ -245,7 +245,7 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
   }
 
   // ── End-user documentation pages ──────────────────────────────────────
-  if (config.analysis.user_docs !== false && !tryMode) {
+  if (config.analysis.user_docs !== false) {
     onProgress?.("Generating end-user documentation...");
     const userDocsConfig = config.analysis.user_docs_config;
     const { generateUserGuidePage, generateUserGettingStartedPage, generateFeaturesPage,
@@ -330,7 +330,7 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
   if (tryMode) {
     const totalModules = manifest.modules.length;
     for (const page of pages) {
-      page.content += `\n\n!!! tip "Unlock Full Documentation"\n    This is a preview. DocWalk Pro includes complete API reference for all ${totalModules} modules, AI-powered narratives, end-user guides, and more.\n`;
+      page.content += `\n\n!!! tip "Unlock Full Documentation"\n    This is a preview. Run DocWalk on your own repo for complete API reference across all ${totalModules} modules, deeper AI analysis, and more.\n`;
     }
   }
 
