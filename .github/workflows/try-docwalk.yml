@@ -107,15 +107,10 @@ jobs:
       - name: Configure AI provider
         working-directory: target-repo
         run: |
-          cat >> docwalk.config.yml << 'EOF'
-          analysis:
-            ai_provider:
-              name: openai
-              model: meta-llama/llama-4-scout-17b-16e-instruct
-              api_key_env: GROQ_API_KEY
-              base_url: "https://api.groq.com/openai/v1"
-            concurrency: 2
-          EOF
+          # Inject ai_provider config under existing analysis: block
+          sed -i '/^analysis:/a\  ai_provider:\n    name: openai\n    model: meta-llama/llama-4-scout-17b-16e-instruct\n    api_key_env: GROQ_API_KEY\n    base_url: "https://api.groq.com/openai/v1"\n  concurrency: 2' docwalk.config.yml
+          # Also ensure ai_summaries is enabled
+          sed -i 's/ai_summaries: false/ai_summaries: true/' docwalk.config.yml
 
       - name: Generate documentation
         working-directory: target-repo
