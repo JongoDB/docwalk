@@ -13,7 +13,8 @@
 
 import type { AnalysisConfig } from "../config/schema.js";
 import type { ModuleInfo, Symbol } from "./types.js";
-import type { AISummaryProvider } from "./providers/base.js";
+import type { AISummaryProvider, AIProvider } from "./providers/base.js";
+import { buildBatchSummaryPrompt, parseBatchSummaryResponse } from "./providers/base.js";
 import { createProvider as _createProvider } from "./providers/index.js";
 
 // Re-export provider types and factory
@@ -190,11 +191,15 @@ export interface SummarizeResult {
 /**
  * Run AI summarization on all modules.
  *
- * This is designed to be fault-tolerant:
+ * Uses batched calls: one API request per module summarizes both the module
+ * and all its exported symbols. This reduces API call count from O(modules * symbols)
+ * to O(modules), critical for rate-limited free tiers (e.g. Gemini: 5-10 RPM).
+ *
+ * Fault-tolerant:
  * - If the API key is missing, returns modules unchanged
  * - If individual API calls fail, those summaries are skipped
  * - Cached summaries are reused when content hasn't changed
- * - Rate limiting prevents hitting provider quotas
+ * - Rate limiting + retry prevents hitting provider quotas
  */
 export async function summarizeModules(
   options: SummarizeOptions
@@ -205,8 +210,8 @@ export async function summarizeModules(
     readFile,
     previousCache,
     onProgress,
-    concurrency = 3,
-    delayMs = 200,
+    concurrency = 2,
+    delayMs = 500,
   } = options;
 
   // Create provider — gracefully bail if no API key
@@ -228,83 +233,100 @@ export async function summarizeModules(
   let failed = 0;
   let firstError: string | undefined;
 
-  // Determine if we should skip symbol-level summaries (local/small models)
+  // Check if provider supports general generate() (needed for batch prompts)
+  const canBatch = "generate" in provider && typeof (provider as AIProvider).generate === "function";
   const isLocal = providerConfig.name === "local" || providerConfig.name === "ollama";
 
-  // Process modules in parallel, bounded by the rate limiter
   let progressCount = 0;
 
   async function processModule(mod: ModuleInfo): Promise<ModuleInfo> {
     onProgress?.(++progressCount, modules.length, `Summarizing ${mod.filePath}`);
 
-    // Check cache for module summary
-    const cachedModuleSummary = cache.get(mod.contentHash);
-    let moduleSummary: string | undefined;
+    const updatedSymbols = [...mod.symbols];
+    const exportedSymbols = isLocal ? [] : updatedSymbols.filter(
+      (s) => s.exported && (s.kind === "function" || s.kind === "class" || s.kind === "interface")
+    );
 
-    if (cachedModuleSummary) {
-      moduleSummary = cachedModuleSummary;
-      cached++;
-    } else {
-      try {
-        await limiter.acquire();
-        const content = await readFile(mod.filePath);
-        moduleSummary = await withRetry(
-          () => provider!.summarizeModule(mod, content)
-        );
-        cache.set(mod.contentHash, moduleSummary);
-        generated++;
-      } catch (err) {
-        failed++;
-        if (!firstError) {
-          firstError = err instanceof Error ? err.message : String(err);
-        }
-      } finally {
-        await limiter.release();
+    // Check if everything is cached
+    const cachedModuleSummary = cache.get(mod.contentHash);
+    const uncachedSymbols: Symbol[] = [];
+    for (const sym of exportedSymbols) {
+      const symbolCacheKey = `${mod.contentHash}:${sym.id}`;
+      const cachedSym = cache.get(symbolCacheKey);
+      if (cachedSym) {
+        sym.aiSummary = cachedSym;
+        cached++;
+      } else {
+        uncachedSymbols.push(sym);
       }
     }
 
-    // Symbol-level summaries — skip for local models (low quality on small models,
-    // and the call volume is the main bottleneck)
-    const updatedSymbols = [...mod.symbols];
-    if (!isLocal) {
-      const exportedSymbols = updatedSymbols.filter(
-        (s) => s.exported && (s.kind === "function" || s.kind === "class" || s.kind === "interface")
-      );
-
-      await Promise.all(exportedSymbols.map(async (sym) => {
-        const symbolCacheKey = `${mod.contentHash}:${sym.id}`;
-        const cachedSymSummary = cache.get(symbolCacheKey);
-
-        if (cachedSymSummary) {
-          sym.aiSummary = cachedSymSummary;
-          cached++;
-        } else {
-          try {
-            await limiter.acquire();
-            const content = await readFile(mod.filePath);
-            const summary = await withRetry(
-              () => provider!.summarizeSymbol(sym, content, mod.filePath)
-            );
-            sym.aiSummary = summary;
-            cache.set(symbolCacheKey, summary);
-            generated++;
-          } catch (err) {
-            failed++;
-            if (!firstError) {
-              firstError = err instanceof Error ? err.message : String(err);
-            }
-          } finally {
-            await limiter.release();
-          }
-        }
-      }));
+    if (cachedModuleSummary && uncachedSymbols.length === 0) {
+      cached++;
+      return { ...mod, aiSummary: cachedModuleSummary, symbols: updatedSymbols };
     }
 
-    return {
-      ...mod,
-      aiSummary: moduleSummary,
-      symbols: updatedSymbols,
-    };
+    // Use batched call: one API request for module + all uncached symbols
+    try {
+      await limiter.acquire();
+      const content = await readFile(mod.filePath);
+
+      if (canBatch && uncachedSymbols.length > 0) {
+        // Batched: module + symbols in one call
+        const batchPrompt = buildBatchSummaryPrompt(mod, content, uncachedSymbols);
+        const response = await withRetry(
+          () => (provider as AIProvider).generate(batchPrompt, { maxTokens: 1024, temperature: 0.2 })
+        );
+        const result = parseBatchSummaryResponse(response, uncachedSymbols.map(s => s.name));
+
+        // Apply module summary
+        const moduleSummary = cachedModuleSummary || result.moduleSummary;
+        if (!cachedModuleSummary && result.moduleSummary) {
+          cache.set(mod.contentHash, result.moduleSummary);
+          generated++;
+        } else if (cachedModuleSummary) {
+          cached++;
+        }
+
+        // Apply symbol summaries
+        for (const sym of uncachedSymbols) {
+          const summary = result.symbolSummaries[sym.name];
+          if (summary) {
+            sym.aiSummary = summary;
+            cache.set(`${mod.contentHash}:${sym.id}`, summary);
+            generated++;
+          }
+        }
+
+        return { ...mod, aiSummary: moduleSummary, symbols: updatedSymbols };
+      } else {
+        // Non-batched fallback: just the module summary
+        let moduleSummary = cachedModuleSummary;
+        if (!moduleSummary) {
+          moduleSummary = await withRetry(
+            () => provider!.summarizeModule(mod, content)
+          );
+          cache.set(mod.contentHash, moduleSummary);
+          generated++;
+        } else {
+          cached++;
+        }
+        return { ...mod, aiSummary: moduleSummary, symbols: updatedSymbols };
+      }
+    } catch (err) {
+      failed++;
+      if (!firstError) {
+        firstError = err instanceof Error ? err.message : String(err);
+      }
+      // Still return cached module summary if available
+      return {
+        ...mod,
+        aiSummary: cachedModuleSummary,
+        symbols: updatedSymbols,
+      };
+    } finally {
+      await limiter.release();
+    }
   }
 
   const updatedModules = await Promise.all(modules.map(processModule));

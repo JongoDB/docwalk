@@ -43,7 +43,7 @@ const ENV_VAR_NAMES: Record<string, string> = {
 };
 
 const DEFAULT_MODELS: Record<string, string> = {
-  gemini: "gemini-2.5-flash",
+  gemini: "gemini-2.5-flash-lite",
   anthropic: "claude-sonnet-4-6",
   openai: "gpt-4o-mini",
   openrouter: "google/gemini-2.5-flash",
@@ -176,7 +176,7 @@ async function validateApiKey(provider: string, apiKey: string): Promise<void> {
       const { GoogleGenerativeAI } = await import("@google/generative-ai");
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-lite",
         generationConfig: { maxOutputTokens: 10 },
       });
       await model.generateContent("Say hi");

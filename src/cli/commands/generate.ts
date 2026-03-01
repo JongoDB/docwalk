@@ -94,7 +94,7 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
     if (!config.analysis.ai_provider) {
       config.analysis.ai_provider = {
         name: "gemini",
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-lite",
         api_key_env: "DOCWALK_AI_KEY",
       };
     }
