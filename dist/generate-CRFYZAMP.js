@@ -52,7 +52,7 @@ async function generateCommand(options) {
       blank();
       log("info", "No configuration found \u2014 let's set up DocWalk.");
       blank();
-      const { initCommand } = await import("./init-RIEPHJA2.js");
+      const { initCommand } = await import("./init-H7L2A5O6.js");
       await initCommand({ _skipGenerate: true });
       clearConfigCache();
       try {
@@ -273,14 +273,6 @@ async function generateCommand(options) {
     }
   });
   genSpinner.succeed(`Generated ${pageCount} pages`);
-  try {
-    const { execa } = await import("execa");
-    await execa("python3", ["-c", "import zensical"]);
-  } catch {
-    blank();
-    log("warn", "Zensical not installed \u2014 needed for preview/deploy");
-    console.log(`    Run: ${chalk.cyan("docwalk doctor --install")}`);
-  }
   blank();
   console.log(chalk.dim("  Next steps:"));
   console.log(`    ${chalk.cyan("docwalk dev")}     \u2014 Preview locally`);

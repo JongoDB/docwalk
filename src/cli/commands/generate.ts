@@ -326,16 +326,6 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
 
   genSpinner.succeed(`Generated ${pageCount} pages`);
 
-  // Non-blocking check: nudge if Zensical isn't installed
-  try {
-    const { execa } = await import("execa");
-    await execa("python3", ["-c", "import zensical"]);
-  } catch {
-    blank();
-    log("warn", "Zensical not installed — needed for preview/deploy");
-    console.log(`    Run: ${chalk.cyan("docwalk doctor --install")}`);
-  }
-
   blank();
   console.log(chalk.dim("  Next steps:"));
   console.log(`    ${chalk.cyan("docwalk dev")}     — Preview locally`);

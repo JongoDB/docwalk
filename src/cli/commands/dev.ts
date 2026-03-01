@@ -1,14 +1,13 @@
 /**
  * DocWalk CLI — dev command
  *
- * Starts Zensical's built-in dev server for local preview.
- * Supports --watch to auto-regenerate docs when source files change.
+ * Starts a local preview server. Uses Zensical (MkDocs) if available,
+ * otherwise falls back to a pure Node.js preview server — no Python needed.
  */
 
 import chalk from "chalk";
 import path from "path";
 import { loadConfig, loadConfigFile } from "../../config/loader.js";
-import { ToolNotFoundError, runTool, ZENSICAL_INSTALL_CMD } from "../../utils/cli-tools.js";
 import { log, header, blank, setVerbose } from "../../utils/logger.js";
 import { resolveRepoRoot } from "../../utils/index.js";
 
@@ -22,7 +21,6 @@ interface DevOptions {
 
 /**
  * Start a file watcher that re-runs `docwalk generate` when source files change.
- * Uses fs.watch recursively (Node 18+) to avoid external dependencies.
  */
 async function startWatcher(
   repoRoot: string,
@@ -31,10 +29,8 @@ async function startWatcher(
 ): Promise<void> {
   const fs = await import("fs");
 
-  // Watch the source directories derived from include globs
   const watchDirs = new Set<string>();
   for (const pattern of include) {
-    // Extract the top-level directory from the glob pattern
     const topDir = pattern.split("/")[0].replace(/\*.*$/, "");
     if (topDir) {
       const fullDir = path.resolve(repoRoot, topDir);
@@ -44,13 +40,12 @@ async function startWatcher(
           watchDirs.add(fullDir);
         }
       } catch {
-        // Directory doesn't exist — skip
+        // Directory doesn't exist
       }
     }
   }
 
   if (watchDirs.size === 0) {
-    // Fall back to watching the repo root
     watchDirs.add(repoRoot);
   }
 
@@ -67,11 +62,12 @@ async function startWatcher(
     log("info", "Source files changed — regenerating docs...");
 
     try {
+      const { runTool } = await import("../../utils/cli-tools.js");
       await runTool("npx", ["tsx", "src/cli/index.ts", "generate", "--full"], {
         cwd: repoRoot,
         stdio: verbose ? "inherit" : "pipe",
       });
-      log("success", "Docs regenerated. Zensical will pick up changes automatically.");
+      log("success", "Docs regenerated.");
     } catch {
       log("warn", "Regeneration failed — check your source files for errors.");
     }
@@ -84,7 +80,6 @@ async function startWatcher(
     }
   }
 
-  // Debounce: wait for changes to settle before regenerating
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   for (const dir of watchDirs) {
@@ -92,16 +87,8 @@ async function startWatcher(
 
     const watcher = fs.watch(dir, { recursive: true }, (_event, filename) => {
       if (!filename) return;
-
-      // Skip generated output and hidden files
-      if (filename.includes("docwalk-output") || filename.includes(".docwalk")) {
-        return;
-      }
-
-      // Only watch source code files
-      if (!/\.(ts|tsx|js|jsx|py|go|rs|md)$/.test(filename)) {
-        return;
-      }
+      if (filename.includes("docwalk-output") || filename.includes(".docwalk")) return;
+      if (!/\.(ts|tsx|js|jsx|py|go|rs|md)$/.test(filename)) return;
 
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
@@ -109,12 +96,24 @@ async function startWatcher(
       }, 500);
     });
 
-    // Ensure the watcher doesn't prevent process exit
     watcher.unref();
   }
 
   log("success", `Watching ${watchDirs.size} source director${watchDirs.size === 1 ? "y" : "ies"} for changes`);
   blank();
+}
+
+/**
+ * Check if Zensical is available.
+ */
+async function hasZensical(): Promise<boolean> {
+  try {
+    const { execa } = await import("execa");
+    await execa("python3", ["-c", "import zensical"]);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function devCommand(options: DevOptions): Promise<void> {
@@ -128,16 +127,28 @@ export async function devCommand(options: DevOptions): Promise<void> {
 
   const repoRoot = resolveRepoRoot(config.source);
 
-  // ── Start file watcher if --watch ────────────────────────────────────
+  // Start file watcher if --watch
   if (options.watch) {
     await startWatcher(repoRoot, config.source.include, !!options.verbose);
   }
 
-  // ── Start Zensical dev server ──────────────────────────────────────────
-  log("info", `Starting dev server on ${options.host}:${options.port}...`);
-  blank();
+  const port = parseInt(options.port, 10);
+  const host = options.host;
+  const outputDir = path.resolve("docwalk-output");
 
-  try {
+  // Check if docs exist
+  const fs = await import("fs");
+  if (!fs.existsSync(path.join(outputDir, "docs"))) {
+    log("error", "No generated docs found. Run docwalk generate first.");
+    process.exit(1);
+  }
+
+  // Try Zensical first, fall back to Node.js preview server
+  if (await hasZensical()) {
+    log("info", `Starting Zensical dev server on ${host}:${port}...`);
+    blank();
+
+    const { runTool } = await import("../../utils/cli-tools.js");
     await runTool(
       "zensical",
       [
@@ -145,35 +156,24 @@ export async function devCommand(options: DevOptions): Promise<void> {
         "--config-file",
         "docwalk-output/mkdocs.yml",
         "--dev-addr",
-        `${options.host}:${options.port}`,
+        `${host}:${port}`,
       ],
       { stdio: "inherit" }
     );
-  } catch (error) {
-    if (error instanceof ToolNotFoundError) {
-      log("error", "Zensical is required to preview docs.");
-      blank();
-      log("info", "Install it with:");
-      console.log(`    ${chalk.cyan(ZENSICAL_INSTALL_CMD)}`);
-      blank();
-      log("info", "If you don't have Python installed:");
-      console.log(`    ${chalk.cyan("brew install python")}     ${chalk.dim("# macOS")}`);
-      console.log(`    ${chalk.cyan("sudo apt install python3")} ${chalk.dim("# Ubuntu/Debian")}`);
-      blank();
-      log("info", "Then run:");
-      console.log(`    ${chalk.cyan(ZENSICAL_INSTALL_CMD)}`);
-      console.log(`    ${chalk.cyan("docwalk dev")}`);
-      process.exit(1);
-    }
+  } else {
+    log("info", "Starting Node.js preview server (no Python needed)...");
+    blank();
 
-    log("error", "Failed to start Zensical dev server.");
+    const { startPreviewServer } = await import("../preview-server.js");
+    await startPreviewServer(outputDir, host, port);
+
+    const url = `http://${host === "127.0.0.1" ? "localhost" : host}:${port}`;
+    log("success", `Preview server running at ${chalk.cyan(url)}`);
     blank();
-    log("info", "Make sure Zensical is installed:");
-    console.log(`    ${chalk.cyan(ZENSICAL_INSTALL_CMD)}`);
+    console.log(chalk.dim("  Press Ctrl+C to stop"));
     blank();
-    log("info", "Then generate docs first:");
-    console.log(`    ${chalk.cyan("docwalk generate")}`);
-    process.exit(1);
+
+    // Keep process alive
+    await new Promise(() => {});
   }
 }
-

@@ -1001,8 +1001,8 @@ async function loadConfig(searchFrom) {
   const parsed = DocWalkConfigSchema.safeParse(result.config);
   if (!parsed.success) {
     const errors = parsed.error.issues.map((issue) => {
-      const path26 = issue.path.join(".");
-      return `  ${import_chalk3.default.red("\u2717")} ${import_chalk3.default.dim(path26)}: ${issue.message}`;
+      const path27 = issue.path.join(".");
+      return `  ${import_chalk3.default.red("\u2717")} ${import_chalk3.default.dim(path27)}: ${issue.message}`;
     }).join("\n");
     throw new ConfigValidationError(
       `Invalid configuration in ${import_chalk3.default.dim(result.filepath)}:
@@ -1024,8 +1024,8 @@ async function loadConfigFile(filepath) {
   const parsed = DocWalkConfigSchema.safeParse(result.config);
   if (!parsed.success) {
     const errors = parsed.error.issues.map((issue) => {
-      const path26 = issue.path.join(".");
-      return `  ${import_chalk3.default.red("\u2717")} ${import_chalk3.default.dim(path26)}: ${issue.message}`;
+      const path27 = issue.path.join(".");
+      return `  ${import_chalk3.default.red("\u2717")} ${import_chalk3.default.dim(path27)}: ${issue.message}`;
     }).join("\n");
     throw new ConfigValidationError(
       `Invalid configuration in ${import_chalk3.default.dim(filepath)}:
@@ -5498,11 +5498,11 @@ function detectCircularDependencies(manifest) {
   const visited = /* @__PURE__ */ new Set();
   const inStack = /* @__PURE__ */ new Set();
   const cycles = [];
-  function dfs(node, path26) {
+  function dfs(node, path27) {
     if (inStack.has(node)) {
-      const cycleStart = path26.indexOf(node);
+      const cycleStart = path27.indexOf(node);
       if (cycleStart !== -1) {
-        cycles.push(path26.slice(cycleStart));
+        cycles.push(path27.slice(cycleStart));
       }
       return;
     }
@@ -5510,7 +5510,7 @@ function detectCircularDependencies(manifest) {
     visited.add(node);
     inStack.add(node);
     for (const neighbor of adj.get(node) || []) {
-      dfs(neighbor, [...path26, node]);
+      dfs(neighbor, [...path27, node]);
     }
     inStack.delete(node);
   }
@@ -12454,14 +12454,6 @@ async function generateCommand(options) {
     }
   });
   genSpinner.succeed(`Generated ${pageCount} pages`);
-  try {
-    const { execa } = await import("execa");
-    await execa("python3", ["-c", "import zensical"]);
-  } catch {
-    blank();
-    log("warn", "Zensical not installed \u2014 needed for preview/deploy");
-    console.log(`    Run: ${import_chalk4.default.cyan("docwalk doctor --install")}`);
-  }
   blank();
   console.log(import_chalk4.default.dim("  Next steps:"));
   console.log(`    ${import_chalk4.default.cyan("docwalk dev")}     \u2014 Preview locally`);
@@ -13441,6 +13433,14 @@ var init_sync = __esm({
 });
 
 // src/utils/cli-tools.ts
+var cli_tools_exports = {};
+__export(cli_tools_exports, {
+  ToolNotFoundError: () => ToolNotFoundError,
+  ZENSICAL_INSTALL_CMD: () => ZENSICAL_INSTALL_CMD,
+  ZENSICAL_PACKAGES: () => ZENSICAL_PACKAGES,
+  formatToolError: () => formatToolError,
+  runTool: () => runTool
+});
 function isCommandNotFound(error) {
   if (!error || typeof error !== "object") return false;
   const err = error;
@@ -15019,20 +15019,481 @@ var init_undeploy = __esm({
   }
 });
 
+// src/cli/preview-server.ts
+var preview_server_exports = {};
+__export(preview_server_exports, {
+  startPreviewServer: () => startPreviewServer
+});
+async function startPreviewServer(docsDir, host, port) {
+  const docsRoot = import_path23.default.resolve(docsDir, "docs");
+  const mkdocsPath = import_path23.default.resolve(docsDir, "mkdocs.yml");
+  const nav = await parseNav(mkdocsPath, docsRoot);
+  let customCss = "";
+  try {
+    customCss = await import_promises12.default.readFile(import_path23.default.join(docsRoot, "stylesheets", "preset.css"), "utf-8");
+  } catch {
+  }
+  const server = import_http.default.createServer(async (req, res) => {
+    try {
+      const url = new URL(req.url || "/", `http://${host}:${port}`);
+      let pathname = decodeURIComponent(url.pathname);
+      if (pathname.startsWith("/stylesheets/") || pathname.startsWith("/javascripts/")) {
+        const filePath = import_path23.default.join(docsRoot, pathname);
+        try {
+          const content = await import_promises12.default.readFile(filePath);
+          const ext = import_path23.default.extname(pathname);
+          res.writeHead(200, { "Content-Type": MIME_TYPES[ext] || "application/octet-stream" });
+          res.end(content);
+          return;
+        } catch {
+          res.writeHead(404);
+          res.end("Not found");
+          return;
+        }
+      }
+      if (pathname === "/") pathname = "/index.md";
+      if (!pathname.endsWith(".md") && !pathname.endsWith("/")) pathname += ".md";
+      if (pathname.endsWith("/")) pathname += "index.md";
+      if (!pathname.endsWith(".md")) pathname += ".md";
+      const mdPath = import_path23.default.join(docsRoot, pathname);
+      let markdown;
+      try {
+        markdown = await import_promises12.default.readFile(mdPath, "utf-8");
+      } catch {
+        res.writeHead(404, { "Content-Type": "text/html" });
+        res.end(renderHTML("Not Found", "<h1>Page not found</h1><p><a href='/'>Back to home</a></p>", nav, customCss, pathname));
+        return;
+      }
+      const fmMatch = markdown.match(/^---\n[\s\S]*?\n---\n/);
+      let title = "DocWalk Preview";
+      if (fmMatch) {
+        const titleMatch = fmMatch[0].match(/title:\s*(.+)/);
+        if (titleMatch) title = titleMatch[1].trim();
+        markdown = markdown.slice(fmMatch[0].length);
+      }
+      const bodyHtml = markdownToHtml(markdown);
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(renderHTML(title, bodyHtml, nav, customCss, pathname));
+    } catch (err) {
+      res.writeHead(500);
+      res.end(`Server error: ${err.message}`);
+    }
+  });
+  return new Promise((resolve) => {
+    server.listen(port, host, () => {
+      resolve(server);
+    });
+  });
+}
+async function parseNav(mkdocsPath, docsRoot) {
+  try {
+    const content = await import_promises12.default.readFile(mkdocsPath, "utf-8");
+    const navMatch = content.match(/^nav:\s*\n((?:\s+-\s+.+\n?)+)/m);
+    if (!navMatch) {
+      return await buildNavFromFiles(docsRoot);
+    }
+    const items = [];
+    const lines = navMatch[1].split("\n").filter((l) => l.trim());
+    for (const line of lines) {
+      const match = line.match(/^\s+-\s+(?:(.+?):\s+)?(.+)$/);
+      if (match) {
+        const title = match[1] || formatTitle(match[2]);
+        const filePath = match[2].trim();
+        items.push({ title, path: "/" + filePath.replace(/\.md$/, "") });
+      }
+    }
+    return items.length > 0 ? items : await buildNavFromFiles(docsRoot);
+  } catch {
+    return await buildNavFromFiles(docsRoot);
+  }
+}
+async function buildNavFromFiles(docsRoot) {
+  const items = [];
+  try {
+    const entries = await import_promises12.default.readdir(docsRoot, { withFileTypes: true });
+    if (entries.some((e) => e.name === "index.md")) {
+      items.push({ title: "Home", path: "/" });
+    }
+    for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+      if (entry.name === "index.md") continue;
+      if (entry.isFile() && entry.name.endsWith(".md")) {
+        const name = entry.name.replace(/\.md$/, "");
+        items.push({ title: formatTitle(name), path: "/" + name });
+      }
+    }
+    for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+      if (entry.isDirectory() && !entry.name.startsWith(".") && entry.name !== "stylesheets" && entry.name !== "javascripts") {
+        const children = [];
+        const subEntries = await import_promises12.default.readdir(import_path23.default.join(docsRoot, entry.name), { withFileTypes: true });
+        for (const sub of subEntries.sort((a, b) => a.name.localeCompare(b.name))) {
+          if (sub.isFile() && sub.name.endsWith(".md")) {
+            const name = sub.name.replace(/\.md$/, "");
+            children.push({
+              title: formatTitle(name),
+              path: `/${entry.name}/${name}`
+            });
+          }
+        }
+        if (children.length > 0) {
+          items.push({ title: formatTitle(entry.name), path: "", children });
+        }
+      }
+    }
+  } catch {
+  }
+  return items;
+}
+function formatTitle(name) {
+  return name.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()).replace(/\.md$/, "");
+}
+function markdownToHtml(md) {
+  let html = "";
+  const lines = md.split("\n");
+  let i = 0;
+  let inList = false;
+  let listType = "";
+  while (i < lines.length) {
+    const line = lines[i];
+    if (line.match(/^```(\w*)/)) {
+      const lang = line.match(/^```(\w*)/)[1];
+      const codeLines = [];
+      i++;
+      while (i < lines.length && !lines[i].startsWith("```")) {
+        codeLines.push(lines[i]);
+        i++;
+      }
+      i++;
+      if (lang === "mermaid") {
+        html += `<div class="mermaid">${escapeHtml(codeLines.join("\n"))}</div>
+`;
+      } else {
+        html += `<pre><code class="language-${lang || "text"}">${escapeHtml(codeLines.join("\n"))}</code></pre>
+`;
+      }
+      continue;
+    }
+    if (inList && !line.match(/^\s*[-*+]\s/) && !line.match(/^\s*\d+\.\s/) && line.trim() !== "") {
+      html += listType === "ul" ? "</ul>\n" : "</ol>\n";
+      inList = false;
+    }
+    const headingMatch = line.match(/^(#{1,6})\s+(.+)/);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      const text = inlineFormat(headingMatch[2]);
+      const id = headingMatch[2].toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      html += `<h${level} id="${id}">${text}</h${level}>
+`;
+      i++;
+      continue;
+    }
+    if (line.match(/^(-{3,}|_{3,}|\*{3,})\s*$/)) {
+      html += "<hr>\n";
+      i++;
+      continue;
+    }
+    if (line.startsWith("> ")) {
+      const quoteLines = [];
+      while (i < lines.length && (lines[i].startsWith("> ") || lines[i].startsWith(">"))) {
+        quoteLines.push(lines[i].replace(/^>\s?/, ""));
+        i++;
+      }
+      html += `<blockquote>${markdownToHtml(quoteLines.join("\n"))}</blockquote>
+`;
+      continue;
+    }
+    const admonMatch = line.match(/^!!!\s+(\w+)\s*(?:"([^"]*)")?/);
+    if (admonMatch) {
+      const type = admonMatch[1];
+      const title = admonMatch[2] || type.charAt(0).toUpperCase() + type.slice(1);
+      const contentLines = [];
+      i++;
+      while (i < lines.length && (lines[i].startsWith("    ") || lines[i].trim() === "")) {
+        contentLines.push(lines[i].replace(/^    /, ""));
+        i++;
+      }
+      html += `<div class="admonition ${type}"><p class="admonition-title">${escapeHtml(title)}</p>${markdownToHtml(contentLines.join("\n"))}</div>
+`;
+      continue;
+    }
+    if (line.includes("|") && i + 1 < lines.length && lines[i + 1].match(/^\|?\s*[-:]+/)) {
+      const tableLines = [];
+      while (i < lines.length && lines[i].includes("|")) {
+        tableLines.push(lines[i]);
+        i++;
+      }
+      html += renderTable(tableLines);
+      continue;
+    }
+    const ulMatch = line.match(/^(\s*)[-*+]\s+(.*)/);
+    if (ulMatch) {
+      if (!inList) {
+        html += "<ul>\n";
+        inList = true;
+        listType = "ul";
+      }
+      html += `<li>${inlineFormat(ulMatch[2])}</li>
+`;
+      i++;
+      continue;
+    }
+    const olMatch = line.match(/^(\s*)\d+\.\s+(.*)/);
+    if (olMatch) {
+      if (!inList) {
+        html += "<ol>\n";
+        inList = true;
+        listType = "ol";
+      }
+      html += `<li>${inlineFormat(olMatch[2])}</li>
+`;
+      i++;
+      continue;
+    }
+    if (line.match(/^<div\s+class=.*markdown/)) {
+      const htmlLines = [line];
+      i++;
+      let depth = 1;
+      while (i < lines.length && depth > 0) {
+        if (lines[i].includes("<div")) depth++;
+        if (lines[i].includes("</div>")) depth--;
+        htmlLines.push(lines[i]);
+        i++;
+      }
+      html += htmlLines.join("\n") + "\n";
+      continue;
+    }
+    if (line.trim() === "") {
+      i++;
+      continue;
+    }
+    html += `<p>${inlineFormat(line)}</p>
+`;
+    i++;
+  }
+  if (inList) {
+    html += listType === "ul" ? "</ul>\n" : "</ol>\n";
+  }
+  return html;
+}
+function renderTable(lines) {
+  const parseRow = (line) => line.split("|").map((c) => c.trim()).filter((c) => c !== "");
+  const headers = parseRow(lines[0]);
+  const rows = lines.slice(2).map(parseRow);
+  let html = "<table><thead><tr>";
+  for (const h of headers) html += `<th>${inlineFormat(h)}</th>`;
+  html += "</tr></thead><tbody>";
+  for (const row of rows) {
+    html += "<tr>";
+    for (const cell of row) html += `<td>${inlineFormat(cell)}</td>`;
+    html += "</tr>";
+  }
+  html += "</tbody></table>\n";
+  return html;
+}
+function inlineFormat(text) {
+  return text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">').replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>').replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>").replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/\*(.+?)\*/g, "<em>$1</em>").replace(/`([^`]+)`/g, "<code>$1</code>").replace(/:material-[\w-]+:\{[^}]*\}/g, "").replace(/:material-[\w-]+:/g, "");
+}
+function escapeHtml(text) {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function renderHTML(title, body, nav, customCss, currentPath) {
+  const sidebar = renderNav(nav, currentPath);
+  return `<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapeHtml(title)} \u2014 DocWalk Preview</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github-dark.min.css">
+  <style>
+    :root {
+      --accent: #5de4c7;
+      --bg: #1e1e2e;
+      --bg-sidebar: #181825;
+      --bg-content: #1e1e2e;
+      --text: #cdd6f4;
+      --text-muted: #a6adc8;
+      --border: #313244;
+      --link: #5de4c7;
+      --code-bg: #11111b;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      min-height: 100vh;
+    }
+    .sidebar {
+      width: 280px;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border);
+      padding: 1.5rem 0;
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      overflow-y: auto;
+    }
+    .sidebar-header {
+      padding: 0 1.5rem 1rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1rem;
+    }
+    .sidebar-header h2 {
+      font-size: 1rem;
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .sidebar-header span {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .sidebar nav a {
+      display: block;
+      padding: 0.4rem 1.5rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.875rem;
+      border-left: 3px solid transparent;
+    }
+    .sidebar nav a:hover { color: var(--text); background: var(--border); }
+    .sidebar nav a.active { color: var(--accent); border-left-color: var(--accent); background: rgba(93,228,199,0.05); }
+    .sidebar nav .section-title {
+      padding: 0.8rem 1.5rem 0.3rem;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .content {
+      margin-left: 280px;
+      flex: 1;
+      max-width: 900px;
+      padding: 2rem 3rem;
+    }
+    h1 { font-size: 2rem; margin: 1.5rem 0 1rem; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+    h2 { font-size: 1.5rem; margin: 2rem 0 0.75rem; color: var(--text); }
+    h3 { font-size: 1.2rem; margin: 1.5rem 0 0.5rem; color: var(--text); }
+    h4, h5, h6 { margin: 1rem 0 0.5rem; color: var(--text-muted); }
+    p { margin: 0.5rem 0; line-height: 1.7; }
+    a { color: var(--link); }
+    code {
+      font-family: 'Fira Code', 'JetBrains Mono', monospace;
+      font-size: 0.875em;
+      background: var(--code-bg);
+      padding: 0.15em 0.4em;
+      border-radius: 4px;
+    }
+    pre {
+      background: var(--code-bg);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 1rem 0;
+      border: 1px solid var(--border);
+    }
+    pre code { background: none; padding: 0; font-size: 0.85rem; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+    th, td { padding: 0.6rem 1rem; text-align: left; border: 1px solid var(--border); }
+    th { background: var(--code-bg); font-weight: 600; font-size: 0.875rem; }
+    td { font-size: 0.875rem; }
+    blockquote { border-left: 4px solid var(--accent); padding: 0.5rem 1rem; margin: 1rem 0; color: var(--text-muted); background: var(--code-bg); border-radius: 0 4px 4px 0; }
+    hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+    ul, ol { margin: 0.5rem 0; padding-left: 1.5rem; }
+    li { margin: 0.25rem 0; line-height: 1.6; }
+    img { max-width: 100%; border-radius: 8px; }
+    .admonition {
+      border-left: 4px solid var(--accent);
+      background: var(--code-bg);
+      padding: 1rem;
+      margin: 1rem 0;
+      border-radius: 0 4px 4px 0;
+    }
+    .admonition-title { font-weight: 600; margin-bottom: 0.5rem; }
+    .admonition.warning, .admonition.caution { border-left-color: #f9e2af; }
+    .admonition.danger, .admonition.error { border-left-color: #f38ba8; }
+    .admonition.tip, .admonition.hint { border-left-color: #a6e3a1; }
+    .admonition.note, .admonition.info { border-left-color: #89b4fa; }
+    .mermaid { margin: 1rem 0; text-align: center; }
+    ${customCss}
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h2>DocWalk Preview</h2>
+      <span>Local dev server</span>
+    </div>
+    <nav>${sidebar}</nav>
+  </aside>
+  <main class="content">
+    ${body}
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>
+    hljs.highlightAll();
+    mermaid.initialize({ theme: 'dark', startOnLoad: true });
+  </script>
+</body>
+</html>`;
+}
+function renderNav(items, currentPath) {
+  let html = "";
+  for (const item of items) {
+    if (item.children) {
+      html += `<div class="section-title">${escapeHtml(item.title)}</div>`;
+      for (const child of item.children) {
+        const href = child.path === "/" ? "/" : child.path;
+        const active = currentPath.replace(/\.md$/, "").replace(/\/index$/, "/") === href || currentPath === href + ".md" ? " active" : "";
+        html += `<a href="${href}"${active ? ' class="active"' : ""}>${escapeHtml(child.title)}</a>`;
+      }
+    } else {
+      const href = item.path === "/" ? "/" : item.path;
+      const normalizedCurrent = currentPath === "/" || currentPath === "/index.md" || currentPath === "/index" ? "/" : currentPath.replace(/\.md$/, "");
+      const active = normalizedCurrent === href ? " active" : "";
+      html += `<a href="${href}"${active ? ' class="active"' : ""}>${escapeHtml(item.title)}</a>`;
+    }
+  }
+  return html;
+}
+var import_http, import_promises12, import_path23, MIME_TYPES;
+var init_preview_server = __esm({
+  "src/cli/preview-server.ts"() {
+    "use strict";
+    import_http = __toESM(require("http"), 1);
+    import_promises12 = __toESM(require("fs/promises"), 1);
+    import_path23 = __toESM(require("path"), 1);
+    MIME_TYPES = {
+      ".html": "text/html",
+      ".css": "text/css",
+      ".js": "application/javascript",
+      ".json": "application/json",
+      ".png": "image/png",
+      ".jpg": "image/jpeg",
+      ".svg": "image/svg+xml",
+      ".ico": "image/x-icon",
+      ".woff2": "font/woff2"
+    };
+  }
+});
+
 // src/cli/commands/dev.ts
 var dev_exports = {};
 __export(dev_exports, {
   devCommand: () => devCommand
 });
 async function startWatcher(repoRoot, include, verbose2) {
-  const fs = await import("fs");
+  const fs2 = await import("fs");
   const watchDirs = /* @__PURE__ */ new Set();
   for (const pattern of include) {
     const topDir = pattern.split("/")[0].replace(/\*.*$/, "");
     if (topDir) {
-      const fullDir = import_path23.default.resolve(repoRoot, topDir);
+      const fullDir = import_path24.default.resolve(repoRoot, topDir);
       try {
-        const stat2 = await fs.promises.stat(fullDir);
+        const stat2 = await fs2.promises.stat(fullDir);
         if (stat2.isDirectory()) {
           watchDirs.add(fullDir);
         }
@@ -15053,11 +15514,12 @@ async function startWatcher(repoRoot, include, verbose2) {
     regenerating = true;
     log("info", "Source files changed \u2014 regenerating docs...");
     try {
-      await runTool("npx", ["tsx", "src/cli/index.ts", "generate", "--full"], {
+      const { runTool: runTool2 } = await Promise.resolve().then(() => (init_cli_tools(), cli_tools_exports));
+      await runTool2("npx", ["tsx", "src/cli/index.ts", "generate", "--full"], {
         cwd: repoRoot,
         stdio: verbose2 ? "inherit" : "pipe"
       });
-      log("success", "Docs regenerated. Zensical will pick up changes automatically.");
+      log("success", "Docs regenerated.");
     } catch {
       log("warn", "Regeneration failed \u2014 check your source files for errors.");
     }
@@ -15070,14 +15532,10 @@ async function startWatcher(repoRoot, include, verbose2) {
   let debounceTimer = null;
   for (const dir of watchDirs) {
     log("debug", `Watching ${import_chalk10.default.dim(dir)}`);
-    const watcher = fs.watch(dir, { recursive: true }, (_event, filename) => {
+    const watcher = fs2.watch(dir, { recursive: true }, (_event, filename) => {
       if (!filename) return;
-      if (filename.includes("docwalk-output") || filename.includes(".docwalk")) {
-        return;
-      }
-      if (!/\.(ts|tsx|js|jsx|py|go|rs|md)$/.test(filename)) {
-        return;
-      }
+      if (filename.includes("docwalk-output") || filename.includes(".docwalk")) return;
+      if (!/\.(ts|tsx|js|jsx|py|go|rs|md)$/.test(filename)) return;
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         regenerate();
@@ -15088,6 +15546,15 @@ async function startWatcher(repoRoot, include, verbose2) {
   log("success", `Watching ${watchDirs.size} source director${watchDirs.size === 1 ? "y" : "ies"} for changes`);
   blank();
 }
+async function hasZensical() {
+  try {
+    const { execa } = await import("execa");
+    await execa("python3", ["-c", "import zensical"]);
+    return true;
+  } catch {
+    return false;
+  }
+}
 async function devCommand(options) {
   if (options.verbose) setVerbose(true);
   header("Development Server");
@@ -15096,54 +15563,50 @@ async function devCommand(options) {
   if (options.watch) {
     await startWatcher(repoRoot, config.source.include, !!options.verbose);
   }
-  log("info", `Starting dev server on ${options.host}:${options.port}...`);
-  blank();
-  try {
-    await runTool(
+  const port = parseInt(options.port, 10);
+  const host = options.host;
+  const outputDir = import_path24.default.resolve("docwalk-output");
+  const fs2 = await import("fs");
+  if (!fs2.existsSync(import_path24.default.join(outputDir, "docs"))) {
+    log("error", "No generated docs found. Run docwalk generate first.");
+    process.exit(1);
+  }
+  if (await hasZensical()) {
+    log("info", `Starting Zensical dev server on ${host}:${port}...`);
+    blank();
+    const { runTool: runTool2 } = await Promise.resolve().then(() => (init_cli_tools(), cli_tools_exports));
+    await runTool2(
       "zensical",
       [
         "serve",
         "--config-file",
         "docwalk-output/mkdocs.yml",
         "--dev-addr",
-        `${options.host}:${options.port}`
+        `${host}:${port}`
       ],
       { stdio: "inherit" }
     );
-  } catch (error) {
-    if (error instanceof ToolNotFoundError) {
-      log("error", "Zensical is required to preview docs.");
-      blank();
-      log("info", "Install it with:");
-      console.log(`    ${import_chalk10.default.cyan(ZENSICAL_INSTALL_CMD)}`);
-      blank();
-      log("info", "If you don't have Python installed:");
-      console.log(`    ${import_chalk10.default.cyan("brew install python")}     ${import_chalk10.default.dim("# macOS")}`);
-      console.log(`    ${import_chalk10.default.cyan("sudo apt install python3")} ${import_chalk10.default.dim("# Ubuntu/Debian")}`);
-      blank();
-      log("info", "Then run:");
-      console.log(`    ${import_chalk10.default.cyan(ZENSICAL_INSTALL_CMD)}`);
-      console.log(`    ${import_chalk10.default.cyan("docwalk dev")}`);
-      process.exit(1);
-    }
-    log("error", "Failed to start Zensical dev server.");
+  } else {
+    log("info", "Starting Node.js preview server (no Python needed)...");
     blank();
-    log("info", "Make sure Zensical is installed:");
-    console.log(`    ${import_chalk10.default.cyan(ZENSICAL_INSTALL_CMD)}`);
+    const { startPreviewServer: startPreviewServer2 } = await Promise.resolve().then(() => (init_preview_server(), preview_server_exports));
+    await startPreviewServer2(outputDir, host, port);
+    const url = `http://${host === "127.0.0.1" ? "localhost" : host}:${port}`;
+    log("success", `Preview server running at ${import_chalk10.default.cyan(url)}`);
     blank();
-    log("info", "Then generate docs first:");
-    console.log(`    ${import_chalk10.default.cyan("docwalk generate")}`);
-    process.exit(1);
+    console.log(import_chalk10.default.dim("  Press Ctrl+C to stop"));
+    blank();
+    await new Promise(() => {
+    });
   }
 }
-var import_chalk10, import_path23;
+var import_chalk10, import_path24;
 var init_dev = __esm({
   "src/cli/commands/dev.ts"() {
     "use strict";
     import_chalk10 = __toESM(require("chalk"), 1);
-    import_path23 = __toESM(require("path"), 1);
+    import_path24 = __toESM(require("path"), 1);
     init_loader();
-    init_cli_tools();
     init_logger();
     init_utils2();
   }
@@ -15169,9 +15632,9 @@ async function statusCommand(options) {
     console.log(`    Analysis depth: ${config.analysis.depth}`);
     console.log(`    AI summaries:   ${config.analysis.ai_summaries ? import_chalk11.default.green("enabled") : import_chalk11.default.dim("disabled")}`);
     blank();
-    const statePath = import_path24.default.resolve(config.sync.state_file);
+    const statePath = import_path25.default.resolve(config.sync.state_file);
     try {
-      const stateContent = await (0, import_promises12.readFile)(statePath, "utf-8");
+      const stateContent = await (0, import_promises13.readFile)(statePath, "utf-8");
       const state = JSON.parse(stateContent);
       console.log(import_chalk11.default.dim("  Sync State"));
       console.log(`    Last commit:    ${import_chalk11.default.cyan(state.lastCommitSha.slice(0, 8))}`);
@@ -15188,13 +15651,13 @@ async function statusCommand(options) {
     log("info", `Run ${import_chalk11.default.cyan("docwalk init")} to set up DocWalk`);
   }
 }
-var import_chalk11, import_path24, import_promises12;
+var import_chalk11, import_path25, import_promises13;
 var init_status = __esm({
   "src/cli/commands/status.ts"() {
     "use strict";
     import_chalk11 = __toESM(require("chalk"), 1);
-    import_path24 = __toESM(require("path"), 1);
-    import_promises12 = require("fs/promises");
+    import_path25 = __toESM(require("path"), 1);
+    import_promises13 = require("fs/promises");
     init_loader();
     init_logger();
   }
@@ -15338,18 +15801,18 @@ async function ciSetupCommand(options) {
   }
   log("info", `Generating ${provider.name} CI/CD configuration...`);
   const ciConfig = await provider.generateCIConfig(config.deploy, config.domain);
-  const ciPath = import_path25.default.resolve(ciConfig.path);
-  await (0, import_promises13.mkdir)(import_path25.default.dirname(ciPath), { recursive: true });
-  await (0, import_promises13.writeFile)(ciPath, ciConfig.content);
+  const ciPath = import_path26.default.resolve(ciConfig.path);
+  await (0, import_promises14.mkdir)(import_path26.default.dirname(ciPath), { recursive: true });
+  await (0, import_promises14.writeFile)(ciPath, ciConfig.content);
   log("success", `Deploy workflow written to ${import_chalk13.default.cyan(ciConfig.path)}`);
   if (options.preview) {
     const previewConfig = await provider.generatePreviewCIConfig(
       config.deploy,
       config.domain
     );
-    const previewPath = import_path25.default.resolve(previewConfig.path);
-    await (0, import_promises13.mkdir)(import_path25.default.dirname(previewPath), { recursive: true });
-    await (0, import_promises13.writeFile)(previewPath, previewConfig.content);
+    const previewPath = import_path26.default.resolve(previewConfig.path);
+    await (0, import_promises14.mkdir)(import_path26.default.dirname(previewPath), { recursive: true });
+    await (0, import_promises14.writeFile)(previewPath, previewConfig.content);
     log("success", `Preview workflow written to ${import_chalk13.default.cyan(previewConfig.path)}`);
   }
   blank();
@@ -15370,13 +15833,13 @@ async function ciSetupCommand(options) {
   }
   blank();
 }
-var import_chalk13, import_promises13, import_path25;
+var import_chalk13, import_promises14, import_path26;
 var init_ci_setup = __esm({
   "src/cli/commands/ci-setup.ts"() {
     "use strict";
     import_chalk13 = __toESM(require("chalk"), 1);
-    import_promises13 = require("fs/promises");
-    import_path25 = __toESM(require("path"), 1);
+    import_promises14 = require("fs/promises");
+    import_path26 = __toESM(require("path"), 1);
     init_loader();
     init_deploy();
     init_logger();

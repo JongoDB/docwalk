@@ -1,4 +1,10 @@
 import {
+  getAvailableProviders,
+  getProvider,
+  registerProvider
+} from "./chunk-GF6GHTXP.js";
+import "./chunk-MRKS4VWN.js";
+import {
   FREE_PRESET_IDS,
   PREMIUM_PRESET_IDS,
   generateDocs,
@@ -20,12 +26,6 @@ import {
   getRegisteredLanguages,
   registerParser
 } from "./chunk-NC7KAWM7.js";
-import {
-  getAvailableProviders,
-  getProvider,
-  registerProvider
-} from "./chunk-EQALQVQO.js";
-import "./chunk-RI67YQXQ.js";
 import "./chunk-W5SRVZUR.js";
 import {
   ConfigNotFoundError,
