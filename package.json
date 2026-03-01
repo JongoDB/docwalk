@@ -49,6 +49,11 @@
     "openai": "6.25.0",
     "ora": "^8.0.1",
     "simple-git": "^3.25.0",
+    "tree-sitter-wasms": "0.1.13",
+    "web-tree-sitter": "^0.22.6",
+    "zod": "^3.23.0"
+  },
+  "optionalDependencies": {
     "tree-sitter": "^0.21.1",
     "tree-sitter-c-sharp": "^0.21.1",
     "tree-sitter-go": "^0.21.0",
@@ -58,10 +63,7 @@
     "tree-sitter-python": "^0.21.0",
     "tree-sitter-ruby": "^0.21.0",
     "tree-sitter-rust": "^0.21.0",
-    "tree-sitter-typescript": "^0.21.2",
-    "tree-sitter-wasms": "0.1.13",
-    "web-tree-sitter": "^0.22.6",
-    "zod": "^3.23.0"
+    "tree-sitter-typescript": "^0.21.2"
   },
   "devDependencies": {
     "@types/fs-extra": "^11.0.4",
