@@ -18,6 +18,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import { banner } from "../utils/logger.js";
+import { loadProjectEnv } from "../utils/secrets.js";
 
 const program = new Command();
 
@@ -27,7 +28,8 @@ program
     "Your codebase, documented. Automatically.\nAnalyze repos, generate documentation sites, deploy anywhere."
   )
   .version("0.1.0")
-  .hook("preAction", () => {
+  .hook("preAction", async () => {
+    await loadProjectEnv();
     banner();
   });
 

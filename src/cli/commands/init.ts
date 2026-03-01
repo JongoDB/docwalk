@@ -1,15 +1,9 @@
 /**
  * DocWalk CLI — init command
  *
- * Interactive setup wizard that walks the user through:
- * 1. Repository selection
- * 2. Language detection
- * 3. Analysis preferences
- * 4. Deploy provider selection
- * 5. Domain configuration
- * 6. Theme preferences
- * 7. Writes docwalk.config.yml
- * 8. Generates CI/CD config
+ * Interactive setup wizard with two tracks:
+ *   Quick Start — 3 steps: confirm repo, AI setup, theme → generate
+ *   Custom — Full 6-step wizard (repo, analysis, deploy, domain, sync, theme)
  */
 
 import inquirer from "inquirer";
@@ -19,7 +13,7 @@ import { execSync } from "child_process";
 import path from "path";
 import yaml from "js-yaml";
 import { log, header, blank } from "../../utils/logger.js";
-import type { DocWalkConfig } from "../../config/schema.js";
+import { runAISetup } from "../flows/ai-setup.js";
 
 interface InitOptions {
   repo?: string;
@@ -30,17 +24,207 @@ interface InitOptions {
   interactive?: boolean;
 }
 
+/** Default file include patterns shared by both tracks. */
+const DEFAULT_INCLUDES = [
+  "**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx",
+  "**/*.py", "**/*.go", "**/*.rs", "**/*.java", "**/*.rb", "**/*.php",
+  "**/*.cs", "**/*.c", "**/*.h", "**/*.cpp", "**/*.hpp", "**/*.cc", "**/*.cxx",
+  "**/*.swift", "**/*.kt", "**/*.kts", "**/*.scala",
+  "**/*.sh", "**/*.bash",
+  "**/*.yaml", "**/*.yml",
+  "**/*.tf", "**/*.hcl",
+  "**/*.md",
+  "**/*.json",
+  "**/*.toml", "**/*.xml",
+  "**/*.sql",
+  "**/*.dockerfile", "**/Dockerfile",
+];
+
+const DEFAULT_EXCLUDES = [
+  "node_modules/**", "dist/**", "build/**", "out/**",
+  ".git/**", ".next/**", "vendor/**", "__pycache__/**",
+  "venv/**", ".venv/**", "target/**",
+  "**/*.test.*", "**/*.spec.*", "**/__tests__/**",
+  "**/test/**", "**/tests/**", "coverage/**", ".docwalk/**",
+  "docwalk-output/**", "site/**",
+  "**/*.d.ts", "**/*.min.js", "**/migrations/**",
+];
+
+const DEFAULT_FEATURES = [
+  "navigation.tabs",
+  "navigation.sections",
+  "navigation.expand",
+  "navigation.top",
+  "search.suggest",
+  "search.highlight",
+  "content.code.copy",
+  "content.tabs.link",
+];
+
 export async function initCommand(options: InitOptions): Promise<void> {
   header("Initialize DocWalk");
 
   const interactive = options.interactive !== false;
 
   if (!interactive) {
-    // Non-interactive: use defaults + provided flags
     await writeDefaultConfig(options);
     return;
   }
 
+  // ── Choose setup mode ──────────────────────────────────────────────────
+  const { mode } = await inquirer.prompt([
+    {
+      type: "list",
+      name: "mode",
+      message: "Setup mode:",
+      choices: [
+        { name: "Quick Start — analyze code, generate docs, done", value: "quick" },
+        { name: "Custom     — configure deploy, sync, domain, theme", value: "custom" },
+      ],
+    },
+  ]);
+
+  if (mode === "quick") {
+    await quickStartTrack(options);
+  } else {
+    await customTrack(options);
+  }
+}
+
+// ─── Quick Start Track ──────────────────────────────────────────────────────
+
+async function quickStartTrack(options: InitOptions): Promise<void> {
+  // Step 1: Confirm repository
+  const detectedRepo = options.repo || await detectCurrentRepo();
+
+  const { repo } = await inquirer.prompt([
+    {
+      type: "input",
+      name: "repo",
+      message: "Repository:",
+      default: detectedRepo,
+      validate: (input: string) => input.length > 0 || "Repository is required",
+    },
+  ]);
+
+  // Detect branch
+  let branch = "main";
+  try {
+    const currentBranch = execSync("git rev-parse --abbrev-ref HEAD", { encoding: "utf-8" }).trim();
+    if (currentBranch) branch = currentBranch;
+  } catch {
+    // Not in a git repo, use default
+  }
+
+  // Step 2: AI setup
+  blank();
+  const aiResult = await runAISetup();
+
+  // Step 3: Theme
+  blank();
+  const { preset } = await inquirer.prompt([
+    {
+      type: "list",
+      name: "preset",
+      message: "Theme:",
+      choices: [
+        { name: "Developer — Dark-first, code-dense, technical", value: "developer" },
+        { name: "Corporate — Clean, professional", value: "corporate" },
+        { name: "Startup   — Vibrant, modern", value: "startup" },
+        { name: "Minimal   — Reading-focused, distraction-free", value: "minimal" },
+      ],
+      default: "developer",
+    },
+  ]);
+
+  // Build config with sensible defaults
+  const repoName = repo.split("/").pop() || "docs";
+  const config: Record<string, any> = {
+    source: {
+      repo,
+      branch,
+      include: DEFAULT_INCLUDES,
+      exclude: DEFAULT_EXCLUDES,
+      languages: "auto",
+      provider: detectProvider(repo),
+    },
+    analysis: {
+      depth: "full",
+      ai_summaries: aiResult.enabled,
+      ...(aiResult.enabled && aiResult.providerName && {
+        ai_provider: {
+          name: aiResult.providerName,
+          ...(aiResult.model && { model: aiResult.model }),
+        },
+      }),
+      dependency_graph: true,
+      changelog: true,
+      changelog_depth: 100,
+      config_docs: true,
+      max_file_size: 500_000,
+      concurrency: 4,
+    },
+    sync: {
+      trigger: "on_push",
+      diff_strategy: "incremental",
+      impact_analysis: true,
+      state_file: ".docwalk/state.json",
+      auto_commit: false,
+      commit_message: "docs: update documentation [docwalk]",
+    },
+    deploy: {
+      provider: "gh-pages",
+      project: `${repoName}-docs`,
+      auto_ssl: true,
+      output_dir: "site",
+    },
+    domain: {
+      base_path: "/",
+      dns_auto: true,
+    },
+    theme: {
+      preset,
+      layout: "tabs",
+      features: DEFAULT_FEATURES,
+    },
+    versioning: {
+      enabled: false,
+      source: "tags",
+      tag_pattern: "^v\\d+\\.\\d+\\.\\d+$",
+      default_alias: "latest",
+      max_versions: 10,
+    },
+  };
+
+  await writeConfigAndScaffold(config);
+
+  // Offer to generate immediately
+  blank();
+  const { generateNow } = await inquirer.prompt([
+    {
+      type: "confirm",
+      name: "generateNow",
+      message: "Generate documentation now?",
+      default: true,
+    },
+  ]);
+
+  if (generateNow) {
+    blank();
+    const { generateCommand } = await import("./generate.js");
+    await generateCommand({ output: "docwalk-output" });
+  } else {
+    blank();
+    console.log(chalk.dim("  Next steps:"));
+    console.log(`    1. ${chalk.cyan("docwalk generate")}  — Analyze and generate docs`);
+    console.log(`    2. ${chalk.cyan("docwalk dev")}       — Preview locally`);
+    blank();
+  }
+}
+
+// ─── Custom Track ───────────────────────────────────────────────────────────
+
+async function customTrack(options: InitOptions): Promise<void> {
   // ── Step 1: Repository ──────────────────────────────────────────────────
   const repoAnswers = await inquirer.prompt([
     {
@@ -71,7 +255,7 @@ export async function initCommand(options: InitOptions): Promise<void> {
       ? repoAnswers.branchCustom
       : repoAnswers.branch;
 
-  // ── Step 2: Analysis ────────────────────────────────────────────────────
+  // ── Step 2: Analysis + AI Setup ─────────────────────────────────────────
   blank();
   log("info", "Analysis Configuration");
 
@@ -89,26 +273,6 @@ export async function initCommand(options: InitOptions): Promise<void> {
     },
     {
       type: "confirm",
-      name: "ai_summaries",
-      message: "Enable AI-powered summaries? (requires API key)",
-      default: false,
-    },
-    {
-      type: "list",
-      name: "ai_provider",
-      message: "AI provider:",
-      choices: [
-        { name: "Anthropic Claude (ANTHROPIC_API_KEY)", value: "anthropic" },
-        { name: "OpenAI GPT (OPENAI_API_KEY)", value: "openai" },
-        { name: "Google Gemini (GEMINI_API_KEY)", value: "gemini" },
-        { name: "OpenRouter (OPENROUTER_API_KEY)", value: "openrouter" },
-        { name: "Local / Ollama (no API key needed)", value: "local" },
-      ],
-      when: (answers: any) => answers.ai_summaries,
-      default: "anthropic",
-    },
-    {
-      type: "confirm",
       name: "dependency_graph",
       message: "Generate dependency graph?",
       default: true,
@@ -121,17 +285,9 @@ export async function initCommand(options: InitOptions): Promise<void> {
     },
   ]);
 
-  // Show env var hint when AI is enabled
-  if (analysisAnswers.ai_summaries && analysisAnswers.ai_provider !== "local") {
-    const envVarHints: Record<string, string> = {
-      anthropic: "ANTHROPIC_API_KEY",
-      openai: "OPENAI_API_KEY",
-      gemini: "GEMINI_API_KEY",
-      openrouter: "OPENROUTER_API_KEY",
-    };
-    const envVar = envVarHints[analysisAnswers.ai_provider] || "DOCWALK_AI_KEY";
-    log("info", `Set ${chalk.cyan(envVar)} or ${chalk.cyan("DOCWALK_AI_KEY")} in your environment.`);
-  }
+  // Use the interactive AI setup flow instead of the old env-var dead-end
+  blank();
+  const aiResult = await runAISetup();
 
   // ── Step 3: Deploy Provider ─────────────────────────────────────────────
   blank();
@@ -287,42 +443,22 @@ export async function initCommand(options: InitOptions): Promise<void> {
   ]);
 
   // ── Build Config ────────────────────────────────────────────────────────
-  const config: Partial<DocWalkConfig> = {
+  const config: Record<string, any> = {
     source: {
       repo: repoAnswers.repo,
       branch,
-      include: [
-        "**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx",
-        "**/*.py", "**/*.go", "**/*.rs", "**/*.java", "**/*.rb", "**/*.php",
-        "**/*.cs", "**/*.c", "**/*.h", "**/*.cpp", "**/*.hpp", "**/*.cc", "**/*.cxx",
-        "**/*.swift", "**/*.kt", "**/*.kts", "**/*.scala",
-        "**/*.sh", "**/*.bash",
-        "**/*.yaml", "**/*.yml",
-        "**/*.tf", "**/*.hcl",
-        "**/*.md",
-        "**/*.json",
-        "**/*.toml", "**/*.xml",
-        "**/*.sql",
-        "**/*.dockerfile", "**/Dockerfile",
-      ],
-      exclude: [
-        "node_modules/**", "dist/**", "build/**", "out/**",
-        ".git/**", ".next/**", "vendor/**", "__pycache__/**",
-        "venv/**", ".venv/**", "target/**",
-        "**/*.test.*", "**/*.spec.*", "**/__tests__/**",
-        "**/test/**", "**/tests/**", "coverage/**", ".docwalk/**",
-        "docwalk-output/**", "site/**",
-        "**/*.d.ts", "**/*.min.js", "**/migrations/**",
-      ],
+      include: DEFAULT_INCLUDES,
+      exclude: DEFAULT_EXCLUDES,
       languages: "auto",
       provider: detectProvider(repoAnswers.repo),
     },
     analysis: {
       depth: analysisAnswers.depth,
-      ai_summaries: analysisAnswers.ai_summaries,
-      ...(analysisAnswers.ai_summaries && {
+      ai_summaries: aiResult.enabled,
+      ...(aiResult.enabled && aiResult.providerName && {
         ai_provider: {
-          name: analysisAnswers.ai_provider,
+          name: aiResult.providerName,
+          ...(aiResult.model && { model: aiResult.model }),
         },
       }),
       dependency_graph: analysisAnswers.dependency_graph,
@@ -357,16 +493,7 @@ export async function initCommand(options: InitOptions): Promise<void> {
       layout: themeAnswers.layout || "tabs",
       ...(themeAnswers.palette && { palette: themeAnswers.palette }),
       ...(themeAnswers.accent && { accent: themeAnswers.accent }),
-      features: [
-        "navigation.tabs",
-        "navigation.sections",
-        "navigation.expand",
-        "navigation.top",
-        "search.suggest",
-        "search.highlight",
-        "content.code.copy",
-        "content.tabs.link",
-      ],
+      features: DEFAULT_FEATURES,
     },
     versioning: {
       enabled: false,
@@ -377,26 +504,7 @@ export async function initCommand(options: InitOptions): Promise<void> {
     },
   };
 
-  // ── Write Config ────────────────────────────────────────────────────────
-  const configPath = path.resolve("docwalk.config.yml");
-  const yamlContent = yaml.dump(config, {
-    indent: 2,
-    lineWidth: 100,
-    noRefs: true,
-    sortKeys: false,
-  });
-
-  await writeFile(configPath, `# DocWalk Configuration\n# Generated by 'docwalk init'\n# Docs: https://docwalk.dev/config\n\n${yamlContent}`);
-
-  blank();
-  log("success", `Configuration written to ${chalk.cyan("docwalk.config.yml")}`);
-
-  // ── Create .docwalk directory ──────────────────────────────────────────
-  await mkdir(".docwalk", { recursive: true });
-
-  // ── Create .gitignore entry ────────────────────────────────────────────
-  const gitignorePath = path.resolve(".docwalk/.gitignore");
-  await writeFile(gitignorePath, "state.json\nmanifest.json\n");
+  await writeConfigAndScaffold(config);
 
   // ── Generate CI/CD config ─────────────────────────────────────────────
   const { confirm: shouldSetupCI } = await inquirer.prompt([
@@ -410,7 +518,6 @@ export async function initCommand(options: InitOptions): Promise<void> {
 
   if (shouldSetupCI) {
     log("info", "Generating CI/CD configuration...");
-    // This will be handled by the ci-setup command
     log(
       "success",
       `Run ${chalk.cyan("docwalk ci-setup")} to generate the pipeline config`
@@ -428,27 +535,43 @@ export async function initCommand(options: InitOptions): Promise<void> {
   blank();
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Shared Helpers ─────────────────────────────────────────────────────────
+
+/** Write config file and scaffold .docwalk directory. */
+async function writeConfigAndScaffold(config: Record<string, any>): Promise<void> {
+  const configPath = path.resolve("docwalk.config.yml");
+  const yamlContent = yaml.dump(config, {
+    indent: 2,
+    lineWidth: 100,
+    noRefs: true,
+    sortKeys: false,
+  });
+
+  await writeFile(configPath, `# DocWalk Configuration\n# Generated by 'docwalk init'\n# Docs: https://docwalk.dev/config\n\n${yamlContent}`);
+
+  blank();
+  log("success", `Configuration written to ${chalk.cyan("docwalk.config.yml")}`);
+
+  // Create .docwalk directory
+  await mkdir(".docwalk", { recursive: true });
+
+  // Create .gitignore (includes .env for API key storage)
+  const gitignorePath = path.resolve(".docwalk/.gitignore");
+  await writeFile(gitignorePath, "state.json\nmanifest.json\n.env\n");
+}
 
 /**
  * Detect whether to use "local" or "github" provider based on repo input.
- * If the repo is "." or an absolute/relative path, use "local".
- * If it looks like "owner/repo" format, check if we're in a local git checkout
- * of that repo — if so, use "local". Otherwise "github".
  */
 function detectProvider(repo: string): "local" | "github" {
-  // Explicit local paths
   if (repo === "." || repo.startsWith("/") || repo.startsWith("./") || repo.startsWith("../")) {
     return "local";
   }
 
-  // If "owner/repo" format but we're currently inside a git repo, prefer local
-  // (user likely cloned the repo and is running from inside it)
   try {
     execSync("git rev-parse --is-inside-work-tree", { stdio: "ignore" });
     return "local";
   } catch {
-    // Not in a git repo — assume it's a remote GitHub reference
     return repo.includes("/") ? "github" : "local";
   }
 }
@@ -463,7 +586,6 @@ async function detectCurrentRepo(): Promise<string> {
     ]);
     const url = result.stdout.trim();
 
-    // Parse GitHub URL → owner/repo
     const match = url.match(
       /github\.com[:/]([^/]+\/[^/.]+)/
     );
@@ -481,29 +603,8 @@ async function writeDefaultConfig(options: InitOptions): Promise<void> {
     source: {
       repo,
       branch: "main",
-      include: [
-        "**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx",
-        "**/*.py", "**/*.go", "**/*.rs", "**/*.java", "**/*.rb", "**/*.php",
-        "**/*.cs", "**/*.c", "**/*.h", "**/*.cpp", "**/*.hpp", "**/*.cc", "**/*.cxx",
-        "**/*.swift", "**/*.kt", "**/*.kts", "**/*.scala",
-        "**/*.sh", "**/*.bash",
-        "**/*.yaml", "**/*.yml",
-        "**/*.tf", "**/*.hcl",
-        "**/*.md",
-        "**/*.json",
-        "**/*.toml", "**/*.xml",
-        "**/*.sql",
-        "**/*.dockerfile", "**/Dockerfile",
-      ],
-      exclude: [
-        "node_modules/**", "dist/**", "build/**", "out/**",
-        ".git/**", ".next/**", "vendor/**", "__pycache__/**",
-        "venv/**", ".venv/**", "target/**",
-        "**/*.test.*", "**/*.spec.*", "**/__tests__/**",
-        "**/test/**", "**/tests/**", "coverage/**", ".docwalk/**",
-        "docwalk-output/**", "site/**",
-        "**/*.d.ts", "**/*.min.js", "**/migrations/**",
-      ],
+      include: DEFAULT_INCLUDES,
+      exclude: DEFAULT_EXCLUDES,
       languages: "auto",
       provider: detectProvider(repo),
     },
@@ -511,13 +612,14 @@ async function writeDefaultConfig(options: InitOptions): Promise<void> {
     sync: { trigger: "on_push", diff_strategy: "incremental", impact_analysis: true, state_file: ".docwalk/state.json", auto_commit: false, commit_message: "docs: update documentation [docwalk]" },
     deploy: { provider: options.provider || "gh-pages", project: `${repo.split("/").pop()}-docs`, auto_ssl: true, output_dir: "site" },
     domain: { ...(options.domain && { custom: options.domain }), base_path: "/", dns_auto: true },
-    theme: { preset: options.theme || "developer", layout: options.layout || "tabs", palette: "slate", accent: "#5de4c7", features: ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.tabs.link"] },
+    theme: { preset: options.theme || "developer", layout: options.layout || "tabs", palette: "slate", accent: "#5de4c7", features: DEFAULT_FEATURES },
     versioning: { enabled: false, source: "tags", default_alias: "latest", max_versions: 10 },
   };
 
   const yamlContent = yaml.dump(config, { indent: 2, lineWidth: 100, noRefs: true });
   await writeFile("docwalk.config.yml", `# DocWalk Configuration\n\n${yamlContent}`);
   await mkdir(".docwalk", { recursive: true });
+  await writeFile(path.resolve(".docwalk/.gitignore"), "state.json\nmanifest.json\n.env\n");
 
   log("success", `Configuration written to ${chalk.cyan("docwalk.config.yml")}`);
 }
