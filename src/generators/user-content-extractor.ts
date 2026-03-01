@@ -106,12 +106,22 @@ export function extractUserContent(manifest: AnalysisManifest): UserContentSigna
 
 function isCLIModule(mod: ModuleInfo): boolean {
   const pathLower = mod.filePath.toLowerCase();
-  return (
-    pathLower.includes("cli/") ||
+  // Must be in a commands/ or bin/ directory — not just anywhere under cli/
+  // This avoids internal utilities, flows, preview servers, etc.
+  if (
     pathLower.includes("commands/") ||
     pathLower.includes("bin/") ||
     pathLower.includes("cmd/")
-  );
+  ) {
+    return true;
+  }
+  // Only match top-level cli/ files that look like command entry points
+  if (pathLower.includes("cli/") && !pathLower.includes("flows/") && !pathLower.includes("utils/")) {
+    // Only the index/entry file, not internal utilities
+    const fileName = pathLower.split("/").pop() || "";
+    return fileName === "index.ts" || fileName === "index.js" || fileName === "main.ts" || fileName === "main.js";
+  }
+  return false;
 }
 
 function isRouteModule(mod: ModuleInfo): boolean {
@@ -146,8 +156,42 @@ function isComponentModule(mod: ModuleInfo): boolean {
   );
 }
 
+/**
+ * Convert camelCase to kebab-case for CLI-style command names.
+ * e.g. "ciSetup" → "ci-setup", "versionList" → "version-list"
+ */
+function toKebabCase(name: string): string {
+  return name
+    .replace(/([a-z])([A-Z])/g, "$1-$2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1-$2")
+    .toLowerCase();
+}
+
+/**
+ * Filter out generic/useless parameter names that don't help end users.
+ */
+function filterUsefulOptions(params?: string[]): string[] | undefined {
+  if (!params) return undefined;
+  const generic = new Set(["options", "opts", "args", "config", "ctx", "context", "req", "res", "next"]);
+  const useful = params.filter((p) => !generic.has(p.toLowerCase()));
+  return useful.length > 0 ? useful : undefined;
+}
+
 function extractCLICommands(mod: ModuleInfo): CLICommand[] {
   const commands: CLICommand[] = [];
+
+  // Extract a useful description from the module doc.
+  // Module descriptions often look like:
+  //   "DocWalk CLI — generate command\nRuns the full analysis → generation pipeline: ..."
+  // We want the part AFTER the first line (the header), which has the real description.
+  const fullDesc = mod.moduleDoc?.description || "";
+  const descLines = fullDesc.split("\n").map((l) => l.trim()).filter(Boolean);
+  // Skip the first line if it's just a "CLI — command" header
+  const headerPattern = /^[\w\s]+(?:CLI|cli)\s*[—–-]/i;
+  const usefulLines = descLines.length > 1 && headerPattern.test(descLines[0])
+    ? descLines.slice(1)
+    : descLines;
+  const cleanModuleDesc = usefulLines.join(" ").trim();
 
   for (const sym of mod.symbols) {
     if (
@@ -160,28 +204,20 @@ function extractCLICommands(mod: ModuleInfo): CLICommand[] {
         sym.name.toLowerCase().includes("cmd") ||
         sym.docs?.summary?.toLowerCase().includes("command")
       ) {
+        const rawName = sym.name.replace(/(?:command|cmd)$/i, "").replace(/^register/i, "");
+        const description = sym.docs?.summary || (cleanModuleDesc || undefined);
         commands.push({
-          name: sym.name.replace(/(?:command|cmd)$/i, "").replace(/^register/i, ""),
-          description: sym.docs?.summary,
+          name: toKebabCase(rawName),
+          description,
           filePath: mod.filePath,
-          options: sym.parameters?.map((p) => p.name),
+          options: filterUsefulOptions(sym.parameters?.map((p) => p.name)),
         });
       }
     }
   }
 
-  // If no explicit commands found but it's a CLI module, treat exported functions as commands
-  if (commands.length === 0) {
-    const exported = mod.symbols.filter((s) => s.exported && s.kind === "function");
-    for (const sym of exported) {
-      commands.push({
-        name: sym.name,
-        description: sym.docs?.summary,
-        filePath: mod.filePath,
-        options: sym.parameters?.map((p) => p.name),
-      });
-    }
-  }
+  // Don't fall back to listing all exported functions — only extract explicit command patterns
+  // This prevents internal helpers from being listed as user-facing commands
 
   return commands;
 }
@@ -221,24 +257,20 @@ function extractConfigOptions(mod: ModuleInfo): ConfigOption[] {
       // Extract properties from interfaces/types
       const children = mod.symbols.filter((s) => s.parentId === sym.id);
       for (const child of children) {
-        options.push({
-          name: `${sym.name}.${child.name}`,
-          type: child.typeAnnotation,
-          description: child.docs?.summary,
-          defaultValue: child.parameters?.[0]?.defaultValue,
-          filePath: mod.filePath,
-        });
+        // Only include options that have at least a type or description
+        if (child.typeAnnotation || child.docs?.summary) {
+          options.push({
+            name: `${sym.name}.${child.name}`,
+            type: child.typeAnnotation,
+            description: child.docs?.summary,
+            defaultValue: child.parameters?.[0]?.defaultValue,
+            filePath: mod.filePath,
+          });
+        }
       }
 
-      // If no children but the symbol itself looks like a config schema
-      if (children.length === 0 && sym.name.toLowerCase().includes("schema")) {
-        options.push({
-          name: sym.name,
-          type: sym.typeAnnotation,
-          description: sym.docs?.summary,
-          filePath: mod.filePath,
-        });
-      }
+      // Skip bare schema/constant names that have no children and no useful metadata —
+      // these are typically Zod schemas that look like "SourceSchema" with no description
     }
   }
 

@@ -104,7 +104,7 @@ describe("extractUserContent", () => {
     });
 
     it("handles a module that matches multiple category checks", () => {
-      // A module at cli/config/settings.ts matches CLI and config
+      // A module at commands/config/settings.ts matches CLI commands and config
       const cmdSymbol = makeSymbol({
         id: "s1",
         name: "configCommand",
@@ -128,12 +128,12 @@ describe("extractUserContent", () => {
       });
 
       const mod = makeModule({
-        filePath: "src/cli/config/settings.ts",
+        filePath: "src/commands/config/settings.ts",
         symbols: [cmdSymbol, interfaceSymbol, childSymbol],
       });
       const result = extractUserContent(makeManifest([mod]));
 
-      // Should appear as a CLI command (path contains cli/)
+      // Should appear as a CLI command (path contains commands/)
       expect(result.cliCommands.length).toBeGreaterThanOrEqual(1);
       expect(result.cliCommands.some((c) => c.name === "config")).toBe(true);
 
@@ -148,7 +148,7 @@ describe("extractUserContent", () => {
   // =========================================================================
 
   describe("CLI command extraction", () => {
-    it("identifies CLI modules from cli/ directory", () => {
+    it("identifies CLI modules from commands/ directory", () => {
       const sym = makeSymbol({
         id: "c1",
         name: "buildCommand",
@@ -161,14 +161,14 @@ describe("extractUserContent", () => {
         ],
       });
 
-      const mod = makeModule({ filePath: "src/cli/build.ts", symbols: [sym] });
+      const mod = makeModule({ filePath: "src/commands/build.ts", symbols: [sym] });
       const result = extractUserContent(makeManifest([mod]));
 
       expect(result.cliCommands).toHaveLength(1);
       expect(result.cliCommands[0]).toEqual({
         name: "build",
         description: "Build the project",
-        filePath: "src/cli/build.ts",
+        filePath: "src/commands/build.ts",
         options: ["target", "watch"],
       });
     });
@@ -230,12 +230,12 @@ describe("extractUserContent", () => {
         exported: true,
       });
 
-      const mod = makeModule({ filePath: "src/cli/build.ts", symbols: [sym] });
+      const mod = makeModule({ filePath: "src/commands/build.ts", symbols: [sym] });
       const result = extractUserContent(makeManifest([mod]));
 
       expect(result.cliCommands).toHaveLength(1);
-      // The extractor strips "Command" suffix and "Register" prefix
-      expect(result.cliCommands[0].name).toBe("Build");
+      // The extractor strips "Command" suffix and "Register" prefix, then kebab-cases
+      expect(result.cliCommands[0].name).toBe("build");
     });
 
     it("detects symbols with 'cmd' in name", () => {
@@ -246,7 +246,7 @@ describe("extractUserContent", () => {
         exported: true,
       });
 
-      const mod = makeModule({ filePath: "src/cli/sync.ts", symbols: [sym] });
+      const mod = makeModule({ filePath: "src/commands/sync.ts", symbols: [sym] });
       const result = extractUserContent(makeManifest([mod]));
 
       expect(result.cliCommands).toHaveLength(1);
@@ -262,7 +262,7 @@ describe("extractUserContent", () => {
         docs: { summary: "The serve command starts a dev server" },
       });
 
-      const mod = makeModule({ filePath: "src/cli/serve.ts", symbols: [sym] });
+      const mod = makeModule({ filePath: "src/commands/serve.ts", symbols: [sym] });
       const result = extractUserContent(makeManifest([mod]));
 
       expect(result.cliCommands).toHaveLength(1);
@@ -270,7 +270,7 @@ describe("extractUserContent", () => {
       expect(result.cliCommands[0].description).toBe("The serve command starts a dev server");
     });
 
-    it("falls back to exported functions when no command-named symbols found", () => {
+    it("does not fall back to all exported functions — only extracts explicit command patterns", () => {
       const sym1 = makeSymbol({
         id: "c8a",
         name: "run",
@@ -285,33 +285,16 @@ describe("extractUserContent", () => {
         kind: "function",
         exported: true,
       });
-      // Non-exported should be excluded from fallback
-      const sym3 = makeSymbol({
-        id: "c8c",
-        name: "internal",
-        kind: "function",
-        exported: false,
-      });
 
       const mod = makeModule({
-        filePath: "src/cli/main.ts",
-        symbols: [sym1, sym2, sym3],
+        filePath: "src/commands/main.ts",
+        symbols: [sym1, sym2],
       });
       const result = extractUserContent(makeManifest([mod]));
 
-      expect(result.cliCommands).toHaveLength(2);
-      expect(result.cliCommands[0]).toEqual({
-        name: "run",
-        description: "Run the tool",
-        filePath: "src/cli/main.ts",
-        options: ["config"],
-      });
-      expect(result.cliCommands[1]).toEqual({
-        name: "help",
-        description: undefined,
-        filePath: "src/cli/main.ts",
-        options: undefined,
-      });
+      // Neither "run" nor "help" contain "command" or "cmd" in the name,
+      // so they are not extracted as commands (no fallback to all exports)
+      expect(result.cliCommands).toHaveLength(0);
     });
 
     it("skips non-exported symbols for command detection", () => {
@@ -337,14 +320,14 @@ describe("extractUserContent", () => {
         exported: true,
       });
 
-      const mod = makeModule({ filePath: "src/cli/build.ts", symbols: [classSym] });
+      const mod = makeModule({ filePath: "src/commands/build.ts", symbols: [classSym] });
       const result = extractUserContent(makeManifest([mod]));
 
-      // Class kind is not checked for command names; fallback only looks for functions
+      // Class kind is not checked for command names
       expect(result.cliCommands).toEqual([]);
     });
 
-    it("extracts parameter names as options", () => {
+    it("extracts parameter names as options, filtering generic names", () => {
       const sym = makeSymbol({
         id: "c11",
         name: "deployCommand",
@@ -352,15 +335,16 @@ describe("extractUserContent", () => {
         exported: true,
         parameters: [
           { name: "env", type: "string", optional: false, rest: false },
-          { name: "dryRun", type: "boolean", optional: true, rest: false },
+          { name: "options", type: "DeployOptions", optional: false, rest: false },
           { name: "verbose", type: "boolean", optional: true, rest: false },
         ],
       });
 
-      const mod = makeModule({ filePath: "src/cli/deploy.ts", symbols: [sym] });
+      const mod = makeModule({ filePath: "src/commands/deploy.ts", symbols: [sym] });
       const result = extractUserContent(makeManifest([mod]));
 
-      expect(result.cliCommands[0].options).toEqual(["env", "dryRun", "verbose"]);
+      // "options" is filtered out as generic; only meaningful params remain
+      expect(result.cliCommands[0].options).toEqual(["env", "verbose"]);
     });
 
     it("does not extract CLI commands from non-CLI modules", () => {
@@ -782,7 +766,7 @@ describe("extractUserContent", () => {
       expect(result.configOptions[0].name).toBe("DEFAULT_CONFIG.maxRetries");
     });
 
-    it("falls back to schema-named symbols when no children found", () => {
+    it("skips bare schema-named symbols with no children (no useful metadata)", () => {
       const sym = makeSymbol({
         id: "cfg7",
         name: "validationSchema",
@@ -798,13 +782,8 @@ describe("extractUserContent", () => {
       });
       const result = extractUserContent(makeManifest([mod]));
 
-      expect(result.configOptions).toHaveLength(1);
-      expect(result.configOptions[0]).toEqual({
-        name: "validationSchema",
-        type: "ZodObject",
-        description: "Main validation schema",
-        filePath: "src/config/validation.ts",
-      });
+      // Bare schema names without child properties are no longer included
+      expect(result.configOptions).toHaveLength(0);
     });
 
     it("does not fall back to schema-named symbols when children exist", () => {
@@ -1478,7 +1457,7 @@ describe("extractUserContent", () => {
       const modules: ModuleInfo[] = [
         // CLI module
         makeModule({
-          filePath: "src/cli/deploy.ts",
+          filePath: "src/commands/deploy.ts",
           symbols: [
             makeSymbol({
               id: "int1",
@@ -1528,6 +1507,7 @@ describe("extractUserContent", () => {
               exported: false,
               parentId: "int4",
               typeAnnotation: "boolean",
+              docs: { summary: "Enable debug mode" },
             }),
           ],
         }),
@@ -1592,7 +1572,7 @@ describe("extractUserContent", () => {
     it("accumulates results from multiple modules of the same category", () => {
       const modules: ModuleInfo[] = [
         makeModule({
-          filePath: "src/cli/init.ts",
+          filePath: "src/commands/init.ts",
           symbols: [
             makeSymbol({
               id: "acc1",
@@ -1603,7 +1583,7 @@ describe("extractUserContent", () => {
           ],
         }),
         makeModule({
-          filePath: "src/cli/build.ts",
+          filePath: "src/commands/build.ts",
           symbols: [
             makeSymbol({
               id: "acc2",

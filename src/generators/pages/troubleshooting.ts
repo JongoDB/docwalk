@@ -63,8 +63,10 @@ Having trouble? Check the common issues below or see the error reference.
   }
 
   content += `### Getting Help\n\n`;
-  if (manifest.projectMeta.repository) {
-    content += `- File an issue: [GitHub Issues](https://github.com/${manifest.projectMeta.repository}/issues)\n`;
+  const repo = manifest.projectMeta.repository;
+  const hasValidRepo = repo && repo !== "." && repo.includes("/");
+  if (hasValidRepo) {
+    content += `- File an issue: [GitHub Issues](https://github.com/${repo}/issues)\n`;
   }
   content += `- Check the [FAQ](faq.md) for answers to common questions\n\n`;
 

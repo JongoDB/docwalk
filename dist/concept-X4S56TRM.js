@@ -1,8 +1,8 @@
 import {
   buildContext,
   renderCitations
-} from "./chunk-D64ADTHM.js";
-import "./chunk-GEYCHOKI.js";
+} from "./chunk-WZW77HOO.js";
+import "./chunk-D4RNNKFF.js";
 
 // src/generators/pages/concept.ts
 async function generateConceptPage(suggestion, manifest, provider, readFile, repoUrl, branch) {

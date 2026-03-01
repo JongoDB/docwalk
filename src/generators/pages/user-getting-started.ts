@@ -44,15 +44,13 @@ ${installCmd}
   if (signals.cliCommands.length > 0) {
     content += `---\n\n## Quick Start\n\n`;
     content += `After installation, you can use the following commands:\n\n`;
-    for (const cmd of signals.cliCommands.slice(0, 5)) {
-      content += `### ${cmd.name}\n\n`;
-      if (cmd.description) {
-        content += `${cmd.description}\n\n`;
-      }
-      if (cmd.options && cmd.options.length > 0) {
-        content += `Options: ${cmd.options.map((o) => `\`${o}\``).join(", ")}\n\n`;
-      }
+    content += `| Command | Description |\n`;
+    content += `|---------|-------------|\n`;
+    for (const cmd of signals.cliCommands.slice(0, 10)) {
+      const desc = cmd.description || "";
+      content += `| \`${projectName} ${cmd.name}\` | ${desc} |\n`;
     }
+    content += "\n";
   }
 
   // If there are routes, show how to access the API
@@ -65,13 +63,14 @@ ${installCmd}
     content += "\n";
   }
 
-  // Configuration section if config options found
-  if (signals.configOptions.length > 0) {
+  // Configuration section if config options found — only show meaningful entries
+  const usefulConfigOpts = signals.configOptions.filter((o) => o.type || o.description);
+  if (usefulConfigOpts.length > 0) {
     content += `---\n\n## Configuration\n\n`;
     content += `Key configuration options:\n\n`;
     content += `| Option | Type | Description |\n`;
     content += `|--------|------|-------------|\n`;
-    for (const opt of signals.configOptions.slice(0, 10)) {
+    for (const opt of usefulConfigOpts.slice(0, 10)) {
       content += `| \`${opt.name}\` | ${opt.type || "—"} | ${opt.description || ""} |\n`;
     }
     content += "\n";

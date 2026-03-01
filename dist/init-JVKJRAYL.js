@@ -3,7 +3,7 @@ import {
 } from "./chunk-LPLYQTRT.js";
 import {
   resolveApiKey
-} from "./chunk-NOZSCKAF.js";
+} from "./chunk-AOVQF4UT.js";
 import {
   blank,
   header,
@@ -394,7 +394,7 @@ async function quickStartTrack(options) {
     blank();
     const { clearConfigCache } = await import("./loader-5BOX56KF.js");
     clearConfigCache();
-    const { generateCommand } = await import("./generate-2YER35XY.js");
+    const { generateCommand } = await import("./generate-DNVJ7PEN.js");
     await generateCommand({ output: "docwalk-output" });
   } else {
     blank();

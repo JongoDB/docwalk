@@ -34,12 +34,14 @@ A comprehensive guide to everything ${projectName} can do.
   if (signals.cliCommands.length > 0) {
     content += `---\n\n## Commands\n\n`;
     for (const cmd of signals.cliCommands) {
-      content += `### ${cmd.name}\n\n`;
-      content += `${cmd.description || `The \`${cmd.name}\` command.`}\n\n`;
+      content += `### \`${projectName} ${cmd.name}\`\n\n`;
+      if (cmd.description) {
+        content += `${cmd.description}\n\n`;
+      }
       if (cmd.options && cmd.options.length > 0) {
         content += `**Options:**\n\n`;
         for (const opt of cmd.options) {
-          content += `- \`${opt}\`\n`;
+          content += `- \`--${opt}\`\n`;
         }
         content += "\n";
       }
@@ -67,19 +69,20 @@ A comprehensive guide to everything ${projectName} can do.
     }
   }
 
-  // Config options as features
-  if (signals.configOptions.length > 0) {
+  // Config options as features — only show if we have meaningful entries
+  const usefulConfigOpts = signals.configOptions.filter((o) => o.type || o.description);
+  if (usefulConfigOpts.length > 0) {
     content += `---\n\n## Configuration Options\n\n`;
     content += `| Option | Type | Default | Description |\n`;
     content += `|--------|------|---------|-------------|\n`;
-    for (const opt of signals.configOptions.slice(0, 30)) {
+    for (const opt of usefulConfigOpts.slice(0, 30)) {
       content += `| \`${opt.name}\` | ${opt.type || "—"} | ${opt.defaultValue || "—"} | ${opt.description || ""} |\n`;
     }
     content += "\n";
   }
 
   if (signals.cliCommands.length === 0 && signals.routes.length === 0 &&
-      signals.components.length === 0 && signals.configOptions.length === 0) {
+      signals.components.length === 0 && usefulConfigOpts.length === 0) {
     content += `For detailed information about ${projectName}'s features, see the [Developer Reference](getting-started.md).\n\n`;
   }
 

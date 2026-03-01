@@ -1,38 +1,48 @@
 // src/analysis/providers/base.ts
 function buildModuleSummaryPrompt(module, fileContent) {
-  const symbolList = module.symbols.filter((s) => s.exported).map((s) => `- ${s.kind} ${s.name}${s.docs?.summary ? `: ${s.docs.summary}` : ""}`).join("\n");
-  return `You are a technical documentation assistant. Summarize this source file in 2-3 sentences for a documentation site. Focus on what the module does and its role in the project. Be concise and precise.
+  const symbolList = module.symbols.filter((s) => s.exported).map((s) => {
+    const params = s.parameters?.map((p) => `${p.name}: ${p.type || "any"}`).join(", ") || "";
+    const ret = s.returns?.type ? ` \u2192 ${s.returns.type}` : "";
+    const doc = s.docs?.summary ? ` \u2014 ${s.docs.summary}` : "";
+    return `- ${s.kind} ${s.name}(${params})${ret}${doc}`;
+  }).join("\n");
+  const lines = fileContent.split("\n");
+  const truncatedContent = lines.slice(0, 150).join("\n");
+  return `Summarize this source file in 2-3 sentences for a documentation site. State what the module does, its main exports, and how it fits into a larger system.
 
 File: ${module.filePath}
 Language: ${module.language}
+Lines: ${module.lineCount}
 Exported symbols:
 ${symbolList || "(none)"}
 
-File content (truncated):
+Source code:
 \`\`\`
-${fileContent.split("\n").slice(0, 80).join("\n")}
+${truncatedContent}
 \`\`\`
 
-Write only the summary, no preamble.`;
+Write only the summary \u2014 no preamble, no bullet points, just 2-3 clear sentences.`;
 }
 function buildSymbolSummaryPrompt(symbol, fileContent, filePath) {
   const lines = fileContent.split("\n");
-  const startLine = symbol.location.line - 1;
-  const endLine = symbol.location.endLine ? symbol.location.endLine : Math.min(startLine + 30, lines.length);
+  const startLine = Math.max(0, symbol.location.line - 3);
+  const endLine = symbol.location.endLine ? Math.min(symbol.location.endLine + 2, lines.length) : Math.min(startLine + 40, lines.length);
   const snippet = lines.slice(startLine, endLine).join("\n");
-  return `You are a technical documentation assistant. Write a brief 1-2 sentence summary for this ${symbol.kind}. Focus on what it does and when to use it.
+  const paramInfo = symbol.parameters ? `Parameters: ${symbol.parameters.map((p) => `${p.name}${p.type ? `: ${p.type}` : ""}${p.optional ? " (optional)" : ""}`).join(", ")}` : "";
+  return `Write a 1-2 sentence summary for this ${symbol.kind}. State what it does and when a developer would use it.
 
-File: ${filePath}
+File: ${filePath}:${symbol.location.line}
 Symbol: ${symbol.name} (${symbol.kind})
-${symbol.parameters ? `Parameters: ${symbol.parameters.map((p) => p.name).join(", ")}` : ""}
+${paramInfo}
 ${symbol.returns?.type ? `Returns: ${symbol.returns.type}` : ""}
+${symbol.docs?.summary ? `Existing doc: ${symbol.docs.summary}` : ""}
 
 Code:
 \`\`\`
 ${snippet}
 \`\`\`
 
-Write only the summary, no preamble.`;
+Write only the summary \u2014 no preamble, no code blocks.`;
 }
 
 // src/analysis/providers/anthropic.ts

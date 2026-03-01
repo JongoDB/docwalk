@@ -53,19 +53,45 @@ ${description}
 
 `;
 
-  // Collapsible source files section
-  if (sourceLinksEnabled && repoUrl) {
-    const sourceUrl = `https://github.com/${repoUrl}/blob/${branch}/${mod.filePath}`;
-    const depFiles = mod.imports
-      .filter((imp) => imp.source.startsWith(".") || imp.source.startsWith("@/"))
-      .map((imp) => imp.source)
-      .slice(0, 5);
-    content += `???+ info "Relevant source files"\n`;
-    content += `    - [\`${mod.filePath}\`](${sourceUrl}) (${mod.lineCount} lines)\n`;
-    if (depFiles.length > 0) {
-      content += `    - Dependencies: ${depFiles.map((d) => `\`${d}\``).join(", ")}\n`;
+  // Collapsible source files section (DeepWiki-style provenance block)
+  {
+    const baseUrl = sourceLinksEnabled && repoUrl
+      ? `https://github.com/${repoUrl}/blob/${branch}/`
+      : "";
+    const sourceUrl = baseUrl ? `${baseUrl}${mod.filePath}` : "";
+
+    // Resolve local imports to actual file paths
+    const relatedFiles: string[] = [];
+    if (manifest) {
+      for (const imp of mod.imports) {
+        if (imp.source.startsWith(".") || imp.source.startsWith("@/")) {
+          // Find the actual module in the manifest matching this import
+          const matchedMod = manifest.modules.find((m) =>
+            m.filePath.endsWith(imp.source.replace(/^\.\//, "").replace(/^@\//, "src/") + ".ts") ||
+            m.filePath.endsWith(imp.source.replace(/^\.\//, "").replace(/^@\//, "src/") + ".js") ||
+            m.filePath === imp.source.replace(/^\.\//, "").replace(/^@\//, "src/")
+          );
+          if (matchedMod) relatedFiles.push(matchedMod.filePath);
+        }
+      }
     }
-    content += "\n";
+
+    content += `<details>\n<summary>Relevant source files</summary>\n\n`;
+    content += `The following files were used as context for this page:\n\n`;
+    if (sourceUrl) {
+      content += `- [\`${mod.filePath}\`](${sourceUrl}) — this module (${mod.lineCount} lines)\n`;
+    } else {
+      content += `- \`${mod.filePath}\` — this module (${mod.lineCount} lines)\n`;
+    }
+    for (const rf of relatedFiles.slice(0, 8)) {
+      if (baseUrl) {
+        content += `- [\`${rf}\`](${baseUrl}${rf})\n`;
+      } else {
+        const rfSlug = rf.replace(/\.[^.]+$/, "");
+        content += `- [\`${rf}\`](${rfSlug}.md)\n`;
+      }
+    }
+    content += `\n</details>\n\n`;
   }
 
   content += `| | |\n|---|---|\n`;
@@ -137,17 +163,33 @@ ${description}
 
     if (upstream.length > 0 || downstream.length > 0) {
       content += `---\n\n## Architecture Context\n\n`;
-      content += `\`\`\`mermaid\ngraph LR\n`;
+      content += `\`\`\`mermaid\nflowchart TD\n`;
       const thisId = sanitizeMermaidId(mod.filePath);
       content += `  ${thisId}["${path.basename(mod.filePath)}"]\n`;
       content += `  style ${thisId} fill:#5de4c7,color:#000\n`;
-      for (const up of upstream.slice(0, 8)) {
-        const upId = sanitizeMermaidId(up);
-        content += `  ${upId}["${path.basename(up)}"] --> ${thisId}\n`;
+      if (upstream.length > 0) {
+        content += `  subgraph Imported_By["Imported by"]\n`;
+        for (const up of upstream.slice(0, 8)) {
+          const upId = sanitizeMermaidId(up);
+          content += `    ${upId}["${path.basename(up)}"]\n`;
+        }
+        content += `  end\n`;
+        for (const up of upstream.slice(0, 8)) {
+          const upId = sanitizeMermaidId(up);
+          content += `  ${upId} --> ${thisId}\n`;
+        }
       }
-      for (const down of downstream.slice(0, 8)) {
-        const downId = sanitizeMermaidId(down);
-        content += `  ${thisId} --> ${downId}["${path.basename(down)}"]\n`;
+      if (downstream.length > 0) {
+        content += `  subgraph Dependencies["Dependencies"]\n`;
+        for (const down of downstream.slice(0, 8)) {
+          const downId = sanitizeMermaidId(down);
+          content += `    ${downId}["${path.basename(down)}"]\n`;
+        }
+        content += `  end\n`;
+        for (const down of downstream.slice(0, 8)) {
+          const downId = sanitizeMermaidId(down);
+          content += `  ${thisId} --> ${downId}\n`;
+        }
       }
       content += `\`\`\`\n\n`;
     }

@@ -41,46 +41,61 @@ export interface AIProvider extends AISummaryProvider {
 export function buildModuleSummaryPrompt(module: ModuleInfo, fileContent: string): string {
   const symbolList = module.symbols
     .filter((s) => s.exported)
-    .map((s) => `- ${s.kind} ${s.name}${s.docs?.summary ? `: ${s.docs.summary}` : ""}`)
+    .map((s) => {
+      const params = s.parameters?.map((p) => `${p.name}: ${p.type || "any"}`).join(", ") || "";
+      const ret = s.returns?.type ? ` → ${s.returns.type}` : "";
+      const doc = s.docs?.summary ? ` — ${s.docs.summary}` : "";
+      return `- ${s.kind} ${s.name}(${params})${ret}${doc}`;
+    })
     .join("\n");
 
-  return `You are a technical documentation assistant. Summarize this source file in 2-3 sentences for a documentation site. Focus on what the module does and its role in the project. Be concise and precise.
+  // Include more context — up to 150 lines instead of 80
+  const lines = fileContent.split("\n");
+  const truncatedContent = lines.slice(0, 150).join("\n");
+
+  return `Summarize this source file in 2-3 sentences for a documentation site. State what the module does, its main exports, and how it fits into a larger system.
 
 File: ${module.filePath}
 Language: ${module.language}
+Lines: ${module.lineCount}
 Exported symbols:
 ${symbolList || "(none)"}
 
-File content (truncated):
+Source code:
 \`\`\`
-${fileContent.split("\n").slice(0, 80).join("\n")}
+${truncatedContent}
 \`\`\`
 
-Write only the summary, no preamble.`;
+Write only the summary — no preamble, no bullet points, just 2-3 clear sentences.`;
 }
 
 /** Build the prompt for symbol summarization. */
 export function buildSymbolSummaryPrompt(symbol: Symbol, fileContent: string, filePath: string): string {
   const lines = fileContent.split("\n");
-  const startLine = symbol.location.line - 1;
+  const startLine = Math.max(0, symbol.location.line - 3); // Include a few lines of context before
   const endLine = symbol.location.endLine
-    ? symbol.location.endLine
-    : Math.min(startLine + 30, lines.length);
+    ? Math.min(symbol.location.endLine + 2, lines.length) // Include a few lines after
+    : Math.min(startLine + 40, lines.length);
   const snippet = lines.slice(startLine, endLine).join("\n");
 
-  return `You are a technical documentation assistant. Write a brief 1-2 sentence summary for this ${symbol.kind}. Focus on what it does and when to use it.
+  const paramInfo = symbol.parameters
+    ? `Parameters: ${symbol.parameters.map((p) => `${p.name}${p.type ? `: ${p.type}` : ""}${p.optional ? " (optional)" : ""}`).join(", ")}`
+    : "";
 
-File: ${filePath}
+  return `Write a 1-2 sentence summary for this ${symbol.kind}. State what it does and when a developer would use it.
+
+File: ${filePath}:${symbol.location.line}
 Symbol: ${symbol.name} (${symbol.kind})
-${symbol.parameters ? `Parameters: ${symbol.parameters.map((p) => p.name).join(", ")}` : ""}
+${paramInfo}
 ${symbol.returns?.type ? `Returns: ${symbol.returns.type}` : ""}
+${symbol.docs?.summary ? `Existing doc: ${symbol.docs.summary}` : ""}
 
 Code:
 \`\`\`
 ${snippet}
 \`\`\`
 
-Write only the summary, no preamble.`;
+Write only the summary — no preamble, no code blocks.`;
 }
 
 /** Result from a batched module+symbols summarization call. */
@@ -117,18 +132,18 @@ ${snippet}
     })
     .join("\n\n");
 
-  return `You are a technical documentation assistant. Respond ONLY with valid JSON, no markdown fences.
+  return `Respond ONLY with valid JSON — no markdown fences, no explanation.
 
-Summarize this source file and its exported symbols.
+Summarize this source file and its exported symbols for a documentation site. For the module summary, state what it does and its role. For each symbol, state what it does and when to use it.
 
-File: ${module.filePath} (${module.language})
+File: ${module.filePath} (${module.language}, ${module.lineCount} lines)
 
-Source (first 200 lines):
+Source:
 \`\`\`
 ${truncated}
 \`\`\`
 
-${symbols.length > 0 ? `Exported symbols to summarize:\n\n${symbolSection}` : ""}
+${symbols.length > 0 ? `Exported symbols:\n\n${symbolSection}` : ""}
 
 Respond with this exact JSON structure:
 {"module":"2-3 sentence file summary"${symbols.map((s) => `,"${s.name}":"1-2 sentence summary"`).join("")}}`;

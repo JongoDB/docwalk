@@ -195,22 +195,53 @@ export function getAlternativeInstallCommands(pm: PackageManager): { label: stri
 // ─── Directory Tree ─────────────────────────────────────────────────────────
 
 export function generateDirectoryTree(modules: ModuleInfo[]): string {
-  const dirs = new Set<string>();
+  // Build a tree of directories with file counts
+  const dirFiles = new Map<string, string[]>();
   for (const mod of modules) {
     const parts = mod.filePath.split("/");
+    const fileName = parts.pop()!;
+    const dir = parts.join("/") || ".";
+    if (!dirFiles.has(dir)) dirFiles.set(dir, []);
+    dirFiles.get(dir)!.push(fileName);
+  }
+
+  // Build tree nodes: directories only, with file counts at leaves
+  const allDirs = new Set<string>();
+  for (const dir of dirFiles.keys()) {
+    const parts = dir.split("/");
     for (let i = 1; i <= parts.length; i++) {
-      dirs.add(parts.slice(0, i).join("/"));
+      allDirs.add(parts.slice(0, i).join("/"));
     }
   }
 
-  const sorted = [...dirs].sort();
-  return sorted.slice(0, 40).map((d) => {
-    const depth = d.split("/").length - 1;
+  const sorted = [...allDirs].sort();
+  const lines: string[] = [];
+  const maxDepth = 3; // Limit depth to keep tree readable
+
+  for (const dir of sorted) {
+    const depth = dir.split("/").length - 1;
+    if (depth > maxDepth) continue;
+
     const indent = "  ".repeat(depth);
-    const name = d.split("/").pop()!;
-    const isFile = d.includes(".");
-    return `${indent}${isFile ? "" : ""}${name}`;
-  }).join("\n");
+    const name = dir.split("/").pop()!;
+    const files = dirFiles.get(dir);
+
+    if (files) {
+      // Leaf directory with files — show count
+      if (files.length <= 4) {
+        lines.push(`${indent}${name}/`);
+        for (const f of files.sort()) {
+          lines.push(`${indent}  ${f}`);
+        }
+      } else {
+        lines.push(`${indent}${name}/  (${files.length} files)`);
+      }
+    } else {
+      lines.push(`${indent}${name}/`);
+    }
+  }
+
+  return lines.join("\n");
 }
 
 // ─── Project Name ───────────────────────────────────────────────────────────

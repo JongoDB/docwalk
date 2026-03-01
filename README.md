@@ -40,8 +40,10 @@ cd ~/.docwalk-cli && npm install && npm link
 
 ## Quickstart
 
+> **Important:** DocWalk analyzes local files on disk. Run it from inside your project directory — the `repo` field in config is metadata only, not a remote fetch target.
+
 ```bash
-# Just run generate — DocWalk guides you through setup if needed
+cd your-project
 docwalk generate
 ```
 

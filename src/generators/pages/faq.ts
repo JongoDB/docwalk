@@ -28,21 +28,33 @@ description: Frequently asked questions about ${projectName}
 
 `;
 
+  // Resolve a proper GitHub URL (skip if repo is just "." or empty)
+  const repo = manifest.projectMeta.repository;
+  const hasValidRepo = repo && repo !== "." && repo.includes("/");
+  const repoUrl = hasValidRepo ? `https://github.com/${repo}` : "";
+
+  // Build a better description — prefer README, then package description, then a rich fallback
+  const langList = manifest.projectMeta.languages.map((l) => l.name).join(", ");
+  const description = manifest.projectMeta.readmeDescription
+    || manifest.projectMeta.description
+    || `A ${langList} project with ${manifest.stats.totalFiles} source files and ${manifest.stats.totalSymbols} symbols.`;
+
   // Generate FAQ items based on project signals
   content += `??? question "What is ${projectName}?"\n`;
-  content += `    ${manifest.projectMeta.description || manifest.projectMeta.readmeDescription || `${projectName} is a ${manifest.projectMeta.languages[0]?.name || "software"} project.`}\n\n`;
+  content += `    ${description}\n\n`;
 
   content += `??? question "What languages/technologies does ${projectName} use?"\n`;
-  content += `    ${manifest.projectMeta.languages.map((l) => `${l.name} (${l.percentage}%)`).join(", ")}.\n\n`;
+  content += `    ${manifest.projectMeta.languages.map((l) => `**${l.name}** (${l.percentage}%)`).join(", ")}.\n\n`;
 
   if (signals.cliCommands.length > 0) {
     content += `??? question "What commands are available?"\n`;
-    content += `    Available commands: ${signals.cliCommands.map((c) => `\`${c.name}\``).join(", ")}. See the [Getting Started](user-getting-started.md) guide for usage details.\n\n`;
+    content += `    Available commands: ${signals.cliCommands.map((c) => `\`${projectName} ${c.name}\``).join(", ")}. See the [Getting Started](user-getting-started.md) guide for usage details.\n\n`;
   }
 
-  if (signals.configOptions.length > 0) {
+  const usefulConfigOpts = signals.configOptions.filter((o) => o.type || o.description);
+  if (usefulConfigOpts.length > 0) {
     content += `??? question "How do I configure ${projectName}?"\n`;
-    content += `    ${projectName} has ${signals.configOptions.length} configuration options. See the [Features](features.md) page for details on each option.\n\n`;
+    content += `    ${projectName} has ${usefulConfigOpts.length} configuration options. See the [Features](features.md) page for details on each option.\n\n`;
   }
 
   if (signals.routes.length > 0) {
@@ -50,12 +62,12 @@ description: Frequently asked questions about ${projectName}
     content += `    ${projectName} provides ${signals.routes.length} API endpoints. See the [Features](features.md) page for the full API reference.\n\n`;
   }
 
-  if (manifest.projectMeta.repository) {
+  if (repoUrl) {
     content += `??? question "Where can I report bugs or request features?"\n`;
-    content += `    File an issue on [GitHub](https://github.com/${manifest.projectMeta.repository}/issues).\n\n`;
+    content += `    File an issue on [GitHub](${repoUrl}/issues).\n\n`;
 
     content += `??? question "How can I contribute?"\n`;
-    content += `    Check the [repository](https://github.com/${manifest.projectMeta.repository}) for contribution guidelines.\n\n`;
+    content += `    Check the [repository](${repoUrl}) for contribution guidelines.\n\n`;
   }
 
   content += `??? question "Where can I find the developer documentation?"\n`;

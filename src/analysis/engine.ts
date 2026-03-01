@@ -29,6 +29,7 @@ import { discoverFiles } from "./file-discovery.js";
 import { computeFileHash } from "../utils/hash.js";
 import { log } from "../utils/logger.js";
 import { readFile, stat } from "fs/promises";
+import { readFileSync } from "fs";
 import path from "path";
 import fg from "fast-glob";
 import { detectWorkspaces, type WorkspaceInfo } from "./workspace-resolver.js";
@@ -478,8 +479,20 @@ function computeProjectMeta(
     .map((m) => m.filePath);
 
   const rawName = source.repo.split("/").pop() || source.repo;
-  // If repo is "." (local), resolve to the directory basename
-  const name = rawName === "." ? path.basename(repoRoot) : rawName;
+  // If repo is "." (local), try package.json name, then directory basename
+  let name: string;
+  if (rawName === ".") {
+    // Try reading package.json directly for the name field
+    try {
+      const pkgPath = path.join(repoRoot, "package.json");
+      const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+      name = pkg.name || path.basename(repoRoot);
+    } catch {
+      name = path.basename(repoRoot);
+    }
+  } else {
+    name = rawName;
+  }
 
   // Try to find a README and extract its summary for use as project description
   let readmeDescription: string | undefined;

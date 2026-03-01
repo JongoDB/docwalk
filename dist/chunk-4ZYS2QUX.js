@@ -1,6 +1,6 @@
 import {
   analyzeCodebase
-} from "./chunk-NC7KAWM7.js";
+} from "./chunk-2EVPGTRU.js";
 
 // src/sync/engine.ts
 import simpleGit from "simple-git";

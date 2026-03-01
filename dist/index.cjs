@@ -182,39 +182,49 @@ var init_logger = __esm({
 
 // src/analysis/providers/base.ts
 function buildModuleSummaryPrompt(module2, fileContent) {
-  const symbolList = module2.symbols.filter((s) => s.exported).map((s) => `- ${s.kind} ${s.name}${s.docs?.summary ? `: ${s.docs.summary}` : ""}`).join("\n");
-  return `You are a technical documentation assistant. Summarize this source file in 2-3 sentences for a documentation site. Focus on what the module does and its role in the project. Be concise and precise.
+  const symbolList = module2.symbols.filter((s) => s.exported).map((s) => {
+    const params = s.parameters?.map((p) => `${p.name}: ${p.type || "any"}`).join(", ") || "";
+    const ret = s.returns?.type ? ` \u2192 ${s.returns.type}` : "";
+    const doc = s.docs?.summary ? ` \u2014 ${s.docs.summary}` : "";
+    return `- ${s.kind} ${s.name}(${params})${ret}${doc}`;
+  }).join("\n");
+  const lines = fileContent.split("\n");
+  const truncatedContent = lines.slice(0, 150).join("\n");
+  return `Summarize this source file in 2-3 sentences for a documentation site. State what the module does, its main exports, and how it fits into a larger system.
 
 File: ${module2.filePath}
 Language: ${module2.language}
+Lines: ${module2.lineCount}
 Exported symbols:
 ${symbolList || "(none)"}
 
-File content (truncated):
+Source code:
 \`\`\`
-${fileContent.split("\n").slice(0, 80).join("\n")}
+${truncatedContent}
 \`\`\`
 
-Write only the summary, no preamble.`;
+Write only the summary \u2014 no preamble, no bullet points, just 2-3 clear sentences.`;
 }
 function buildSymbolSummaryPrompt(symbol, fileContent, filePath) {
   const lines = fileContent.split("\n");
-  const startLine = symbol.location.line - 1;
-  const endLine = symbol.location.endLine ? symbol.location.endLine : Math.min(startLine + 30, lines.length);
+  const startLine = Math.max(0, symbol.location.line - 3);
+  const endLine = symbol.location.endLine ? Math.min(symbol.location.endLine + 2, lines.length) : Math.min(startLine + 40, lines.length);
   const snippet = lines.slice(startLine, endLine).join("\n");
-  return `You are a technical documentation assistant. Write a brief 1-2 sentence summary for this ${symbol.kind}. Focus on what it does and when to use it.
+  const paramInfo = symbol.parameters ? `Parameters: ${symbol.parameters.map((p) => `${p.name}${p.type ? `: ${p.type}` : ""}${p.optional ? " (optional)" : ""}`).join(", ")}` : "";
+  return `Write a 1-2 sentence summary for this ${symbol.kind}. State what it does and when a developer would use it.
 
-File: ${filePath}
+File: ${filePath}:${symbol.location.line}
 Symbol: ${symbol.name} (${symbol.kind})
-${symbol.parameters ? `Parameters: ${symbol.parameters.map((p) => p.name).join(", ")}` : ""}
+${paramInfo}
 ${symbol.returns?.type ? `Returns: ${symbol.returns.type}` : ""}
+${symbol.docs?.summary ? `Existing doc: ${symbol.docs.summary}` : ""}
 
 Code:
 \`\`\`
 ${snippet}
 \`\`\`
 
-Write only the summary, no preamble.`;
+Write only the summary \u2014 no preamble, no code blocks.`;
 }
 var init_base = __esm({
   "src/analysis/providers/base.ts"() {
@@ -1146,21 +1156,44 @@ function getAlternativeInstallCommands(pm) {
   ];
 }
 function generateDirectoryTree(modules) {
-  const dirs = /* @__PURE__ */ new Set();
+  const dirFiles = /* @__PURE__ */ new Map();
   for (const mod of modules) {
     const parts = mod.filePath.split("/");
+    const fileName = parts.pop();
+    const dir = parts.join("/") || ".";
+    if (!dirFiles.has(dir)) dirFiles.set(dir, []);
+    dirFiles.get(dir).push(fileName);
+  }
+  const allDirs = /* @__PURE__ */ new Set();
+  for (const dir of dirFiles.keys()) {
+    const parts = dir.split("/");
     for (let i = 1; i <= parts.length; i++) {
-      dirs.add(parts.slice(0, i).join("/"));
+      allDirs.add(parts.slice(0, i).join("/"));
     }
   }
-  const sorted = [...dirs].sort();
-  return sorted.slice(0, 40).map((d) => {
-    const depth = d.split("/").length - 1;
+  const sorted = [...allDirs].sort();
+  const lines = [];
+  const maxDepth = 3;
+  for (const dir of sorted) {
+    const depth = dir.split("/").length - 1;
+    if (depth > maxDepth) continue;
     const indent = "  ".repeat(depth);
-    const name = d.split("/").pop();
-    const isFile = d.includes(".");
-    return `${indent}${isFile ? "" : ""}${name}`;
-  }).join("\n");
+    const name = dir.split("/").pop();
+    const files = dirFiles.get(dir);
+    if (files) {
+      if (files.length <= 4) {
+        lines.push(`${indent}${name}/`);
+        for (const f of files.sort()) {
+          lines.push(`${indent}  ${f}`);
+        }
+      } else {
+        lines.push(`${indent}${name}/  (${files.length} files)`);
+      }
+    } else {
+      lines.push(`${indent}${name}/`);
+    }
+  }
+  return lines.join("\n");
 }
 function resolveProjectName(manifest) {
   const raw = manifest.projectMeta.name;
@@ -1640,7 +1673,7 @@ async function generateOverviewNarrative(options) {
   });
   const contextText = formatContextChunks(contextChunks);
   const moduleList = manifest.modules.map((m) => `- ${m.filePath} (${m.language}, ${m.symbols.length} symbols)`).slice(0, 30).join("\n");
-  const prompt = `You are writing the overview page for a technical documentation site. Based on the following codebase analysis, write a comprehensive but concise overview of this project.
+  const prompt = `You are an expert technical writer creating the overview page for a documentation site.
 
 PROJECT: ${manifest.projectMeta.name}
 LANGUAGES: ${manifest.projectMeta.languages.map((l) => `${l.name} (${l.percentage}%)`).join(", ")}
@@ -1653,15 +1686,31 @@ ${moduleList}
 SOURCE CODE CONTEXT:
 ${contextText}
 
-INSTRUCTIONS:
-1. Write 3-5 paragraphs explaining what this project does, its architecture, and key design decisions
-2. Use [file:line] notation for source citations (e.g., [src/engine.ts:42])
-3. Mention the most important modules and how they interact
-4. Write for developers who are new to the codebase
-5. Be specific \u2014 reference actual function/class names from the code
-6. Do NOT use marketing language. Be technical and precise.
+Write a comprehensive technical overview following this structure:
 
-Write the overview in Markdown format.`;
+1. **Introduction** (1-2 paragraphs): What the project does, who it's for, and the core problem it solves. Reference the main entry point and key modules.
+
+2. **Architecture Overview**: Describe the major layers/components and how they interact. Include a Mermaid diagram showing the high-level architecture:
+\`\`\`mermaid
+flowchart TD
+    A[Component] --> B[Component]
+\`\`\`
+Use \`flowchart TD\` (top-down), keep nodes to 3-4 words max, maximum 12 nodes.
+
+3. **Core Components**: For each major component/layer, explain its purpose and key design decisions. Use tables to summarize modules:
+| Module | Purpose |
+|--------|---------|
+
+4. **Data Flow**: How data moves through the system \u2014 from input to processing to output. Reference specific functions and types.
+
+5. **Key Design Decisions**: Trade-offs made, patterns used (e.g., provider pattern, plugin architecture), and why.
+
+RULES:
+- Cite sources with [file:line] notation (e.g., [src/engine.ts:42]) for every significant claim
+- Reference actual function, class, and type names from the code \u2014 never invent names
+- Use Markdown: ## headings, tables, code blocks, bold for emphasis
+- Do NOT use marketing language. Be technical and precise.
+- Do NOT include a title heading (# Overview) \u2014 it will be added by the template`;
   const prose = await provider.generate(prompt, {
     maxTokens: 2048,
     temperature: 0.3,
@@ -1697,7 +1746,7 @@ async function generateGettingStartedNarrative(options) {
     }
   }
   const contextText = formatContextChunks(contextChunks);
-  const prompt = `You are writing a Getting Started guide for a technical documentation site.
+  const prompt = `You are writing a Getting Started guide for developers.
 
 PROJECT: ${manifest.projectMeta.name}
 LANGUAGES: ${manifest.projectMeta.languages.map((l) => l.name).join(", ")}
@@ -1707,15 +1756,29 @@ ENTRY POINTS: ${manifest.projectMeta.entryPoints.join(", ")}
 SOURCE CODE CONTEXT:
 ${contextText}
 
-INSTRUCTIONS:
-1. Write a practical getting-started guide that helps developers set up and start using this project
-2. Include prerequisites, installation steps, and a first-use walkthrough
-3. Reference specific files and commands from the codebase
-4. Use [file:line] notation for source citations
-5. Keep it actionable \u2014 every section should help the reader DO something
-6. Write in Markdown format with proper headings
+Write a practical getting-started guide following this structure:
 
-Write the getting-started guide.`;
+## Prerequisites
+List what developers need installed (runtime, tools, etc.) based on the project's language and build system.
+
+## Installation
+Step-by-step setup with exact commands. Reference the package manager and any build steps visible in the code.
+
+## Quick Start
+A concrete walkthrough showing the most basic usage. Include actual code snippets or commands, not abstract descriptions. Reference the main entry point.
+
+## Project Structure
+Brief orientation: what the main directories contain and where to look first.
+
+## Next Steps
+Point to specific modules or features to explore after the basics.
+
+RULES:
+- Every section must help the reader DO something concrete
+- Use code blocks with the correct language tag for all commands and code
+- Cite sources with [file:line] notation
+- Reference actual file paths, function names, and config options from the code
+- Keep it concise \u2014 developers want to get started, not read an essay`;
   const prose = await provider.generate(prompt, {
     maxTokens: 2048,
     temperature: 0.3,
@@ -1734,25 +1797,36 @@ async function generateModuleNarrative(module2, options) {
   });
   const contextText = formatContextChunks(contextChunks);
   const symbolList = module2.symbols.filter((s) => s.exported).map((s) => `- ${s.kind} ${s.name}${s.signature ? `: ${s.signature}` : ""}`).join("\n");
-  const prompt = `You are writing documentation for a specific module in a codebase.
+  const depCount = manifest.dependencyGraph.edges.filter((e) => e.to === module2.filePath).length;
+  const usedBy = manifest.dependencyGraph.edges.filter((e) => e.to === module2.filePath).map((e) => e.from).slice(0, 5);
+  const prompt = `You are an expert technical writer documenting a specific module.
 
 FILE: ${module2.filePath}
 LANGUAGE: ${module2.language}
+IMPORTED BY: ${depCount} modules${usedBy.length > 0 ? ` (${usedBy.join(", ")})` : ""}
+
 EXPORTED SYMBOLS:
 ${symbolList || "(none)"}
 
 RELATED SOURCE CODE:
 ${contextText}
 
-INSTRUCTIONS:
-1. Write 2-4 paragraphs explaining what this module does and how it fits into the project
-2. Describe the key exported symbols and their purposes
-3. Explain how other modules use this one (based on the dependency context)
-4. Use [file:line] notation for source citations
-5. If there are complex algorithms or patterns, explain them clearly
-6. Write for developers who need to understand or modify this code
+Write a clear, developer-focused module description following this structure:
 
-Write the module description in Markdown format. Do NOT include headings \u2014 this will be inserted into an existing page structure.`;
+1. **Purpose** (1-2 sentences): What this module does and why it exists.
+
+2. **How it works**: Explain the key logic, algorithms, or patterns. If there are multiple exported symbols, describe how they relate to each other. Reference specific function/class names.
+
+3. **Usage context**: How other modules use this one. What calls into it and why.
+
+4. **Key implementation details**: Important trade-offs, error handling strategies, or performance considerations that a developer modifying this code should know.
+
+RULES:
+- Cite sources with [file:line] notation (e.g., [${module2.filePath}:42])
+- Be specific \u2014 use actual function/class/type names from the code
+- Do NOT include Markdown headings (## or #) \u2014 this is inserted into an existing page
+- Keep it concise: 2-4 focused paragraphs, not a wall of text
+- Write for developers who need to understand or modify this code`;
   const prose = await provider.generate(prompt, {
     maxTokens: 1024,
     temperature: 0.3,
@@ -1778,7 +1852,7 @@ async function generateArchitectureNarrative(options) {
     connectionCounts.set(edge.to, (connectionCounts.get(edge.to) ?? 0) + 1);
   }
   const topModules = [...connectionCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([file, count]) => `- ${file} (${count} connections)`).join("\n");
-  const prompt = `You are writing the architecture documentation for a software project.
+  const prompt = `You are an expert software architect writing architecture documentation.
 
 PROJECT: ${manifest.projectMeta.name}
 MODULES: ${dependencyGraph.nodes.length}
@@ -1790,15 +1864,44 @@ ${topModules}
 SOURCE CODE CONTEXT:
 ${contextText}
 
-INSTRUCTIONS:
-1. Write 4-6 paragraphs describing the system architecture
-2. Explain the major components/layers and how they interact
-3. Describe the data flow and key architectural patterns used
-4. Mention design decisions and trade-offs where apparent from the code
-5. Use [file:line] notation for source citations
-6. Suggest what types of diagrams would be helpful (sequence, class, flowchart)
+Write detailed architecture documentation following this structure:
 
-Write the architecture overview in Markdown format.`;
+1. **System Overview** (1-2 paragraphs): High-level description of the system's purpose and architectural style (layered, microservice, pipeline, etc.).
+
+2. **Component Architecture**: Include a Mermaid diagram showing the major components and their relationships:
+\`\`\`mermaid
+flowchart TD
+    subgraph Layer["Layer Name"]
+        A[Component] --> B[Component]
+    end
+\`\`\`
+Use \`flowchart TD\` (top-down), group related components in subgraphs, max 15 nodes. Keep node labels to 3-4 words.
+
+3. **Component Deep Dive**: For each major component, describe:
+   - Its responsibility and public interface
+   - Key classes/functions it exposes
+   - How it communicates with other components
+
+4. **Data Flow**: How a typical request/operation flows through the system. Include a sequence diagram:
+\`\`\`mermaid
+sequenceDiagram
+    participant A as Component
+    A->>B: method()
+    B-->>A: result
+\`\`\`
+Use solid arrows (->>)  for calls, dashed arrows (-->>)  for returns. Max 6 participants, 15 messages.
+
+5. **Key Patterns**: Architectural patterns used (dependency injection, plugin registry, event bus, etc.) and why they were chosen.
+
+6. **Module Coupling**: Table of the most connected modules and what they depend on:
+| Module | Connections | Role |
+|--------|:-----------:|------|
+
+RULES:
+- Cite sources with [file:line] notation for every claim
+- Reference actual code: class names, function names, file paths
+- All Mermaid diagrams must use top-down orientation (\`flowchart TD\`, never LR)
+- Do NOT include a title heading \u2014 it will be added by the template`;
   const prose = await provider.generate(prompt, {
     maxTokens: 2048,
     temperature: 0.3,
@@ -2648,18 +2751,48 @@ ${summary}
 ${description}
 
 `;
-  if (sourceLinksEnabled && repoUrl) {
-    const sourceUrl = `https://github.com/${repoUrl}/blob/${branch}/${mod.filePath}`;
-    const depFiles = mod.imports.filter((imp) => imp.source.startsWith(".") || imp.source.startsWith("@/")).map((imp) => imp.source).slice(0, 5);
-    content += `???+ info "Relevant source files"
+  {
+    const baseUrl = sourceLinksEnabled && repoUrl ? `https://github.com/${repoUrl}/blob/${branch}/` : "";
+    const sourceUrl = baseUrl ? `${baseUrl}${mod.filePath}` : "";
+    const relatedFiles = [];
+    if (manifest) {
+      for (const imp of mod.imports) {
+        if (imp.source.startsWith(".") || imp.source.startsWith("@/")) {
+          const matchedMod = manifest.modules.find(
+            (m) => m.filePath.endsWith(imp.source.replace(/^\.\//, "").replace(/^@\//, "src/") + ".ts") || m.filePath.endsWith(imp.source.replace(/^\.\//, "").replace(/^@\//, "src/") + ".js") || m.filePath === imp.source.replace(/^\.\//, "").replace(/^@\//, "src/")
+          );
+          if (matchedMod) relatedFiles.push(matchedMod.filePath);
+        }
+      }
+    }
+    content += `<details>
+<summary>Relevant source files</summary>
+
 `;
-    content += `    - [\`${mod.filePath}\`](${sourceUrl}) (${mod.lineCount} lines)
+    content += `The following files were used as context for this page:
+
 `;
-    if (depFiles.length > 0) {
-      content += `    - Dependencies: ${depFiles.map((d) => `\`${d}\``).join(", ")}
+    if (sourceUrl) {
+      content += `- [\`${mod.filePath}\`](${sourceUrl}) \u2014 this module (${mod.lineCount} lines)
+`;
+    } else {
+      content += `- \`${mod.filePath}\` \u2014 this module (${mod.lineCount} lines)
 `;
     }
-    content += "\n";
+    for (const rf of relatedFiles.slice(0, 8)) {
+      if (baseUrl) {
+        content += `- [\`${rf}\`](${baseUrl}${rf})
+`;
+      } else {
+        const rfSlug = rf.replace(/\.[^.]+$/, "");
+        content += `- [\`${rf}\`](${rfSlug}.md)
+`;
+      }
+    }
+    content += `
+</details>
+
+`;
   }
   content += `| | |
 |---|---|
@@ -2748,22 +2881,44 @@ ${description}
 
 `;
       content += `\`\`\`mermaid
-graph LR
+flowchart TD
 `;
       const thisId = sanitizeMermaidId(mod.filePath);
       content += `  ${thisId}["${import_path10.default.basename(mod.filePath)}"]
 `;
       content += `  style ${thisId} fill:#5de4c7,color:#000
 `;
-      for (const up of upstream.slice(0, 8)) {
-        const upId = sanitizeMermaidId(up);
-        content += `  ${upId}["${import_path10.default.basename(up)}"] --> ${thisId}
+      if (upstream.length > 0) {
+        content += `  subgraph Imported_By["Imported by"]
 `;
+        for (const up of upstream.slice(0, 8)) {
+          const upId = sanitizeMermaidId(up);
+          content += `    ${upId}["${import_path10.default.basename(up)}"]
+`;
+        }
+        content += `  end
+`;
+        for (const up of upstream.slice(0, 8)) {
+          const upId = sanitizeMermaidId(up);
+          content += `  ${upId} --> ${thisId}
+`;
+        }
       }
-      for (const down of downstream.slice(0, 8)) {
-        const downId = sanitizeMermaidId(down);
-        content += `  ${thisId} --> ${downId}["${import_path10.default.basename(down)}"]
+      if (downstream.length > 0) {
+        content += `  subgraph Dependencies["Dependencies"]
 `;
+        for (const down of downstream.slice(0, 8)) {
+          const downId = sanitizeMermaidId(down);
+          content += `    ${downId}["${import_path10.default.basename(down)}"]
+`;
+        }
+        content += `  end
+`;
+        for (const down of downstream.slice(0, 8)) {
+          const downId = sanitizeMermaidId(down);
+          content += `  ${thisId} --> ${downId}
+`;
+        }
       }
       content += `\`\`\`
 
@@ -3736,7 +3891,14 @@ function extractUserContent(manifest) {
 }
 function isCLIModule(mod) {
   const pathLower = mod.filePath.toLowerCase();
-  return pathLower.includes("cli/") || pathLower.includes("commands/") || pathLower.includes("bin/") || pathLower.includes("cmd/");
+  if (pathLower.includes("commands/") || pathLower.includes("bin/") || pathLower.includes("cmd/")) {
+    return true;
+  }
+  if (pathLower.includes("cli/") && !pathLower.includes("flows/") && !pathLower.includes("utils/")) {
+    const fileName = pathLower.split("/").pop() || "";
+    return fileName === "index.ts" || fileName === "index.js" || fileName === "main.ts" || fileName === "main.js";
+  }
+  return false;
 }
 function isRouteModule(mod) {
   const pathLower = mod.filePath.toLowerCase();
@@ -3750,29 +3912,34 @@ function isComponentModule(mod) {
   const pathLower = mod.filePath.toLowerCase();
   return pathLower.includes("components/") || pathLower.includes("views/") || pathLower.includes("widgets/") || mod.filePath.endsWith(".tsx") || mod.filePath.endsWith(".jsx") || mod.filePath.endsWith(".vue") || mod.filePath.endsWith(".svelte");
 }
+function toKebabCase(name) {
+  return name.replace(/([a-z])([A-Z])/g, "$1-$2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1-$2").toLowerCase();
+}
+function filterUsefulOptions(params) {
+  if (!params) return void 0;
+  const generic = /* @__PURE__ */ new Set(["options", "opts", "args", "config", "ctx", "context", "req", "res", "next"]);
+  const useful = params.filter((p) => !generic.has(p.toLowerCase()));
+  return useful.length > 0 ? useful : void 0;
+}
 function extractCLICommands(mod) {
   const commands = [];
+  const fullDesc = mod.moduleDoc?.description || "";
+  const descLines = fullDesc.split("\n").map((l) => l.trim()).filter(Boolean);
+  const headerPattern = /^[\w\s]+(?:CLI|cli)\s*[—–-]/i;
+  const usefulLines = descLines.length > 1 && headerPattern.test(descLines[0]) ? descLines.slice(1) : descLines;
+  const cleanModuleDesc = usefulLines.join(" ").trim();
   for (const sym of mod.symbols) {
     if (sym.exported && (sym.kind === "function" || sym.kind === "variable" || sym.kind === "constant")) {
       if (sym.name.toLowerCase().includes("command") || sym.name.toLowerCase().includes("cmd") || sym.docs?.summary?.toLowerCase().includes("command")) {
+        const rawName = sym.name.replace(/(?:command|cmd)$/i, "").replace(/^register/i, "");
+        const description = sym.docs?.summary || (cleanModuleDesc || void 0);
         commands.push({
-          name: sym.name.replace(/(?:command|cmd)$/i, "").replace(/^register/i, ""),
-          description: sym.docs?.summary,
+          name: toKebabCase(rawName),
+          description,
           filePath: mod.filePath,
-          options: sym.parameters?.map((p) => p.name)
+          options: filterUsefulOptions(sym.parameters?.map((p) => p.name))
         });
       }
-    }
-  }
-  if (commands.length === 0) {
-    const exported = mod.symbols.filter((s) => s.exported && s.kind === "function");
-    for (const sym of exported) {
-      commands.push({
-        name: sym.name,
-        description: sym.docs?.summary,
-        filePath: mod.filePath,
-        options: sym.parameters?.map((p) => p.name)
-      });
     }
   }
   return commands;
@@ -3802,21 +3969,15 @@ function extractConfigOptions(mod) {
     if (sym.exported && (sym.kind === "interface" || sym.kind === "type" || sym.kind === "constant")) {
       const children = mod.symbols.filter((s) => s.parentId === sym.id);
       for (const child of children) {
-        options.push({
-          name: `${sym.name}.${child.name}`,
-          type: child.typeAnnotation,
-          description: child.docs?.summary,
-          defaultValue: child.parameters?.[0]?.defaultValue,
-          filePath: mod.filePath
-        });
-      }
-      if (children.length === 0 && sym.name.toLowerCase().includes("schema")) {
-        options.push({
-          name: sym.name,
-          type: sym.typeAnnotation,
-          description: sym.docs?.summary,
-          filePath: mod.filePath
-        });
+        if (child.typeAnnotation || child.docs?.summary) {
+          options.push({
+            name: `${sym.name}.${child.name}`,
+            type: child.typeAnnotation,
+            description: child.docs?.summary,
+            defaultValue: child.parameters?.[0]?.defaultValue,
+            filePath: mod.filePath
+          });
+        }
       }
     }
   }
@@ -4061,21 +4222,16 @@ ${installCmd}
     content += `After installation, you can use the following commands:
 
 `;
-    for (const cmd of signals.cliCommands.slice(0, 5)) {
-      content += `### ${cmd.name}
-
+    content += `| Command | Description |
 `;
-      if (cmd.description) {
-        content += `${cmd.description}
-
+    content += `|---------|-------------|
 `;
-      }
-      if (cmd.options && cmd.options.length > 0) {
-        content += `Options: ${cmd.options.map((o) => `\`${o}\``).join(", ")}
-
+    for (const cmd of signals.cliCommands.slice(0, 10)) {
+      const desc = cmd.description || "";
+      content += `| \`${projectName} ${cmd.name}\` | ${desc} |
 `;
-      }
     }
+    content += "\n";
   }
   if (signals.routes.length > 0) {
     content += `---
@@ -4092,7 +4248,8 @@ ${installCmd}
     }
     content += "\n";
   }
-  if (signals.configOptions.length > 0) {
+  const usefulConfigOpts = signals.configOptions.filter((o) => o.type || o.description);
+  if (usefulConfigOpts.length > 0) {
     content += `---
 
 ## Configuration
@@ -4105,7 +4262,7 @@ ${installCmd}
 `;
     content += `|--------|------|-------------|
 `;
-    for (const opt of signals.configOptions.slice(0, 10)) {
+    for (const opt of usefulConfigOpts.slice(0, 10)) {
       content += `| \`${opt.name}\` | ${opt.type || "\u2014"} | ${opt.description || ""} |
 `;
     }
@@ -4219,18 +4376,20 @@ A comprehensive guide to everything ${projectName} can do.
 
 `;
     for (const cmd of signals.cliCommands) {
-      content += `### ${cmd.name}
+      content += `### \`${projectName} ${cmd.name}\`
 
 `;
-      content += `${cmd.description || `The \`${cmd.name}\` command.`}
+      if (cmd.description) {
+        content += `${cmd.description}
 
 `;
+      }
       if (cmd.options && cmd.options.length > 0) {
         content += `**Options:**
 
 `;
         for (const opt of cmd.options) {
-          content += `- \`${opt}\`
+          content += `- \`--${opt}\`
 `;
         }
         content += "\n";
@@ -4272,7 +4431,8 @@ A comprehensive guide to everything ${projectName} can do.
       }
     }
   }
-  if (signals.configOptions.length > 0) {
+  const usefulConfigOpts = signals.configOptions.filter((o) => o.type || o.description);
+  if (usefulConfigOpts.length > 0) {
     content += `---
 
 ## Configuration Options
@@ -4282,13 +4442,13 @@ A comprehensive guide to everything ${projectName} can do.
 `;
     content += `|--------|------|---------|-------------|
 `;
-    for (const opt of signals.configOptions.slice(0, 30)) {
+    for (const opt of usefulConfigOpts.slice(0, 30)) {
       content += `| \`${opt.name}\` | ${opt.type || "\u2014"} | ${opt.defaultValue || "\u2014"} | ${opt.description || ""} |
 `;
     }
     content += "\n";
   }
-  if (signals.cliCommands.length === 0 && signals.routes.length === 0 && signals.components.length === 0 && signals.configOptions.length === 0) {
+  if (signals.cliCommands.length === 0 && signals.routes.length === 0 && signals.components.length === 0 && usefulConfigOpts.length === 0) {
     content += `For detailed information about ${projectName}'s features, see the [Developer Reference](getting-started.md).
 
 `;
@@ -4439,8 +4599,10 @@ Having trouble? Check the common issues below or see the error reference.
   content += `### Getting Help
 
 `;
-  if (manifest.projectMeta.repository) {
-    content += `- File an issue: [GitHub Issues](https://github.com/${manifest.projectMeta.repository}/issues)
+  const repo = manifest.projectMeta.repository;
+  const hasValidRepo = repo && repo !== "." && repo.includes("/");
+  if (hasValidRepo) {
+    content += `- File an issue: [GitHub Issues](https://github.com/${repo}/issues)
 `;
   }
   content += `- Check the [FAQ](faq.md) for answers to common questions
@@ -4528,27 +4690,33 @@ description: Frequently asked questions about ${projectName}
 # Frequently Asked Questions
 
 `;
+  const repo = manifest.projectMeta.repository;
+  const hasValidRepo = repo && repo !== "." && repo.includes("/");
+  const repoUrl = hasValidRepo ? `https://github.com/${repo}` : "";
+  const langList = manifest.projectMeta.languages.map((l) => l.name).join(", ");
+  const description = manifest.projectMeta.readmeDescription || manifest.projectMeta.description || `A ${langList} project with ${manifest.stats.totalFiles} source files and ${manifest.stats.totalSymbols} symbols.`;
   content += `??? question "What is ${projectName}?"
 `;
-  content += `    ${manifest.projectMeta.description || manifest.projectMeta.readmeDescription || `${projectName} is a ${manifest.projectMeta.languages[0]?.name || "software"} project.`}
+  content += `    ${description}
 
 `;
   content += `??? question "What languages/technologies does ${projectName} use?"
 `;
-  content += `    ${manifest.projectMeta.languages.map((l) => `${l.name} (${l.percentage}%)`).join(", ")}.
+  content += `    ${manifest.projectMeta.languages.map((l) => `**${l.name}** (${l.percentage}%)`).join(", ")}.
 
 `;
   if (signals.cliCommands.length > 0) {
     content += `??? question "What commands are available?"
 `;
-    content += `    Available commands: ${signals.cliCommands.map((c) => `\`${c.name}\``).join(", ")}. See the [Getting Started](user-getting-started.md) guide for usage details.
+    content += `    Available commands: ${signals.cliCommands.map((c) => `\`${projectName} ${c.name}\``).join(", ")}. See the [Getting Started](user-getting-started.md) guide for usage details.
 
 `;
   }
-  if (signals.configOptions.length > 0) {
+  const usefulConfigOpts = signals.configOptions.filter((o) => o.type || o.description);
+  if (usefulConfigOpts.length > 0) {
     content += `??? question "How do I configure ${projectName}?"
 `;
-    content += `    ${projectName} has ${signals.configOptions.length} configuration options. See the [Features](features.md) page for details on each option.
+    content += `    ${projectName} has ${usefulConfigOpts.length} configuration options. See the [Features](features.md) page for details on each option.
 
 `;
   }
@@ -4559,15 +4727,15 @@ description: Frequently asked questions about ${projectName}
 
 `;
   }
-  if (manifest.projectMeta.repository) {
+  if (repoUrl) {
     content += `??? question "Where can I report bugs or request features?"
 `;
-    content += `    File an issue on [GitHub](https://github.com/${manifest.projectMeta.repository}/issues).
+    content += `    File an issue on [GitHub](${repoUrl}/issues).
 
 `;
     content += `??? question "How can I contribute?"
 `;
-    content += `    Check the [repository](https://github.com/${manifest.projectMeta.repository}) for contribution guidelines.
+    content += `    Check the [repository](${repoUrl}) for contribution guidelines.
 
 `;
   }
@@ -9728,6 +9896,7 @@ async function discoverFiles(repoRoot, source) {
 init_hash();
 init_logger();
 var import_promises2 = require("fs/promises");
+var import_fs = require("fs");
 var import_path3 = __toESM(require("path"), 1);
 var import_fast_glob3 = __toESM(require("fast-glob"), 1);
 
@@ -10085,7 +10254,18 @@ function computeProjectMeta(modules, repoRoot, source) {
     (m) => m.filePath.includes("index.") || m.filePath.includes("main.") || m.filePath.includes("app.")
   ).map((m) => m.filePath);
   const rawName = source.repo.split("/").pop() || source.repo;
-  const name = rawName === "." ? import_path3.default.basename(repoRoot) : rawName;
+  let name;
+  if (rawName === ".") {
+    try {
+      const pkgPath = import_path3.default.join(repoRoot, "package.json");
+      const pkg = JSON.parse((0, import_fs.readFileSync)(pkgPath, "utf-8"));
+      name = pkg.name || import_path3.default.basename(repoRoot);
+    } catch {
+      name = import_path3.default.basename(repoRoot);
+    }
+  } else {
+    name = rawName;
+  }
   let readmeDescription;
   const readmeMod = modules.find(
     (m) => import_path3.default.basename(m.filePath).toLowerCase() === "readme.md"

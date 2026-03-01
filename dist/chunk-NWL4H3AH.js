@@ -4,7 +4,7 @@ import {
 import {
   createProvider,
   resolveApiKey
-} from "./chunk-NOZSCKAF.js";
+} from "./chunk-AOVQF4UT.js";
 import {
   generateArchitecturePage,
   generateArchitecturePageNarrative,
@@ -21,14 +21,14 @@ import {
   generateTieredArchitecturePages,
   generateTypesPage,
   generateUsageGuidePage
-} from "./chunk-B3WUVWF6.js";
+} from "./chunk-EBPJLC2J.js";
 import {
   buildSymbolPageMap,
   groupByLogicalSection,
   groupModulesLogically,
   renderNavYaml,
   resolveProjectName
-} from "./chunk-GEYCHOKI.js";
+} from "./chunk-D4RNNKFF.js";
 
 // src/generators/theme-presets.ts
 var THEME_PRESETS = {
@@ -1152,7 +1152,7 @@ async function generateDocs(options) {
   if (config.analysis.ai_structure && aiProvider) {
     try {
       onProgress?.("Analyzing codebase structure...");
-      const { analyzeStructure } = await import("./structure-advisor-JIRRZUSM.js");
+      const { analyzeStructure } = await import("./structure-advisor-QBF5AJGZ.js");
       structurePlan = await analyzeStructure(manifest, aiProvider);
     } catch {
     }
@@ -1260,7 +1260,7 @@ async function generateDocs(options) {
       generateFeaturesPageNarrative,
       generateTroubleshootingPageNarrative,
       generateFAQPageNarrative
-    } = await import("./pages-HK4KNUPB.js");
+    } = await import("./pages-5JRDHIDE.js");
     if (useNarrative) {
       const userDocPromises = [];
       if (userDocsConfig?.overview !== false) {
@@ -1330,7 +1330,7 @@ async function generateDocs(options) {
   }
   if (structurePlan && structurePlan.conceptPages.length > 0 && aiProvider && readFile) {
     onProgress?.("Generating concept pages...");
-    const { generateConceptPage } = await import("./concept-U5CTR7X2.js");
+    const { generateConceptPage } = await import("./concept-X4S56TRM.js");
     const repoUrl = config.source.repo.includes("/") ? config.source.repo : void 0;
     for (const suggestion of structurePlan.conceptPages) {
       const page = await safeGenerateAsync(
@@ -1360,7 +1360,7 @@ async function generateDocs(options) {
   if (config.analysis.qa_widget && config.analysis.qa_config) {
     onProgress?.("Building Q&A index...");
     try {
-      const { buildQAIndex } = await import("./qa-AZPPDSEX.js");
+      const { buildQAIndex } = await import("./qa-XLP53X3U.js");
       const qaProviderName = config.analysis.qa_config.provider || "openai";
       const qaKeyEnv = config.analysis.qa_config.api_key_env || config.analysis.ai_provider?.api_key_env || "DOCWALK_AI_KEY";
       const qaApiKey = resolveApiKey(qaProviderName, qaKeyEnv) || "";

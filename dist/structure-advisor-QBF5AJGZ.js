@@ -1,6 +1,6 @@
 import {
   detectLogicalSection
-} from "./chunk-GEYCHOKI.js";
+} from "./chunk-D4RNNKFF.js";
 
 // src/analysis/structure-advisor.ts
 async function analyzeStructure(manifest, provider) {

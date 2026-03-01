@@ -3856,6 +3856,7 @@ async function discoverFiles(repoRoot, source) {
 
 // src/analysis/engine.ts
 import { readFile as readFile2, stat } from "fs/promises";
+import { readFileSync } from "fs";
 import path3 from "path";
 import fg3 from "fast-glob";
 
@@ -4029,7 +4030,7 @@ async function analyzeCodebase(options) {
   let finalModules = allModules;
   let summaryCache = previousSummaryCache || [];
   if (analysis.ai_summaries && analysis.ai_provider) {
-    const { summarizeModules } = await import("./ai-summarizer-A33M3KNS.js");
+    const { summarizeModules } = await import("./ai-summarizer-2RC2OZXV.js");
     const result = await summarizeModules({
       providerConfig: analysis.ai_provider,
       modules: allModules,
@@ -4063,7 +4064,7 @@ async function analyzeCodebase(options) {
   }
   if (insights?.length && analysis.insights_ai && analysis.ai_provider) {
     try {
-      const { createProvider } = await import("./providers-BMYE4QLG.js");
+      const { createProvider } = await import("./providers-MLNQEDPY.js");
       const { enhanceInsightsWithAI } = await import("./ai-insights-EZM4JOGP.js");
       const provider = createProvider(analysis.ai_provider);
       if (provider) {
@@ -4213,7 +4214,18 @@ function computeProjectMeta(modules, repoRoot, source) {
     (m) => m.filePath.includes("index.") || m.filePath.includes("main.") || m.filePath.includes("app.")
   ).map((m) => m.filePath);
   const rawName = source.repo.split("/").pop() || source.repo;
-  const name = rawName === "." ? path3.basename(repoRoot) : rawName;
+  let name;
+  if (rawName === ".") {
+    try {
+      const pkgPath = path3.join(repoRoot, "package.json");
+      const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+      name = pkg.name || path3.basename(repoRoot);
+    } catch {
+      name = path3.basename(repoRoot);
+    }
+  } else {
+    name = rawName;
+  }
   let readmeDescription;
   const readmeMod = modules.find(
     (m) => path3.basename(m.filePath).toLowerCase() === "readme.md"

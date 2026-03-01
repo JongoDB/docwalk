@@ -195,11 +195,23 @@ SOURCE CODE:
 ${contextText}
 
 INSTRUCTIONS:
-1. Generate ONLY valid Mermaid sequenceDiagram syntax
-2. Show the most important interactions between 3-6 participants
-3. Use descriptive message labels from actual function/method names in the code
-4. Keep it concise — maximum 15 interactions
-5. Do NOT include any explanation — ONLY the Mermaid code starting with "sequenceDiagram"`;
+1. Generate ONLY valid Mermaid sequenceDiagram syntax — no explanation, no markdown fences
+2. Show 3-6 participants using descriptive aliases: \`participant A as ComponentName\`
+3. Use actual function/method names from the code as message labels
+4. Maximum 15 interactions total
+
+MERMAID SYNTAX RULES (follow exactly):
+- Start with \`sequenceDiagram\` on its own line
+- Solid arrow for calls: \`A->>B: methodName()\`
+- Dashed arrow for returns: \`B-->>A: result\`
+- Solid arrow (no head) for async/fire-and-forget: \`A-)B: emit(event)\`
+- Activation boxes: \`A->>+B: call()\` and \`B-->>-A: return\`
+- Group related interactions: \`rect rgb(200, 220, 240)\` ... \`end\`
+- Conditional flows: \`alt condition\` ... \`else other\` ... \`end\`
+- Loops: \`loop description\` ... \`end\`
+- Notes: \`Note over A,B: description\`
+- Keep participant names short (1-3 words)
+- Do NOT use HTML or special characters in labels`;
 
   try {
     const result = await provider.generate(prompt, {
@@ -253,11 +265,23 @@ SOURCE CODE:
 ${contextText}
 
 INSTRUCTIONS:
-1. Generate ONLY valid Mermaid flowchart syntax (start with "flowchart TD" or "flowchart LR")
+1. Generate ONLY valid Mermaid flowchart syntax — no explanation, no markdown fences
 2. Show the main processing steps with decision points
-3. Use descriptive labels from actual function/class names in the code
-4. Keep it concise — maximum 15 nodes
-5. Do NOT include any explanation — ONLY the Mermaid code`;
+3. Use actual function/class names from the code as labels
+4. Maximum 15 nodes total
+
+MERMAID SYNTAX RULES (follow exactly):
+- MUST start with \`flowchart TD\` (top-down orientation, NEVER use LR)
+- Rectangle nodes: \`A[Step Name]\`
+- Rounded nodes: \`A(Process Name)\`
+- Diamond decisions: \`A{Condition?}\`
+- Stadium-shaped: \`A([Start/End])\`
+- Arrows with labels: \`A -->|"yes"| B\`
+- Group related nodes: \`subgraph Title\` ... \`end\`
+- Keep labels to 3-4 words maximum per node
+- Use lowercase IDs: \`a1\`, \`b2\`, \`c3\`
+- Do NOT use special characters, HTML, or quotes inside node labels
+- Do NOT use \`style\` or \`class\` directives`;
 
   try {
     const result = await provider.generate(prompt, {

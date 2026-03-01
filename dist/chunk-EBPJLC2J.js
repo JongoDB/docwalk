@@ -4,7 +4,7 @@ import {
   generateModuleNarrative,
   generateOverviewNarrative,
   renderCitations
-} from "./chunk-D64ADTHM.js";
+} from "./chunk-WZW77HOO.js";
 import {
   detectPackageManager,
   generateDirectoryTree,
@@ -17,7 +17,7 @@ import {
   renderSymbol,
   resolveProjectName,
   sanitizeMermaidId
-} from "./chunk-GEYCHOKI.js";
+} from "./chunk-D4RNNKFF.js";
 import {
   getLanguageDisplayName
 } from "./chunk-KPWUZIKC.js";
@@ -783,18 +783,48 @@ ${summary}
 ${description}
 
 `;
-  if (sourceLinksEnabled && repoUrl) {
-    const sourceUrl = `https://github.com/${repoUrl}/blob/${branch}/${mod.filePath}`;
-    const depFiles = mod.imports.filter((imp) => imp.source.startsWith(".") || imp.source.startsWith("@/")).map((imp) => imp.source).slice(0, 5);
-    content += `???+ info "Relevant source files"
+  {
+    const baseUrl = sourceLinksEnabled && repoUrl ? `https://github.com/${repoUrl}/blob/${branch}/` : "";
+    const sourceUrl = baseUrl ? `${baseUrl}${mod.filePath}` : "";
+    const relatedFiles = [];
+    if (manifest) {
+      for (const imp of mod.imports) {
+        if (imp.source.startsWith(".") || imp.source.startsWith("@/")) {
+          const matchedMod = manifest.modules.find(
+            (m) => m.filePath.endsWith(imp.source.replace(/^\.\//, "").replace(/^@\//, "src/") + ".ts") || m.filePath.endsWith(imp.source.replace(/^\.\//, "").replace(/^@\//, "src/") + ".js") || m.filePath === imp.source.replace(/^\.\//, "").replace(/^@\//, "src/")
+          );
+          if (matchedMod) relatedFiles.push(matchedMod.filePath);
+        }
+      }
+    }
+    content += `<details>
+<summary>Relevant source files</summary>
+
 `;
-    content += `    - [\`${mod.filePath}\`](${sourceUrl}) (${mod.lineCount} lines)
+    content += `The following files were used as context for this page:
+
 `;
-    if (depFiles.length > 0) {
-      content += `    - Dependencies: ${depFiles.map((d) => `\`${d}\``).join(", ")}
+    if (sourceUrl) {
+      content += `- [\`${mod.filePath}\`](${sourceUrl}) \u2014 this module (${mod.lineCount} lines)
+`;
+    } else {
+      content += `- \`${mod.filePath}\` \u2014 this module (${mod.lineCount} lines)
 `;
     }
-    content += "\n";
+    for (const rf of relatedFiles.slice(0, 8)) {
+      if (baseUrl) {
+        content += `- [\`${rf}\`](${baseUrl}${rf})
+`;
+      } else {
+        const rfSlug = rf.replace(/\.[^.]+$/, "");
+        content += `- [\`${rf}\`](${rfSlug}.md)
+`;
+      }
+    }
+    content += `
+</details>
+
+`;
   }
   content += `| | |
 |---|---|
@@ -883,22 +913,44 @@ ${description}
 
 `;
       content += `\`\`\`mermaid
-graph LR
+flowchart TD
 `;
       const thisId = sanitizeMermaidId(mod.filePath);
       content += `  ${thisId}["${path4.basename(mod.filePath)}"]
 `;
       content += `  style ${thisId} fill:#5de4c7,color:#000
 `;
-      for (const up of upstream.slice(0, 8)) {
-        const upId = sanitizeMermaidId(up);
-        content += `  ${upId}["${path4.basename(up)}"] --> ${thisId}
+      if (upstream.length > 0) {
+        content += `  subgraph Imported_By["Imported by"]
 `;
+        for (const up of upstream.slice(0, 8)) {
+          const upId = sanitizeMermaidId(up);
+          content += `    ${upId}["${path4.basename(up)}"]
+`;
+        }
+        content += `  end
+`;
+        for (const up of upstream.slice(0, 8)) {
+          const upId = sanitizeMermaidId(up);
+          content += `  ${upId} --> ${thisId}
+`;
+        }
       }
-      for (const down of downstream.slice(0, 8)) {
-        const downId = sanitizeMermaidId(down);
-        content += `  ${thisId} --> ${downId}["${path4.basename(down)}"]
+      if (downstream.length > 0) {
+        content += `  subgraph Dependencies["Dependencies"]
 `;
+        for (const down of downstream.slice(0, 8)) {
+          const downId = sanitizeMermaidId(down);
+          content += `    ${downId}["${path4.basename(down)}"]
+`;
+        }
+        content += `  end
+`;
+        for (const down of downstream.slice(0, 8)) {
+          const downId = sanitizeMermaidId(down);
+          content += `  ${thisId} --> ${downId}
+`;
+        }
       }
       content += `\`\`\`
 
@@ -1800,7 +1852,14 @@ function extractUserContent(manifest) {
 }
 function isCLIModule(mod) {
   const pathLower = mod.filePath.toLowerCase();
-  return pathLower.includes("cli/") || pathLower.includes("commands/") || pathLower.includes("bin/") || pathLower.includes("cmd/");
+  if (pathLower.includes("commands/") || pathLower.includes("bin/") || pathLower.includes("cmd/")) {
+    return true;
+  }
+  if (pathLower.includes("cli/") && !pathLower.includes("flows/") && !pathLower.includes("utils/")) {
+    const fileName = pathLower.split("/").pop() || "";
+    return fileName === "index.ts" || fileName === "index.js" || fileName === "main.ts" || fileName === "main.js";
+  }
+  return false;
 }
 function isRouteModule(mod) {
   const pathLower = mod.filePath.toLowerCase();
@@ -1814,29 +1873,34 @@ function isComponentModule(mod) {
   const pathLower = mod.filePath.toLowerCase();
   return pathLower.includes("components/") || pathLower.includes("views/") || pathLower.includes("widgets/") || mod.filePath.endsWith(".tsx") || mod.filePath.endsWith(".jsx") || mod.filePath.endsWith(".vue") || mod.filePath.endsWith(".svelte");
 }
+function toKebabCase(name) {
+  return name.replace(/([a-z])([A-Z])/g, "$1-$2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1-$2").toLowerCase();
+}
+function filterUsefulOptions(params) {
+  if (!params) return void 0;
+  const generic = /* @__PURE__ */ new Set(["options", "opts", "args", "config", "ctx", "context", "req", "res", "next"]);
+  const useful = params.filter((p) => !generic.has(p.toLowerCase()));
+  return useful.length > 0 ? useful : void 0;
+}
 function extractCLICommands(mod) {
   const commands = [];
+  const fullDesc = mod.moduleDoc?.description || "";
+  const descLines = fullDesc.split("\n").map((l) => l.trim()).filter(Boolean);
+  const headerPattern = /^[\w\s]+(?:CLI|cli)\s*[—–-]/i;
+  const usefulLines = descLines.length > 1 && headerPattern.test(descLines[0]) ? descLines.slice(1) : descLines;
+  const cleanModuleDesc = usefulLines.join(" ").trim();
   for (const sym of mod.symbols) {
     if (sym.exported && (sym.kind === "function" || sym.kind === "variable" || sym.kind === "constant")) {
       if (sym.name.toLowerCase().includes("command") || sym.name.toLowerCase().includes("cmd") || sym.docs?.summary?.toLowerCase().includes("command")) {
+        const rawName = sym.name.replace(/(?:command|cmd)$/i, "").replace(/^register/i, "");
+        const description = sym.docs?.summary || (cleanModuleDesc || void 0);
         commands.push({
-          name: sym.name.replace(/(?:command|cmd)$/i, "").replace(/^register/i, ""),
-          description: sym.docs?.summary,
+          name: toKebabCase(rawName),
+          description,
           filePath: mod.filePath,
-          options: sym.parameters?.map((p) => p.name)
+          options: filterUsefulOptions(sym.parameters?.map((p) => p.name))
         });
       }
-    }
-  }
-  if (commands.length === 0) {
-    const exported = mod.symbols.filter((s) => s.exported && s.kind === "function");
-    for (const sym of exported) {
-      commands.push({
-        name: sym.name,
-        description: sym.docs?.summary,
-        filePath: mod.filePath,
-        options: sym.parameters?.map((p) => p.name)
-      });
     }
   }
   return commands;
@@ -1866,21 +1930,15 @@ function extractConfigOptions(mod) {
     if (sym.exported && (sym.kind === "interface" || sym.kind === "type" || sym.kind === "constant")) {
       const children = mod.symbols.filter((s) => s.parentId === sym.id);
       for (const child of children) {
-        options.push({
-          name: `${sym.name}.${child.name}`,
-          type: child.typeAnnotation,
-          description: child.docs?.summary,
-          defaultValue: child.parameters?.[0]?.defaultValue,
-          filePath: mod.filePath
-        });
-      }
-      if (children.length === 0 && sym.name.toLowerCase().includes("schema")) {
-        options.push({
-          name: sym.name,
-          type: sym.typeAnnotation,
-          description: sym.docs?.summary,
-          filePath: mod.filePath
-        });
+        if (child.typeAnnotation || child.docs?.summary) {
+          options.push({
+            name: `${sym.name}.${child.name}`,
+            type: child.typeAnnotation,
+            description: child.docs?.summary,
+            defaultValue: child.parameters?.[0]?.defaultValue,
+            filePath: mod.filePath
+          });
+        }
       }
     }
   }
@@ -2113,21 +2171,16 @@ ${installCmd}
     content += `After installation, you can use the following commands:
 
 `;
-    for (const cmd of signals.cliCommands.slice(0, 5)) {
-      content += `### ${cmd.name}
-
+    content += `| Command | Description |
 `;
-      if (cmd.description) {
-        content += `${cmd.description}
-
+    content += `|---------|-------------|
 `;
-      }
-      if (cmd.options && cmd.options.length > 0) {
-        content += `Options: ${cmd.options.map((o) => `\`${o}\``).join(", ")}
-
+    for (const cmd of signals.cliCommands.slice(0, 10)) {
+      const desc = cmd.description || "";
+      content += `| \`${projectName} ${cmd.name}\` | ${desc} |
 `;
-      }
     }
+    content += "\n";
   }
   if (signals.routes.length > 0) {
     content += `---
@@ -2144,7 +2197,8 @@ ${installCmd}
     }
     content += "\n";
   }
-  if (signals.configOptions.length > 0) {
+  const usefulConfigOpts = signals.configOptions.filter((o) => o.type || o.description);
+  if (usefulConfigOpts.length > 0) {
     content += `---
 
 ## Configuration
@@ -2157,7 +2211,7 @@ ${installCmd}
 `;
     content += `|--------|------|-------------|
 `;
-    for (const opt of signals.configOptions.slice(0, 10)) {
+    for (const opt of usefulConfigOpts.slice(0, 10)) {
       content += `| \`${opt.name}\` | ${opt.type || "\u2014"} | ${opt.description || ""} |
 `;
     }
@@ -2264,18 +2318,20 @@ A comprehensive guide to everything ${projectName} can do.
 
 `;
     for (const cmd of signals.cliCommands) {
-      content += `### ${cmd.name}
+      content += `### \`${projectName} ${cmd.name}\`
 
 `;
-      content += `${cmd.description || `The \`${cmd.name}\` command.`}
+      if (cmd.description) {
+        content += `${cmd.description}
 
 `;
+      }
       if (cmd.options && cmd.options.length > 0) {
         content += `**Options:**
 
 `;
         for (const opt of cmd.options) {
-          content += `- \`${opt}\`
+          content += `- \`--${opt}\`
 `;
         }
         content += "\n";
@@ -2317,7 +2373,8 @@ A comprehensive guide to everything ${projectName} can do.
       }
     }
   }
-  if (signals.configOptions.length > 0) {
+  const usefulConfigOpts = signals.configOptions.filter((o) => o.type || o.description);
+  if (usefulConfigOpts.length > 0) {
     content += `---
 
 ## Configuration Options
@@ -2327,13 +2384,13 @@ A comprehensive guide to everything ${projectName} can do.
 `;
     content += `|--------|------|---------|-------------|
 `;
-    for (const opt of signals.configOptions.slice(0, 30)) {
+    for (const opt of usefulConfigOpts.slice(0, 30)) {
       content += `| \`${opt.name}\` | ${opt.type || "\u2014"} | ${opt.defaultValue || "\u2014"} | ${opt.description || ""} |
 `;
     }
     content += "\n";
   }
-  if (signals.cliCommands.length === 0 && signals.routes.length === 0 && signals.components.length === 0 && signals.configOptions.length === 0) {
+  if (signals.cliCommands.length === 0 && signals.routes.length === 0 && signals.components.length === 0 && usefulConfigOpts.length === 0) {
     content += `For detailed information about ${projectName}'s features, see the [Developer Reference](getting-started.md).
 
 `;
@@ -2477,8 +2534,10 @@ Having trouble? Check the common issues below or see the error reference.
   content += `### Getting Help
 
 `;
-  if (manifest.projectMeta.repository) {
-    content += `- File an issue: [GitHub Issues](https://github.com/${manifest.projectMeta.repository}/issues)
+  const repo = manifest.projectMeta.repository;
+  const hasValidRepo = repo && repo !== "." && repo.includes("/");
+  if (hasValidRepo) {
+    content += `- File an issue: [GitHub Issues](https://github.com/${repo}/issues)
 `;
   }
   content += `- Check the [FAQ](faq.md) for answers to common questions
@@ -2559,27 +2618,33 @@ description: Frequently asked questions about ${projectName}
 # Frequently Asked Questions
 
 `;
+  const repo = manifest.projectMeta.repository;
+  const hasValidRepo = repo && repo !== "." && repo.includes("/");
+  const repoUrl = hasValidRepo ? `https://github.com/${repo}` : "";
+  const langList = manifest.projectMeta.languages.map((l) => l.name).join(", ");
+  const description = manifest.projectMeta.readmeDescription || manifest.projectMeta.description || `A ${langList} project with ${manifest.stats.totalFiles} source files and ${manifest.stats.totalSymbols} symbols.`;
   content += `??? question "What is ${projectName}?"
 `;
-  content += `    ${manifest.projectMeta.description || manifest.projectMeta.readmeDescription || `${projectName} is a ${manifest.projectMeta.languages[0]?.name || "software"} project.`}
+  content += `    ${description}
 
 `;
   content += `??? question "What languages/technologies does ${projectName} use?"
 `;
-  content += `    ${manifest.projectMeta.languages.map((l) => `${l.name} (${l.percentage}%)`).join(", ")}.
+  content += `    ${manifest.projectMeta.languages.map((l) => `**${l.name}** (${l.percentage}%)`).join(", ")}.
 
 `;
   if (signals.cliCommands.length > 0) {
     content += `??? question "What commands are available?"
 `;
-    content += `    Available commands: ${signals.cliCommands.map((c) => `\`${c.name}\``).join(", ")}. See the [Getting Started](user-getting-started.md) guide for usage details.
+    content += `    Available commands: ${signals.cliCommands.map((c) => `\`${projectName} ${c.name}\``).join(", ")}. See the [Getting Started](user-getting-started.md) guide for usage details.
 
 `;
   }
-  if (signals.configOptions.length > 0) {
+  const usefulConfigOpts = signals.configOptions.filter((o) => o.type || o.description);
+  if (usefulConfigOpts.length > 0) {
     content += `??? question "How do I configure ${projectName}?"
 `;
-    content += `    ${projectName} has ${signals.configOptions.length} configuration options. See the [Features](features.md) page for details on each option.
+    content += `    ${projectName} has ${usefulConfigOpts.length} configuration options. See the [Features](features.md) page for details on each option.
 
 `;
   }
@@ -2590,15 +2655,15 @@ description: Frequently asked questions about ${projectName}
 
 `;
   }
-  if (manifest.projectMeta.repository) {
+  if (repoUrl) {
     content += `??? question "Where can I report bugs or request features?"
 `;
-    content += `    File an issue on [GitHub](https://github.com/${manifest.projectMeta.repository}/issues).
+    content += `    File an issue on [GitHub](${repoUrl}/issues).
 
 `;
     content += `??? question "How can I contribute?"
 `;
-    content += `    Check the [repository](https://github.com/${manifest.projectMeta.repository}) for contribution guidelines.
+    content += `    Check the [repository](${repoUrl}) for contribution guidelines.
 
 `;
   }
