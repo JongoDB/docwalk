@@ -56,7 +56,7 @@ That's it. If there's no config, DocWalk launches the Quick Start wizard: confir
 docwalk generate --ai
 ```
 
-When you pass `--ai` without any API key configured, DocWalk automatically routes through its free AI proxy service (powered by Gemini Flash). No setup required.
+When you pass `--ai` without any API key configured, DocWalk automatically routes through its free AI proxy service. No setup required.
 
 ### With your own API key
 
@@ -81,8 +81,8 @@ docwalk init
 
 ```
 ┌──────────┐     ┌──────────────┐     ┌───────────────┐     ┌──────────┐
-│   Git    │────▶│  DocWalk     │────▶│  Zensical     │────▶│  Edge    │
-│   Repo   │     │  Engine      │     │  (MkDocs)     │     │  Network │
+│   Git    │────▶│  DocWalk     │────▶│  Build &      │────▶│  Edge    │
+│   Repo   │     │  Engine      │     │  Render       │     │  Network │
 └──────────┘     └──────────────┘     └───────────────┘     └──────────┘
   Source         AST parsing,          Static site          Cloudflare,
   code           AI narratives,        generation with      GitHub Pages,
@@ -118,7 +118,7 @@ DocWalk's AI engine writes narrative documentation, generates diagrams, and buil
 
 | Provider | Model | Setup |
 |----------|-------|-------|
-| **DocWalk Proxy** | Gemini 2.5 Flash | Zero config — used automatically when no key is set |
+| **DocWalk Proxy** | Llama 4 Scout | Zero config — used automatically when no key is set |
 | **Google Gemini** | Gemini 2.5 Flash | `export GEMINI_API_KEY=...` or `export DOCWALK_AI_KEY=...` |
 | **Anthropic** | Claude | `export ANTHROPIC_API_KEY=...` |
 | **OpenAI** | GPT-4o | `export OPENAI_API_KEY=...` |
