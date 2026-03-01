@@ -1,0 +1,2820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Analyze any codebase and generate a full MkDocs Material documentation site with AI-written narrative prose. API references, architecture guides, end-user docs, and interactive Q&A — kept in sync with every commit.">
+<meta property="og:title" content="DocWalk — Automatic Documentation for Any Codebase">
+<meta property="og:description" content="Analyze any codebase and generate a full MkDocs Material documentation site with AI-powered narrative prose, end-user guides, and interactive Q&A — kept in sync with every commit.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://docwalk.dev">
+<meta property="og:image" content="https://docwalk.dev/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="DocWalk — Automatic Documentation for Any Codebase">
+<meta name="twitter:description" content="Analyze any codebase and generate a full MkDocs Material documentation site with AI-powered narrative prose, end-user guides, and interactive Q&A — kept in sync with every commit.">
+<title>DocWalk — Automatic Documentation for Any Codebase</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-primary: #0a0a0c;
+    --bg-secondary: #111115;
+    --bg-card: #16161a;
+    --bg-elevated: #1c1c22;
+    --border: #2a2a32;
+    --border-subtle: #1e1e26;
+    --text-primary: #e8e6e3;
+    --text-secondary: #9a9a9e;
+    --text-muted: #6a6a6e;
+    --accent: #5de4c7;
+    --accent-dim: #5de4c720;
+    --accent-mid: #5de4c740;
+    --accent-secondary: #add7ff;
+    --accent-tertiary: #fae4a0;
+    --accent-warn: #d0679d;
+    --accent-purple: #c4b5fd;
+    --gradient-hero: linear-gradient(135deg, #5de4c710 0%, #add7ff08 50%, transparent 100%);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --radius-lg: 20px;
+    --shadow: 0 4px 24px rgba(0,0,0,0.4);
+    --shadow-lg: 0 8px 48px rgba(0,0,0,0.5);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background: var(--accent-mid);
+    color: var(--text-primary);
+  }
+
+  /* ─── NAV ─── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    padding: 16px 40px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(10,10,12,0.8);
+    backdrop-filter: blur(20px) saturate(1.4);
+    border-bottom: 1px solid var(--border-subtle);
+    transition: all 0.3s;
+  }
+
+  .nav-logo {
+    display: flex; align-items: center; gap: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700; font-size: 18px;
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  .nav-logo .logo-icon {
+    width: 32px; height: 32px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: grid; place-items: center;
+    color: var(--bg-primary);
+    font-size: 16px; font-weight: 800;
+    padding: 4px;
+  }
+
+  .nav-logo .logo-icon svg {
+    width: 100%; height: 100%;
+  }
+
+  .nav-links { display: flex; gap: 32px; align-items: center; }
+  .nav-links a {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 14px; font-weight: 500;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--accent); }
+
+  /* ─── SECTIONS ─── */
+  section { padding: 120px 40px; max-width: 1280px; margin: 0 auto; }
+
+  /* ─── HERO ─── */
+  .hero {
+    padding-top: 200px;
+    padding-bottom: 140px;
+    text-align: center;
+    position: relative;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: 80px; left: 50%; transform: translateX(-50%);
+    width: 800px; height: 600px;
+    background: radial-gradient(ellipse at center, var(--accent-dim) 0%, transparent 70%);
+    pointer-events: none;
+    filter: blur(60px);
+  }
+
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 16px 6px 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    font-size: 13px; font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 40px;
+    position: relative;
+    animation: fadeUp 0.8s ease both;
+  }
+
+  .hero-badge .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 12px var(--accent);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .hero h1 {
+    font-family: 'Instrument Serif', serif;
+    font-size: clamp(52px, 7vw, 96px);
+    line-height: 1.05;
+    font-weight: 400;
+    letter-spacing: -2px;
+    margin-bottom: 28px;
+    position: relative;
+    animation: fadeUp 0.8s ease 0.1s both;
+  }
+
+  .hero h1 em {
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .hero-sub {
+    font-size: 19px;
+    color: var(--text-secondary);
+    max-width: 640px;
+    margin: 0 auto 48px;
+    line-height: 1.7;
+    animation: fadeUp 0.8s ease 0.2s both;
+  }
+
+  .hero-actions {
+    display: flex; gap: 16px;
+    justify-content: center;
+    animation: fadeUp 0.8s ease 0.3s both;
+  }
+
+  .btn-primary {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 28px;
+    background: var(--accent);
+    color: var(--bg-primary);
+    font-weight: 600; font-size: 15px;
+    border-radius: 10px;
+    text-decoration: none;
+    border: none; cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 0 30px var(--accent-dim);
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 0 50px var(--accent-mid); }
+
+  .btn-secondary {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 28px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-weight: 600; font-size: 15px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-secondary:hover { border-color: var(--text-muted); }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ─── TERMINAL DEMO ─── */
+  .terminal-wrapper {
+    max-width: 780px;
+    margin: 80px auto 0;
+    animation: fadeUp 0.8s ease 0.4s both;
+  }
+
+  .terminal {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+  }
+
+  .terminal-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 14px 20px;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .terminal-dot {
+    width: 12px; height: 12px; border-radius: 50%;
+  }
+  .terminal-dot.r { background: #ff5f57; }
+  .terminal-dot.y { background: #febc2e; }
+  .terminal-dot.g { background: #28c840; }
+
+  .terminal-title {
+    flex: 1; text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; color: var(--text-muted);
+  }
+
+  .terminal-body {
+    padding: 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13.5px;
+    line-height: 1.9;
+    min-height: 320px;
+  }
+
+  .t-prompt { color: var(--accent); }
+  .t-cmd { color: var(--text-primary); }
+  .t-flag { color: var(--accent-secondary); }
+  .t-val { color: var(--accent-tertiary); }
+  .t-comment { color: var(--text-muted); font-style: italic; }
+  .t-success { color: var(--accent); }
+  .t-dim { color: var(--text-muted); }
+  .t-line { display: block; margin-bottom: 2px; }
+
+  /* ─── SECTION HEADERS ─── */
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    color: var(--accent);
+    margin-bottom: 16px;
+  }
+
+  .section-title {
+    font-family: 'Instrument Serif', serif;
+    font-size: clamp(36px, 4vw, 56px);
+    line-height: 1.1;
+    letter-spacing: -1px;
+    margin-bottom: 20px;
+  }
+
+  .section-desc {
+    font-size: 17px;
+    color: var(--text-secondary);
+    max-width: 600px;
+    line-height: 1.7;
+  }
+
+  /* ─── FEATURES GRID ─── */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-top: 64px;
+  }
+
+  .feature-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    padding: 32px 28px;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .feature-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .feature-card:hover {
+    border-color: var(--border);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+  }
+  .feature-card:hover::after { opacity: 1; }
+
+  .feature-icon {
+    width: 44px; height: 44px;
+    border-radius: 10px;
+    display: grid; place-items: center;
+    margin-bottom: 20px;
+  }
+
+  .feature-icon svg {
+    width: 20px; height: 20px;
+  }
+
+  .feature-card h3 {
+    font-size: 17px; font-weight: 600;
+    margin-bottom: 10px;
+  }
+
+  .feature-card p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.65;
+  }
+
+  .feature-card--primary {
+    border-top: 2px solid var(--accent);
+    box-shadow: var(--shadow);
+  }
+
+  .icon-analyze { background: var(--accent-dim); color: var(--accent); }
+  .icon-sync { background: #add7ff20; color: var(--accent-secondary); }
+  .icon-deploy { background: #fae4a020; color: var(--accent-tertiary); }
+  .icon-domain { background: #d0679d20; color: var(--accent-warn); }
+  .icon-theme { background: #c4b5fd20; color: var(--accent-purple); }
+  .icon-ci { background: var(--accent-dim); color: var(--accent); }
+
+  /* ─── ARCHITECTURE ─── */
+  .arch-flow {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin-top: 64px;
+    position: relative;
+  }
+
+  .arch-step {
+    flex: 1;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    padding: 32px 24px;
+    position: relative;
+    text-align: center;
+  }
+
+  .arch-step:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+  .arch-step:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+
+  .arch-step-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: 700;
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+  }
+
+  .arch-step h4 {
+    font-size: 16px;
+    margin-bottom: 8px;
+  }
+
+  .arch-step p {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .arch-arrow {
+    position: absolute;
+    right: -12px; top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    width: 24px; height: 24px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 12px;
+    color: var(--accent);
+  }
+
+  /* ─── CONFIG SHOWCASE ─── */
+  .config-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-top: 64px;
+  }
+
+  .config-block {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .config-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 20px;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border-subtle);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .config-header .file-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+  }
+
+  .config-body {
+    padding: 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    overflow-x: auto;
+  }
+
+  .y-key { color: var(--accent-secondary); }
+  .y-val { color: var(--accent-tertiary); }
+  .y-str { color: var(--accent); }
+  .y-comment { color: var(--text-muted); font-style: italic; }
+  .y-bool { color: var(--accent-warn); }
+  .y-annotation {
+    float: right;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-style: italic;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  /* ─── DEPLOY PROVIDERS ─── */
+  .providers-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+    margin-top: 64px;
+  }
+
+  .provider-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    padding: 36px 28px;
+    text-align: center;
+    transition: all 0.3s;
+  }
+
+  .provider-card:hover {
+    border-color: var(--border);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+  }
+
+  .provider-logo {
+    margin-bottom: 16px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .provider-logo svg {
+    width: 40px;
+    height: 40px;
+    fill: var(--text-secondary);
+    transition: fill 0.2s;
+  }
+
+  .provider-card:hover .provider-logo svg {
+    fill: var(--accent);
+  }
+
+  .provider-card h3 {
+    font-size: 18px;
+    margin-bottom: 8px;
+  }
+
+  .provider-card p {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 16px;
+  }
+
+  .provider-features {
+    display: flex; flex-direction: column; gap: 6px;
+    text-align: left;
+  }
+
+  .provider-features span {
+    font-size: 12px;
+    color: var(--text-muted);
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .provider-features span::before {
+    content: '';
+    display: inline-block;
+    width: 11px;
+    height: 11px;
+    flex-shrink: 0;
+    background: var(--accent);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E") center/contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E") center/contain no-repeat;
+  }
+
+  /* ─── DIFF SECTION ─── */
+  .diff-showcase {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-top: 64px;
+  }
+
+  .diff-block {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .diff-header {
+    padding: 14px 20px;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border-subtle);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-muted);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+
+  .diff-body {
+    padding: 16px 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.9;
+  }
+
+  .diff-add {
+    background: #5de4c710;
+    color: var(--accent);
+    padding: 2px 8px;
+    margin: 0 -8px;
+    display: block;
+    border-left: 3px solid var(--accent);
+  }
+
+  .diff-remove {
+    background: #d0679d10;
+    color: var(--accent-warn);
+    padding: 2px 8px;
+    margin: 0 -8px;
+    display: block;
+    border-left: 3px solid var(--accent-warn);
+    text-decoration: line-through;
+    opacity: 0.7;
+  }
+
+  .diff-unchanged {
+    color: var(--text-muted);
+    padding: 2px 8px;
+    margin: 0 -8px;
+    display: block;
+  }
+
+  /* ─── PRICING ─── */
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-top: 64px;
+  }
+
+  .price-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 40px 32px;
+    transition: all 0.3s;
+    position: relative;
+  }
+
+  .price-card.featured {
+    border-color: var(--accent);
+    box-shadow: 0 0 40px var(--accent-dim);
+  }
+
+  .price-card.featured::before {
+    content: 'MOST POPULAR';
+    position: absolute;
+    top: -12px; left: 50%; transform: translateX(-50%);
+    background: var(--accent);
+    color: var(--bg-primary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    padding: 4px 16px;
+    border-radius: 100px;
+  }
+
+  .price-tier {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+
+  .price-amount {
+    font-family: 'Instrument Serif', serif;
+    font-size: 48px;
+    margin-bottom: 4px;
+  }
+
+  .price-amount span {
+    font-size: 18px;
+    color: var(--text-muted);
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .price-desc {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-bottom: 28px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .price-features {
+    display: flex; flex-direction: column; gap: 12px;
+    margin-bottom: 32px;
+  }
+
+  .price-features li {
+    list-style: none;
+    font-size: 14px;
+    color: var(--text-secondary);
+    display: flex; align-items: flex-start; gap: 10px;
+  }
+
+  .price-features li::before {
+    content: '';
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    margin-top: 3px;
+    background: var(--accent);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14M12 5l7 7-7 7'/%3E%3C/svg%3E") center/contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14M12 5l7 7-7 7'/%3E%3C/svg%3E") center/contain no-repeat;
+  }
+
+  .price-btn {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 15px;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+  }
+
+  .price-btn-fill {
+    background: var(--accent);
+    color: var(--bg-primary);
+  }
+  .price-btn-fill:hover { box-shadow: 0 0 30px var(--accent-dim); }
+
+  .price-btn-outline {
+    background: transparent;
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+  }
+  .price-btn-outline:hover { border-color: var(--text-muted); }
+
+  /* ─── ENTERPRISE SPECS ─── */
+  .specs-table {
+    margin-top: 64px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  .specs-row {
+    display: grid;
+    grid-template-columns: minmax(180px, 240px) 1fr;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .specs-row:last-child { border-bottom: none; }
+
+  .specs-key {
+    padding: 20px 28px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--bg-elevated);
+    border-right: 1px solid var(--border-subtle);
+    display: flex; align-items: center;
+  }
+
+  .specs-val {
+    padding: 20px 28px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  /* ─── FOOTER ─── */
+  footer {
+    padding: 60px 40px;
+    text-align: center;
+    border-top: 1px solid var(--border-subtle);
+    margin-top: 40px;
+  }
+
+  footer p {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  /* ─── TABS ─── */
+  .tab-group {
+    display: flex; gap: 4px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    padding: 4px;
+    width: fit-content;
+    margin-bottom: 32px;
+  }
+
+  .tab-btn {
+    padding: 10px 20px;
+    background: transparent;
+    color: var(--text-muted);
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .tab-btn.active {
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ─── THEME GALLERY ─── */
+  .themes-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-top: 64px;
+  }
+
+  .theme-screenshot {
+    width: 100%;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    object-fit: cover;
+  }
+  .theme-card--has-screenshot .theme-preview { display: none; }
+  .theme-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: all 0.3s;
+    position: relative;
+  }
+
+  .theme-card:hover {
+    border-color: var(--border);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+  }
+
+  .theme-card .badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: var(--accent);
+    color: #0a0a0c;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    z-index: 2;
+  }
+
+  .theme-preview {
+    height: 180px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .theme-preview-inner {
+    position: absolute;
+    inset: 8px;
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 8px;
+  }
+
+  .theme-preview-nav {
+    display: flex;
+    align-items: center;
+    padding: 4px 8px;
+    gap: 6px;
+    font-weight: 600;
+    font-size: 7px;
+  }
+
+  .theme-preview-tabs {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+    font-size: 6px;
+    font-weight: 400;
+  }
+
+  .theme-preview-tabs span {
+    opacity: 0.6;
+  }
+
+  .theme-preview-tabs span:first-child {
+    opacity: 1;
+    border-bottom: 1.5px solid currentColor;
+    padding-bottom: 1px;
+  }
+
+  .theme-preview-body {
+    display: flex;
+    flex: 1;
+  }
+
+  .theme-preview-sidebar {
+    width: 28%;
+    padding: 6px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 6px;
+    border-right: 1px solid rgba(128,128,128,0.15);
+  }
+
+  .theme-preview-sidebar span {
+    display: block;
+    padding: 2px 4px;
+    border-radius: 3px;
+    opacity: 0.6;
+  }
+
+  .theme-preview-sidebar span:first-child {
+    opacity: 1;
+  }
+
+  .theme-preview-content {
+    flex: 1;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .theme-preview-content .line {
+    height: 3px;
+    border-radius: 1px;
+    opacity: 0.15;
+  }
+
+  .theme-preview-content .line-heading {
+    height: 6px;
+    width: 40%;
+    border-radius: 2px;
+    opacity: 0.35;
+    margin-bottom: 2px;
+  }
+
+  .theme-preview-content .line-code {
+    height: 20px;
+    border-radius: 3px;
+    opacity: 0.08;
+    margin: 3px 0;
+  }
+
+  .theme-card-info {
+    padding: 20px;
+  }
+
+  .theme-card-info h3 {
+    font-size: 16px;
+    margin-bottom: 4px;
+  }
+
+  .theme-card-info p {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .theme-card-palette {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  .theme-card-palette span {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid var(--border-subtle);
+  }
+
+  /* ─── HAMBURGER MENU ─── */
+  .nav-toggle {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    z-index: 110;
+  }
+
+  .nav-toggle svg {
+    width: 24px;
+    height: 24px;
+    stroke: var(--text-primary);
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+
+  .nav-toggle .hamburger-close { display: none; }
+  .nav-open .nav-toggle .hamburger-open { display: none; }
+  .nav-open .nav-toggle .hamburger-close { display: block; }
+
+  /* ─── INSIGHT STATS GRID (extracted from inline) ─── */
+  .insights-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    margin-top: 48px;
+  }
+
+  .insights-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 48px;
+  }
+
+  /* ─── ACCESSIBILITY ─── */
+  .skip-to-content {
+    position: absolute;
+    top: -100%;
+    left: 16px;
+    z-index: 200;
+    padding: 12px 24px;
+    background: var(--accent);
+    color: var(--bg-primary);
+    font-weight: 600;
+    font-size: 14px;
+    border-radius: 0 0 8px 8px;
+    text-decoration: none;
+    transition: top 0.2s;
+  }
+  .skip-to-content:focus {
+    top: 0;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* ─── RESPONSIVE ─── */
+
+  /* Wide desktop → reduce gaps */
+  @media (max-width: 1200px) {
+    .nav-links { gap: 20px; }
+    .providers-grid { grid-template-columns: repeat(3, 1fr); }
+    section { padding: 100px 32px; }
+  }
+
+  /* Tablet → hamburger menu, stacked grids */
+  @media (max-width: 900px) {
+    section { padding: 80px 20px; }
+
+    /* Hamburger visible */
+    .nav-toggle { display: block; }
+
+    /* Nav links become mobile drawer */
+    .nav-links {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(10,10,12,0.97);
+      backdrop-filter: blur(20px);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 32px;
+      z-index: 105;
+    }
+
+    .nav-links.nav-open {
+      display: flex;
+    }
+
+    .nav-links a {
+      font-size: 20px;
+    }
+
+    /* Grids */
+    .features-grid, .pricing-grid { grid-template-columns: 1fr; }
+    .themes-grid { grid-template-columns: repeat(2, 1fr); }
+    .providers-grid { grid-template-columns: repeat(2, 1fr); }
+    .config-grid, .diff-showcase { grid-template-columns: 1fr; }
+    .insights-grid-2 { grid-template-columns: 1fr; }
+    .insights-stats-grid { grid-template-columns: repeat(3, 1fr); }
+
+    /* Architecture flow */
+    .arch-flow { flex-direction: column; }
+    .arch-step:first-child { border-radius: var(--radius) var(--radius) 0 0; }
+    .arch-step:last-child { border-radius: 0 0 var(--radius) var(--radius); }
+    .arch-arrow { display: none; }
+
+    /* Specs table */
+    .specs-row { grid-template-columns: 1fr; }
+    .specs-key { border-right: none; border-bottom: 1px solid var(--border-subtle); }
+
+    /* Nav */
+    nav { padding: 12px 20px; }
+
+    /* Hero */
+    .hero { padding-top: 140px; padding-bottom: 100px; }
+    .hero-actions { flex-direction: column; align-items: center; }
+
+    /* Terminal */
+    .terminal-body { overflow-x: auto; }
+
+    /* Try input - prevent iOS auto-zoom */
+    .try-input { font-size: 16px; }
+    .try-input-group { flex-direction: column; }
+
+    /* Pricing featured badge */
+    .price-card.featured::before { top: -12px; }
+
+    /* Footer */
+    footer { padding: 40px 20px; }
+
+    /* Domain rows */
+    .domain-url { word-break: break-all; overflow-wrap: anywhere; }
+  }
+
+  /* Phone landscape */
+  @media (max-width: 600px) {
+    section { padding: 60px 16px; }
+
+    .section-title { font-size: clamp(28px, 6vw, 40px); }
+    .section-desc { font-size: 15px; }
+
+    .features-grid, .pricing-grid, .themes-grid { grid-template-columns: 1fr; }
+    .providers-grid { grid-template-columns: 1fr; }
+    .insights-stats-grid { grid-template-columns: 1fr; }
+
+    .hero { padding-top: 120px; padding-bottom: 80px; }
+    .hero-sub { font-size: 16px; }
+
+    .terminal-wrapper { margin-top: 48px; }
+    .terminal-body { font-size: 12px; min-height: 240px; padding: 16px; }
+
+    .feature-card { padding: 24px 20px; }
+    .price-card { padding: 28px 24px; }
+
+    .config-body { font-size: 12px; }
+    .diff-body { font-size: 11.5px; }
+
+    footer { padding: 32px 16px; }
+
+    .domain-row { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .domain-row { padding: 14px 16px; }
+  }
+
+  /* Small phone */
+  @media (max-width: 480px) {
+    .hero { padding-top: 100px; padding-bottom: 60px; }
+    .hero-badge { font-size: 12px; }
+
+    nav { padding: 10px 16px; }
+
+    .workflow-item { grid-template-columns: 56px 1fr; gap: 16px; }
+    .workflow-step-indicator { width: 48px; height: 48px; font-size: 16px; }
+
+    .tab-group { width: 100%; overflow-x: auto; }
+    .tab-btn { padding: 8px 14px; font-size: 12px; white-space: nowrap; }
+  }
+
+  /* ─── SCROLL ANIMATIONS ─── */
+  .fade-in {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .fade-in.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ─── SOCIAL PROOF ─── */
+  .social-proof {
+    padding: 40px 24px;
+    border-top: 1px solid var(--border-subtle);
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-elevated);
+  }
+  .social-proof-inner {
+    max-width: 900px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 48px;
+    flex-wrap: wrap;
+  }
+  .social-proof-stat {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .social-proof-number {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .social-proof-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+  .github-stars-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: border-color 0.2s;
+  }
+  .github-stars-badge:hover {
+    border-color: var(--accent);
+  }
+
+  /* ─── EMAIL CAPTURE ─── */
+  .email-capture {
+    text-align: center;
+    padding: 80px 24px;
+    background: var(--bg-elevated);
+    border-top: 1px solid var(--border-subtle);
+  }
+  .email-capture h2 {
+    font-family: 'Instrument Serif', serif;
+    font-size: 32px;
+    margin-bottom: 8px;
+  }
+  .email-capture p {
+    color: var(--text-secondary);
+    font-size: 15px;
+    margin-bottom: 24px;
+  }
+  .email-form {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    max-width: 440px;
+    margin: 0 auto;
+  }
+  .email-form input {
+    flex: 1;
+    padding: 12px 16px;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .email-form input:focus {
+    border-color: var(--accent);
+    outline: none;
+  }
+  .email-form button {
+    padding: 12px 24px;
+    background: var(--accent);
+    color: var(--bg-primary);
+    border: none;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .email-form button:hover {
+    opacity: 0.9;
+  }
+  .email-disclaimer {
+    font-size: 12px !important;
+    color: var(--text-muted) !important;
+    margin-top: 12px !important;
+    margin-bottom: 0 !important;
+  }
+
+  /* ─── WORKFLOW SECTION ─── */
+  .workflow-container {
+    margin-top: 64px;
+  }
+
+  .workflow-item {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 24px;
+    padding: 32px 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .workflow-item:last-child { border-bottom: none; }
+
+  .workflow-step-indicator {
+    width: 56px; height: 56px;
+    border-radius: 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    display: grid; place-items: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .workflow-content h4 {
+    font-size: 18px;
+    margin-bottom: 8px;
+  }
+
+  .workflow-content p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.65;
+    margin-bottom: 12px;
+  }
+
+  .workflow-cmd {
+    display: inline-block;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    color: var(--accent);
+  }
+
+  /* ─── DOMAIN VISUAL ─── */
+  .domain-examples {
+    display: flex; flex-direction: column; gap: 12px;
+    margin-top: 32px;
+  }
+
+  .domain-row {
+    display: flex; align-items: center; gap: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    padding: 16px 24px;
+    transition: all 0.2s;
+  }
+  .domain-row:hover { border-color: var(--border); }
+
+  .domain-url {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    flex: 1;
+  }
+
+  .domain-url .proto { color: var(--text-muted); }
+  .domain-url .sub { color: var(--accent); }
+  .domain-url .base { color: var(--text-primary); }
+  .domain-url .path { color: var(--accent-tertiary); }
+
+  .domain-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.5px;
+  }
+
+  .badge-subdomain { background: var(--accent-dim); color: var(--accent); }
+  .badge-subpath { background: #fae4a020; color: var(--accent-tertiary); }
+  .badge-root { background: #c4b5fd20; color: var(--accent-purple); }
+
+  /* ─── TRY DOCWALK ─── */
+  .try-container {
+    max-width: 680px;
+    margin: 64px auto 0;
+  }
+
+  .try-input-group {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .try-input {
+    flex: 1;
+    padding: 14px 20px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .try-input::placeholder {
+    color: var(--text-muted);
+  }
+
+  .try-input:focus {
+    border-color: var(--accent);
+  }
+
+  .try-input.error {
+    border-color: var(--accent-warn);
+  }
+
+  .try-submit {
+    padding: 14px 28px;
+    background: var(--accent);
+    color: var(--bg-primary);
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'DM Sans', sans-serif;
+    white-space: nowrap;
+  }
+
+  .try-submit:hover {
+    box-shadow: 0 0 30px var(--accent-dim);
+    transform: translateY(-1px);
+  }
+
+  .try-status {
+    padding: 16px 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    display: none;
+  }
+
+  .try-status.visible {
+    display: block;
+  }
+
+  .try-status .try-cmd {
+    color: var(--accent);
+    user-select: all;
+    display: block;
+    margin-top: 8px;
+    padding: 12px 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    word-break: break-all;
+  }
+
+  .try-status .try-label {
+    color: var(--text-secondary);
+    font-size: 12px;
+    margin-bottom: 4px;
+    display: block;
+  }
+
+  .try-status .try-note {
+    color: var(--text-muted);
+    font-size: 12px;
+    margin-top: 12px;
+    display: block;
+    line-height: 1.6;
+  }
+
+  .try-copy-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    padding: 8px 16px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .try-copy-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .try-error {
+    color: var(--accent-warn);
+    font-size: 13px;
+    margin-top: 8px;
+    display: none;
+  }
+
+  .try-error.visible {
+    display: block;
+  }
+
+  .try-config {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  .try-config-section {
+    margin-bottom: 16px;
+  }
+  .try-config-section:last-child {
+    margin-bottom: 0;
+  }
+
+  .try-config-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+
+  .try-themes {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+
+  .try-theme-tile {
+    background: var(--bg-secondary);
+    border: 2px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    padding: 10px 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  .try-theme-tile:hover {
+    border-color: var(--border);
+    color: var(--text-primary);
+  }
+
+  .try-theme-tile.selected {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  .try-theme-tile .try-theme-swatch {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+    margin-bottom: 6px;
+  }
+
+  .try-theme-swatch span {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1px solid var(--border-subtle);
+  }
+
+  .try-layout-toggle {
+    display: flex;
+    gap: 4px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 3px;
+    width: fit-content;
+  }
+
+  .try-layout-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .try-layout-btn.selected {
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+
+  .try-layout-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  @media (max-width: 900px) {
+    .try-input-group { flex-direction: column; }
+    .try-themes { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (max-width: 600px) {
+    .try-themes { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<a href="#features" class="skip-to-content">Skip to content</a>
+
+<!-- ═══ NAVIGATION ═══ -->
+<nav>
+  <a href="#" class="nav-logo">
+    <div class="logo-icon"><svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><g transform="rotate(-15 8 8)"><ellipse cx="8" cy="5.5" rx="2.8" ry="4"/><ellipse cx="8" cy="11" rx="2" ry="1.4"/></g><g transform="rotate(15 16 16)"><ellipse cx="16" cy="13.5" rx="2.8" ry="4"/><ellipse cx="16" cy="19" rx="2" ry="1.4"/></g></svg></div>
+    DocWalk
+  </a>
+  <button class="nav-toggle" aria-label="Toggle navigation">
+    <svg class="hamburger-open" viewBox="0 0 24 24" fill="none"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    <svg class="hamburger-close" viewBox="0 0 24 24" fill="none"><line x1="4" y1="4" x2="20" y2="20"/><line x1="20" y1="4" x2="4" y2="20"/></svg>
+  </button>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#how-it-works">How It Works</a>
+    <a href="#try">Try It</a>
+    <a href="#pricing">Pricing</a>
+    <a href="docs/" style="color:var(--accent); font-weight:600;">Docs</a>
+  </div>
+</nav>
+
+<!-- ═══ HERO ═══ -->
+<section class="hero">
+  <div class="hero-badge">
+    <span class="dot"></span>
+    Open Source
+  </div>
+  <h1>Your codebase, <em>documented.</em><br>Automatically.</h1>
+  <p class="hero-sub">
+    Analyze any codebase, generate a full MkDocs Material documentation site with AI-written narrative prose, and keep it in sync with every commit.
+  </p>
+  <div class="hero-actions">
+    <a href="docs/" class="btn-primary">Read the Docs <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+    <a href="#how-it-works" class="btn-secondary">See How It Works <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M12 5v14M5 12l7 7 7-7"/></svg></a>
+  </div>
+
+  <!-- Terminal Demo -->
+  <div class="terminal-wrapper">
+    <div class="terminal">
+      <div class="terminal-bar">
+        <span class="terminal-dot r"></span>
+        <span class="terminal-dot y"></span>
+        <span class="terminal-dot g"></span>
+        <span class="terminal-title">Terminal — docwalk</span>
+      </div>
+      <div class="terminal-body">
+        <span class="t-line"><span class="t-prompt">$</span> <span class="t-cmd">npx docwalk init</span> <span class="t-flag">--repo</span> <span class="t-val">JongoDB/CYROID</span></span>
+        <span class="t-line t-dim">⠿ Cloning repository...</span>
+        <span class="t-line t-dim">⠿ Analyzing codebase structure (347 files, 12 modules)...</span>
+        <span class="t-line t-dim">⠿ Generating documentation tree...</span>
+        <span class="t-line t-dim">⠿ Building API references from source...</span>
+        <span class="t-line t-dim">⠿ Creating navigation + search index...</span>
+        <span class="t-line t-success">✓ Documentation generated — 48 pages, 12 API refs</span>
+        <span class="t-line">&nbsp;</span>
+        <span class="t-line"><span class="t-prompt">$</span> <span class="t-cmd">npx docwalk deploy</span> <span class="t-flag">--provider</span> <span class="t-val">cloudflare</span> <span class="t-flag">--domain</span> <span class="t-val">docs.fightingsmartcyber.com/cyroid</span></span>
+        <span class="t-line t-dim">⠿ Building static site...</span>
+        <span class="t-line t-dim">⠿ Configuring Cloudflare Pages project...</span>
+        <span class="t-line t-dim">⠿ Setting up DNS records for custom domain...</span>
+        <span class="t-line t-dim">⠿ Deploying to edge network...</span>
+        <span class="t-line t-success">✓ Live at https://docs.fightingsmartcyber.com/cyroid</span>
+        <span class="t-line t-success">✓ Auto-sync enabled — watching for commits on main</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FEATURES ═══ -->
+<section id="features" class="fade-in">
+  <div class="section-label">Core Capabilities</div>
+  <h2 class="section-title">Everything your docs need.<br>Nothing you don't.</h2>
+  <p class="section-desc">
+    From static analysis to live deployment, DocWalk handles the entire documentation lifecycle so your team ships code — not docs.
+  </p>
+
+  <div class="features-grid">
+    <div class="feature-card feature-card--primary">
+      <div class="feature-icon icon-analyze"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+      <h3>Deep Codebase Analysis</h3>
+      <p>Deep analysis across 12 languages with tree-sitter and pattern-based parsers, plus tracking for 25+ file types</p>
+    </div>
+    <div class="feature-card feature-card--primary">
+      <div class="feature-icon icon-sync"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg></div>
+      <h3>Git-Diff Smart Sync</h3>
+      <p>Only re-analyzes changed files between commits. Tracks renames, deletions, and cross-file impacts. Configurable sync triggers — on push, on schedule, or manual.</p>
+    </div>
+    <div class="feature-card feature-card--primary">
+      <div class="feature-icon icon-deploy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></div>
+      <h3>5-Provider Deploy</h3>
+      <p>One-command deployment to GitHub Pages, Cloudflare Pages, Vercel, Netlify, or any S3-compatible bucket. Each provider includes CI/CD generation and PR preview deployments.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon icon-domain"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
+      <h3>Custom Domain Routing</h3>
+      <p>Automatic DNS configuration for custom domains. Supports subdomain hosting (docs.example.com) and subpath routing (/docs/project). SSL provisioned automatically.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon icon-theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="19" cy="13.5" r="2.5"/><circle cx="6.5" cy="11" r="2.5"/><circle cx="13" cy="19.5" r="2.5"/><circle cx="12" cy="12" r="9"/></svg></div>
+      <h3>Theme Presets & Customization</h3>
+      <p>Six built-in presets (Developer, Corporate, Startup, Minimal, API Reference, Knowledge Base) with custom palettes, fonts, and CSS. Full MkDocs Material theming — colors, logos, navigation, search, versioning.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon icon-sync"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+      <h3>Smart Sync Engine</h3>
+      <p>Stores a commit-indexed analysis cache. On each sync, only re-processes changed files with cross-file impact detection. Sub-5-second updates for typical PRs.</p>
+    </div>
+  </div>
+
+  <div class="section-label" style="margin-top:64px">AI-Powered</div>
+  <h2 class="section-title">Documentation that reads like a human wrote it.</h2>
+  <p class="section-desc">
+    Enable AI and DocWalk generates narrative prose, diagrams, end-user guides, and interactive Q&A — all grounded in your actual source code with source citations.
+  </p>
+
+  <div class="features-grid">
+    <div class="feature-card feature-card--primary">
+      <div class="feature-icon icon-ai"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 1 4 4v2a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z"/><path d="M8 14s-4 2-4 6h16c0-4-4-6-4-6"/><circle cx="12" cy="6" r="1.5" fill="currentColor" stroke="none" opacity=".4"/><path d="M9 2.5C7 3.5 6 5 6 7M15 2.5c2 1 3 2.5 3 4.5" opacity=".4"/></svg></div>
+      <h3>AI Narrative Documentation</h3>
+      <p>LLM-written prose on every page — not templates, real explanations of what your code does, why it exists, and how to use it. With source citations linking back to specific files and lines.</p>
+    </div>
+    <div class="feature-card feature-card--primary">
+      <div class="feature-icon icon-provider"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="18" rx="3"/><path d="M8 8h8M8 12h5M8 16h7" opacity=".6"/><circle cx="17" cy="14" r="2.5"/><path d="M17 11.5v-1M17 17.5v1M14.5 14h-1M20.5 14h-1"/></svg></div>
+      <h3>Multi-Provider LLM</h3>
+      <p>Bring your own key — Anthropic Claude, OpenAI GPT-4o, Google Gemini (free tier), Ollama (local/private), or OpenRouter. Switch providers with a single config change.</p>
+    </div>
+    <div class="feature-card feature-card--primary">
+      <div class="feature-icon icon-user"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+      <h3>End-User Documentation</h3>
+      <p>Auto-generates a full User Guide section — overview, getting started tutorial, feature docs, troubleshooting guide, and FAQ. Content extracted from CLI commands, API routes, config schemas, and error types.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon icon-diagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="8" height="6" rx="1.5"/><rect x="15" y="3" width="8" height="6" rx="1.5"/><rect x="8" y="15" width="8" height="6" rx="1.5"/><path d="M5 9v3a3 3 0 0 0 3 3h1M19 9v3a3 3 0 0 1-3 3h-1"/></svg></div>
+      <h3>Multi-Type Diagrams</h3>
+      <p>Dependency graphs and class diagrams generated statically from AST data. Sequence diagrams and flowcharts generated by AI from your actual function bodies. All rendered with Mermaid.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon icon-qa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M12 8a1.5 1.5 0 0 0-1.5 1.5c0 .83.67 1.5 1.5 1.5" opacity=".8"/><circle cx="12" cy="14" r=".5" fill="currentColor" stroke="none"/></svg></div>
+      <h3>Q&A Widget</h3>
+      <p>Embed an interactive chat in your generated docs. Questions are answered via RAG — pages are chunked and embedded at build time, then searched with cosine similarity at query time. Answers include citations.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon icon-monorepo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><path d="M10 6.5h4M6.5 10v4M17.5 10v4M10 17.5h4" opacity=".4"/></svg></div>
+      <h3>Monorepo Support</h3>
+      <p>Detects npm workspaces, pnpm-workspace.yaml, and Lerna configs. Resolves cross-package imports so architecture diagrams show real edges between packages instead of dead ends.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SOCIAL PROOF ═══ -->
+<section class="social-proof fade-in">
+  <div class="social-proof-inner">
+    <div class="social-proof-stat">
+      <a href="https://github.com/JongoDB/docwalk" class="github-stars-badge" aria-label="Star DocWalk on GitHub">
+        <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        Star on GitHub
+      </a>
+    </div>
+    <div class="social-proof-stat">
+      <span class="social-proof-number">500+</span>
+      <span class="social-proof-label">Projects documented</span>
+    </div>
+    <div class="social-proof-stat">
+      <span class="social-proof-number">19</span>
+      <span class="social-proof-label">Languages supported</span>
+    </div>
+    <div class="social-proof-stat">
+      <span class="social-proof-number">5</span>
+      <span class="social-proof-label">Deploy providers</span>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ HOW IT WORKS ═══ -->
+<section id="how-it-works" class="fade-in">
+  <div class="section-label">Workflow</div>
+  <h2 class="section-title">Init → Analyze → Deploy → Sync</h2>
+  <p class="section-desc">
+    Four steps from bare repo to live documentation. Every step is automated, every output is configurable.
+  </p>
+
+  <div class="workflow-container">
+    <div class="workflow-item">
+      <div class="workflow-step-indicator">01</div>
+      <div class="workflow-content">
+        <h4>Initialize</h4>
+        <p>Point DocWalk at any Git repository — local, GitHub, GitLab, or Bitbucket. An interactive setup wizard walks you through language detection, doc structure preferences, deployment target, and domain configuration. Generates a <code>docwalk.config.yml</code> committed to your repo.</p>
+        <span class="workflow-cmd">npx docwalk init --repo owner/repo</span>
+      </div>
+    </div>
+    <div class="workflow-item">
+      <div class="workflow-step-indicator">02</div>
+      <div class="workflow-content">
+        <h4>Analyze & Generate</h4>
+        <p>Static analysis engine parses your entire codebase — AST extraction for function signatures, class hierarchies, type annotations, and module boundaries. With AI enabled, generates LLM-written narrative prose, sequence diagrams, and end-user guides. Creates Markdown documentation organized into sections: Overview, API Reference, Architecture, User Guide, Features, Troubleshooting, FAQ, and Changelog.</p>
+        <span class="workflow-cmd">npx docwalk generate</span>
+      </div>
+    </div>
+    <div class="workflow-item">
+      <div class="workflow-step-indicator">03</div>
+      <div class="workflow-content">
+        <h4>Deploy</h4>
+        <p>Choose your hosting provider and domain. DocWalk provisions the project, installs the CI/CD pipeline (GitHub Actions YAML, wrangler.toml, or vercel.json), configures DNS records for your custom domain, provisions SSL, and pushes the built site live. One command, zero manual steps.</p>
+        <span class="workflow-cmd">npx docwalk deploy --provider cloudflare --domain docs.example.com/project</span>
+      </div>
+    </div>
+    <div class="workflow-item">
+      <div class="workflow-step-indicator">04</div>
+      <div class="workflow-content">
+        <h4>Smart Sync</h4>
+        <p>On every push to the configured branch, DocWalk runs <code>git diff</code> against the last indexed commit. Only changed, renamed, or deleted files are re-analyzed. Cross-file impact analysis detects downstream documentation changes (e.g., a renamed export referenced elsewhere). Incremental build, incremental deploy — sub-30-second updates for typical PRs.</p>
+        <span class="workflow-cmd">Runs automatically via CI/CD — or: npx docwalk sync</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ ARCHITECTURE ═══ -->
+<section class="fade-in">
+  <div class="section-label">System Architecture</div>
+  <h2 class="section-title">Pipeline at a glance</h2>
+
+  <div class="arch-flow">
+    <div class="arch-step">
+      <div class="arch-step-num">SOURCE</div>
+      <h4>Git Repository</h4>
+      <p>GitHub, GitLab, Bitbucket, or local. Branch-aware with tag support for versioned docs.</p>
+      <div class="arch-arrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+    </div>
+    <div class="arch-step">
+      <div class="arch-step-num">ANALYSIS</div>
+      <h4>DocWalk Engine</h4>
+      <p>AST parsing, LLM-powered summarization (optional), dependency graphing, and nav generation.</p>
+      <div class="arch-arrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+    </div>
+    <div class="arch-step">
+      <div class="arch-step-num">BUILD</div>
+      <h4>MkDocs Material</h4>
+      <p>Static site generation with search, versioning, i18n, dark mode, and custom theming.</p>
+      <div class="arch-arrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+    </div>
+    <div class="arch-step">
+      <div class="arch-step-num">DEPLOY</div>
+      <h4>Edge Network</h4>
+      <p>Cloudflare Pages, GitHub Pages, Vercel, Netlify, or S3. Custom domains with auto-SSL.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ CONFIG ═══ -->
+<section id="config" class="fade-in">
+  <div class="section-label">Configuration</div>
+  <h2 class="section-title">One YAML. Full control.</h2>
+  <p class="section-desc">
+    Every aspect of DocWalk is configurable through a single <code>docwalk.config.yml</code> committed to your repo. Sensible defaults mean you can start with zero config.
+  </p>
+
+  <div class="config-grid">
+    <div class="config-block">
+      <div class="config-header">
+        <span class="file-dot" style="background:var(--accent-tertiary)"></span>
+        docwalk.config.yml
+      </div>
+      <div class="config-body">
+        <span class="y-comment"># ─── Source Configuration ───</span><br>
+        <span class="y-key">source:</span><br>
+        &nbsp;&nbsp;<span class="y-key">repo:</span> <span class="y-str">JongoDB/CYROID</span><br>
+        &nbsp;&nbsp;<span class="y-key">branch:</span> <span class="y-str">main</span><br>
+        &nbsp;&nbsp;<span class="y-key">include:</span> <span class="y-str">[src/**, lib/**, api/**]</span><br>
+        &nbsp;&nbsp;<span class="y-key">exclude:</span> <span class="y-str">[tests/**, node_modules/**]</span><br>
+        &nbsp;&nbsp;<span class="y-key">languages:</span> <span class="y-str">auto</span><br>
+        <br>
+        <span class="y-comment"># ─── Analysis Engine ───</span><br>
+        <span class="y-key">analysis:</span><br>
+        &nbsp;&nbsp;<span class="y-key">depth:</span> <span class="y-val">full</span> <span class="y-comment"># full | surface | api-only</span><span class="y-annotation">Extracts every function, class, and type</span><br>
+        &nbsp;&nbsp;<span class="y-key">ai_summaries:</span> <span class="y-bool">true</span><br>
+        &nbsp;&nbsp;<span class="y-key">dependency_graph:</span> <span class="y-bool">true</span><br>
+        &nbsp;&nbsp;<span class="y-key">changelog:</span> <span class="y-bool">true</span><br>
+        <br>
+        <span class="y-comment"># ─── Sync Strategy ───</span><br>
+        <span class="y-key">sync:</span><br>
+        &nbsp;&nbsp;<span class="y-key">trigger:</span> <span class="y-str">on_push</span> <span class="y-comment"># on_push | cron | manual</span><span class="y-annotation">Docs update on every commit</span><br>
+        &nbsp;&nbsp;<span class="y-key">cron:</span> <span class="y-str">"0 */6 * * *"</span><br>
+        &nbsp;&nbsp;<span class="y-key">diff_strategy:</span> <span class="y-str">incremental</span><span class="y-annotation">Only re-analyzes changed files</span><br>
+        &nbsp;&nbsp;<span class="y-key">impact_analysis:</span> <span class="y-bool">true</span><br>
+      </div>
+    </div>
+
+    <div class="config-block">
+      <div class="config-header">
+        <span class="file-dot" style="background:var(--accent-secondary)"></span>
+        docwalk.config.yml (continued)
+      </div>
+      <div class="config-body">
+        <span class="y-comment"># ─── Deployment ───</span><br>
+        <span class="y-key">deploy:</span><br>
+        &nbsp;&nbsp;<span class="y-key">provider:</span> <span class="y-str">cloudflare</span> <span class="y-comment"># gh-pages | cloudflare | vercel | netlify | s3</span><br>
+        &nbsp;&nbsp;<span class="y-key">project:</span> <span class="y-str">cyroid-docs</span><br>
+        &nbsp;&nbsp;<span class="y-key">auto_ssl:</span> <span class="y-bool">true</span><br>
+        <br>
+        <span class="y-comment"># ─── Domain Routing ───</span><br>
+        <span class="y-key">domain:</span><br>
+        &nbsp;&nbsp;<span class="y-key">custom:</span> <span class="y-str">docs.fightingsmartcyber.com</span><br>
+        &nbsp;&nbsp;<span class="y-key">base_path:</span> <span class="y-str">/cyroid</span><br>
+        &nbsp;&nbsp;<span class="y-key">dns_auto:</span> <span class="y-bool">true</span><br>
+        <br>
+        <span class="y-comment"># ─── Theme ───</span><br>
+        <span class="y-key">theme:</span><br>
+        &nbsp;&nbsp;<span class="y-key">preset:</span> <span class="y-str">developer</span> <span class="y-comment"># developer | corporate | startup | minimal | api-reference | knowledge-base | custom</span><br>
+        &nbsp;&nbsp;<span class="y-key">logo:</span> <span class="y-str">./assets/logo.svg</span><br>
+        &nbsp;&nbsp;<span class="y-key">favicon:</span> <span class="y-str">./assets/favicon.png</span><br>
+        <br>
+        <span class="y-comment"># ─── Hooks ───</span><br>
+        <span class="y-key">hooks:</span><br>
+        &nbsp;&nbsp;<span class="y-key">pre_build:</span> <span class="y-str">["npm run lint:docs"]</span><br>
+        &nbsp;&nbsp;<span class="y-key">post_deploy:</span> <span class="y-str">["curl -X POST $SLACK_WEBHOOK"]</span><br>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ DIFF ENGINE ═══ -->
+<section class="fade-in">
+  <div class="section-label">Smart Sync Engine</div>
+  <h2 class="section-title">Change 3 files. Rebuild 3 pages.</h2>
+  <p class="section-desc">
+    DocWalk stores a commit-indexed analysis cache. On each sync, it diffs against the last indexed commit and only re-processes what changed — with cross-file impact detection.
+  </p>
+
+  <div class="diff-showcase">
+    <div class="diff-block">
+      <div class="diff-header">
+        <span>git diff abc123..def456 — 3 files changed</span>
+        <span style="color:var(--accent)">src/</span>
+      </div>
+      <div class="diff-body">
+        <span class="diff-unchanged">  // auth/handler.ts — unchanged</span>
+        <span class="diff-unchanged">  // db/connection.ts — unchanged</span>
+        <span class="diff-remove">- // api/routes.ts — old version</span>
+        <span class="diff-add">+ // api/routes.ts — 2 new endpoints added</span>
+        <span class="diff-remove">- // models/user.ts — old schema</span>
+        <span class="diff-add">+ // models/user.ts — added `role` field</span>
+        <span class="diff-add">+ // api/middleware/rbac.ts — new file</span>
+        <span class="diff-unchanged">  // utils/logger.ts — unchanged</span>
+        <span class="diff-unchanged">  // config/index.ts — unchanged</span>
+      </div>
+    </div>
+
+    <div class="diff-block">
+      <div class="diff-header">
+        <span>DocWalk Sync Report</span>
+        <span style="color:var(--accent)">2.3s</span>
+      </div>
+      <div class="diff-body">
+        <span class="diff-add">+ Rebuilt: API Reference → Routes (2 new endpoints)</span>
+        <span class="diff-add">+ Rebuilt: Models → User (schema change)</span>
+        <span class="diff-add">+ Created: API Reference → RBAC Middleware (new)</span>
+        <span class="diff-add">+ Updated: Navigation tree (1 new page)</span>
+        <span class="diff-add">+ Updated: Search index (3 entries)</span>
+        <span class="diff-unchanged">  Skipped: 44 unchanged pages</span>
+        <span class="diff-unchanged">  Impact check: no downstream refs affected</span>
+        <span class="diff-unchanged">&nbsp;</span>
+        <span class="diff-unchanged" style="color:var(--accent)">  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M20 6L9 17l-5-5"/></svg> Deployed to edge in 2.3s (vs 47s full rebuild)</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ DEPLOY PROVIDERS ═══ -->
+<section id="deploy" class="fade-in">
+  <div class="section-label">Hosting Providers</div>
+  <h2 class="section-title">Deploy where your team already is</h2>
+  <p class="section-desc">
+    First-class integrations with every major static hosting platform. DocWalk generates provider-specific CI/CD configs and manages the full deployment lifecycle.
+  </p>
+
+  <div class="providers-grid">
+    <div class="provider-card">
+      <div class="provider-logo"><svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg></div>
+      <h3>GitHub Pages</h3>
+      <p>Perfect for open-source. Auto-generates <code>gh-pages.yml</code> workflow, configures CNAME, and deploys from the gh-pages branch.</p>
+      <div class="provider-features">
+        <span>GitHub Actions workflow auto-generated</span>
+        <span>Branch-based versioned docs</span>
+        <span>CNAME + custom domain support</span>
+        <span>Free for public repos</span>
+      </div>
+    </div>
+    <div class="provider-card">
+      <div class="provider-logo"><svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M16.5088 16.8447c.1475-.5068.0908-.9707-.1553-1.3154-.2246-.3164-.6045-.499-1.0615-.5205l-8.6592-.1123a.1559.1559 0 0 1-.1333-.0713c-.0283-.042-.0351-.0986-.021-.1553.0278-.084.1123-.1484.2036-.1562l8.7359-.1123c1.0351-.0489 2.1601-.8868 2.5537-1.9136l.499-1.3013c.0215-.0561.0293-.1128.0147-.168-.5625-2.5463-2.835-4.4453-5.5499-4.4453-2.5039 0-4.6284 1.6177-5.3876 3.8614-.4927-.3658-1.1187-.5625-1.794-.499-1.2026.119-2.1665 1.083-2.2861 2.2856-.0283.31-.0069.6128.0635.894C1.5683 13.171 0 14.7754 0 16.752c0 .1748.0142.3515.0352.5273.0141.083.0844.1475.1689.1475h15.9814c.0909 0 .1758-.0645.2032-.1553l.12-.4268zm2.7568-5.5634c-.0771 0-.1611 0-.2383.0112-.0566 0-.1054.0415-.127.0976l-.3378 1.1744c-.1475.5068-.0918.9707.1543 1.3164.2256.3164.6055.498 1.0625.5195l1.8437.1133c.0557 0 .1055.0263.1329.0703.0283.043.0351.1074.0214.1562-.0283.084-.1132.1485-.204.1553l-1.921.1123c-1.041.0488-2.1582.8867-2.5527 1.914l-.1406.3585c-.0283.0713.0215.1416.0986.1416h6.5977c.0771 0 .1474-.0489.169-.126.1122-.4082.1757-.837.1757-1.2803 0-2.6025-2.125-4.727-4.7344-4.727"/></svg></div>
+      <h3>Cloudflare Pages</h3>
+      <p>Global edge deployment with Wrangler. Auto-provisions Pages project, DNS records, and SSL certificates through Cloudflare API.</p>
+      <div class="provider-features">
+        <span>Wrangler CLI integration</span>
+        <span>Auto DNS + SSL provisioning</span>
+        <span>Global edge network (300+ PoPs)</span>
+        <span>Preview deployments per PR</span>
+      </div>
+    </div>
+    <div class="provider-card">
+      <div class="provider-logo"><svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="m12 1.608 12 20.784H0Z"/></svg></div>
+      <h3>Vercel</h3>
+      <p>Instant deployments via Vercel API. Generates <code>vercel.json</code>, links to your project, and configures domain routing.</p>
+      <div class="provider-features">
+        <span>Vercel CLI + API integration</span>
+        <span>Instant rollbacks</span>
+        <span>Branch preview URLs</span>
+      </div>
+    </div>
+    <div class="provider-card">
+      <div class="provider-logo"><svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M6.49 19.04h-.23L5.13 17.9v-.23l1.73-1.71h1.2l.15.15v1.2L6.5 19.04ZM5.13 6.31V6.1l1.13-1.13h.23L8.2 6.68v1.2l-.15.15h-1.2L5.13 6.31Zm9.96 9.09h-1.65l-.14-.13v-3.83c0-.68-.27-1.2-1.1-1.23-.42 0-.9 0-1.43.02l-.07.08v4.96l-.14.14H8.9l-.13-.14V8.73l.13-.14h3.7a2.6 2.6 0 0 1 2.61 2.6v4.08l-.13.14Zm-8.37-2.44H.14L0 12.82v-1.64l.14-.14h6.58l.14.14v1.64l-.14.14Zm17.14 0h-6.58l-.14-.14v-1.64l.14-.14h6.58l.14.14v1.64l-.14.14ZM11.05 6.55V1.64l.14-.14h1.65l.14.14v4.9l-.14.14h-1.65l-.14-.13Zm0 15.81v-4.9l.14-.14h1.65l.14.13v4.91l-.14.14h-1.65l-.14-.14Z"/></svg></div>
+      <h3>Netlify</h3>
+      <p>Deploy with Netlify CLI. Auto-generates GitHub Actions workflow with PR preview deployments and production deploys.</p>
+      <div class="provider-features">
+        <span>Netlify CLI integration</span>
+        <span>PR preview deployments</span>
+        <span>Custom domain + SSL</span>
+      </div>
+    </div>
+    <div class="provider-card">
+      <div class="provider-logo"><svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M6.763 10.036c0 .296.032.535.088.71.064.176.144.368.256.576.04.063.056.127.056.183 0 .08-.048.16-.152.24l-.503.335a.383.383 0 0 1-.208.072c-.08 0-.16-.04-.239-.112a2.47 2.47 0 0 1-.287-.375 6.18 6.18 0 0 1-.248-.471c-.622.734-1.405 1.101-2.347 1.101-.67 0-1.205-.191-1.596-.574-.391-.384-.59-.894-.59-1.533 0-.678.239-1.23.726-1.644.487-.415 1.133-.623 1.955-.623.272 0 .551.024.846.064.296.04.6.104.918.176v-.583c0-.607-.127-1.03-.375-1.277-.255-.248-.686-.367-1.3-.367-.28 0-.568.031-.863.103-.295.072-.583.16-.862.272a2.287 2.287 0 0 1-.28.104.488.488 0 0 1-.127.023c-.112 0-.168-.08-.168-.247v-.391c0-.128.016-.224.056-.28a.597.597 0 0 1 .224-.167c.279-.144.614-.264 1.005-.36a4.84 4.84 0 0 1 1.246-.151c.95 0 1.644.216 2.091.647.439.43.662 1.085.662 1.963v2.586zm-3.24 1.214c.263 0 .534-.048.822-.144.287-.096.543-.271.758-.51.128-.152.224-.32.272-.512.047-.191.08-.423.08-.694v-.335a6.66 6.66 0 0 0-.735-.136 6.02 6.02 0 0 0-.75-.048c-.535 0-.926.104-1.19.32-.263.215-.39.518-.39.917 0 .375.095.655.295.846.191.2.47.296.838.296zm6.41.862c-.144 0-.24-.024-.304-.08-.064-.048-.12-.16-.168-.311L7.586 5.55a1.398 1.398 0 0 1-.072-.32c0-.128.064-.2.191-.2h.783c.151 0 .255.025.31.08.065.048.113.16.16.312l1.342 5.284 1.245-5.284c.04-.16.088-.264.151-.312a.549.549 0 0 1 .32-.08h.638c.152 0 .256.025.32.08.063.048.12.16.151.312l1.261 5.348 1.381-5.348c.048-.16.104-.264.16-.312a.52.52 0 0 1 .311-.08h.743c.127 0 .2.065.2.2 0 .04-.009.08-.017.128a1.137 1.137 0 0 1-.056.2l-1.923 6.17c-.048.16-.104.263-.168.311a.51.51 0 0 1-.303.08h-.687c-.151 0-.255-.024-.32-.08-.063-.056-.119-.16-.15-.32l-1.238-5.148-1.23 5.14c-.04.16-.087.264-.15.32-.065.056-.177.08-.32.08zm10.256.215c-.415 0-.83-.048-1.229-.143-.399-.096-.71-.2-.918-.32-.128-.071-.215-.151-.247-.223a.563.563 0 0 1-.048-.224v-.407c0-.167.064-.247.183-.247.048 0 .096.008.144.024.048.016.12.048.2.08.271.12.566.215.878.279.319.064.63.096.95.096.502 0 .894-.088 1.165-.264a.86.86 0 0 0 .415-.758.777.777 0 0 0-.215-.559c-.144-.151-.416-.287-.807-.415l-1.157-.36c-.583-.183-1.014-.454-1.277-.813a1.902 1.902 0 0 1-.4-1.158c0-.335.073-.63.216-.886.144-.255.335-.479.575-.654.24-.184.51-.32.83-.415.32-.096.655-.136 1.006-.136.175 0 .359.008.535.032.183.024.35.056.518.088.16.04.312.08.455.127.144.048.256.096.336.144a.69.69 0 0 1 .24.2.43.43 0 0 1 .071.263v.375c0 .168-.064.256-.184.256a.83.83 0 0 1-.303-.096 3.652 3.652 0 0 0-1.532-.311c-.455 0-.815.071-1.062.223-.248.152-.375.383-.375.71 0 .224.08.416.24.567.159.152.454.304.877.44l1.134.358c.574.184.99.44 1.237.767.247.327.367.702.367 1.117 0 .343-.072.655-.207.926-.144.272-.336.511-.583.703-.248.2-.543.343-.886.447-.36.111-.734.167-1.142.167zM21.698 16.207c-2.626 1.94-6.442 2.969-9.722 2.969-4.598 0-8.74-1.7-11.87-4.526-.247-.223-.024-.527.272-.351 3.384 1.963 7.559 3.153 11.877 3.153 2.914 0 6.114-.607 9.06-1.852.439-.2.814.287.383.607zM22.792 14.961c-.336-.43-2.22-.207-3.074-.103-.255.032-.295-.192-.063-.36 1.5-1.053 3.967-.75 4.254-.399.287.36-.08 2.826-1.485 4.007-.215.184-.423.088-.327-.151.32-.79 1.03-2.57.695-2.994z"/></svg></div>
+      <h3>AWS S3</h3>
+      <p>Direct upload to any S3-compatible bucket with optional CloudFront CDN invalidation. Full CI/CD via GitHub Actions.</p>
+      <div class="provider-features">
+        <span>S3 sync + CloudFront CDN</span>
+        <span>IAM-scoped credentials</span>
+        <span>PR preview to separate paths</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Domain routing examples -->
+  <div style="margin-top:64px">
+    <h3 style="font-size:20px; margin-bottom:8px;">Custom Domain Routing</h3>
+    <p style="font-size:14px; color:var(--text-secondary); margin-bottom:8px;">
+      Subdomain or subpath — DocWalk configures DNS, reverse proxies, and path rewrites automatically.
+    </p>
+
+    <div class="domain-examples">
+      <div class="domain-row">
+        <div class="domain-url">
+          <span class="proto">https://</span><span class="sub">docs.</span><span class="base">fightingsmartcyber.com</span><span class="path">/cyroid</span>
+        </div>
+        <span class="domain-badge badge-subdomain">SUBDOMAIN + PATH</span>
+      </div>
+      <div class="domain-row">
+        <div class="domain-url">
+          <span class="proto">https://</span><span class="sub">api-docs.</span><span class="base">yourcompany.io</span>
+        </div>
+        <span class="domain-badge badge-subdomain">SUBDOMAIN</span>
+      </div>
+      <div class="domain-row">
+        <div class="domain-url">
+          <span class="proto">https://</span><span class="base">yourcompany.io</span><span class="path">/docs/v2</span>
+        </div>
+        <span class="domain-badge badge-subpath">SUBPATH</span>
+      </div>
+      <div class="domain-row">
+        <div class="domain-url">
+          <span class="proto">https://</span><span class="base">docs.yourproduct.dev</span>
+        </div>
+        <span class="domain-badge badge-root">ROOT DOMAIN</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ TRY DOCWALK ═══ -->
+<section id="try" class="fade-in">
+  <div class="section-label">Try It</div>
+  <h2 class="section-title">See DocWalk in action</h2>
+  <p class="section-desc">
+    Paste a public GitHub repo URL and generate documentation instantly. No install required.
+  </p>
+
+  <div class="try-container">
+    <div class="try-input-group">
+      <input
+        type="text"
+        id="try-repo-url"
+        class="try-input"
+        placeholder="https://github.com/owner/repo"
+        autocomplete="off"
+        spellcheck="false"
+      >
+    </div>
+    <div class="try-config">
+      <div class="try-config-section">
+        <div class="try-config-label">Theme</div>
+        <div class="try-themes" id="try-theme-picker">
+          <div class="try-theme-tile selected" data-theme="developer">
+            <div class="try-theme-swatch"><span style="background:#1a1a2e"></span><span style="background:#5de4c7"></span><span style="background:#16213e"></span></div>
+            Developer
+          </div>
+          <div class="try-theme-tile" data-theme="corporate">
+            <div class="try-theme-swatch"><span style="background:#ffffff"></span><span style="background:#1565c0"></span><span style="background:#bbdefb"></span></div>
+            Corporate
+          </div>
+          <div class="try-theme-tile" data-theme="startup">
+            <div class="try-theme-swatch"><span style="background:#ffffff"></span><span style="background:#6200ea"></span><span style="background:#b388ff"></span></div>
+            Startup
+          </div>
+          <div class="try-theme-tile" data-theme="minimal">
+            <div class="try-theme-swatch"><span style="background:#fafafa"></span><span style="background:#444444"></span><span style="background:#e0e0e0"></span></div>
+            Minimal
+          </div>
+        </div>
+      </div>
+      <div class="try-config-section">
+        <div class="try-config-label">Layout</div>
+        <div class="try-layout-toggle" id="try-layout-picker">
+          <button type="button" class="try-layout-btn selected" data-layout="tabs">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 3v6"/></svg>
+            Tabs
+          </button>
+          <button type="button" class="try-layout-btn" data-layout="sidebar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg>
+            Sidebar
+          </button>
+        </div>
+      </div>
+    </div>
+    <button class="try-submit" id="try-submit-btn" onclick="handleTrySubmit()" style="width:100%">
+      Generate Docs
+    </button>
+    <div class="try-error" id="try-error"></div>
+    <div class="try-status" id="try-status">
+      <div id="try-progress">
+        <span class="try-label" id="try-progress-label">Dispatching build...</span>
+        <div style="margin-top:12px; height:3px; background:var(--border); border-radius:2px; overflow:hidden;">
+          <div id="try-progress-bar" style="height:100%; background:var(--accent); width:10%; transition:width 1s ease; border-radius:2px;"></div>
+        </div>
+      </div>
+      <div id="try-result" style="display:none">
+        <span class="try-label" style="color:var(--accent);">Documentation generated!</span>
+        <a id="try-result-link" href="#" target="_blank" class="try-cmd" style="display:block; margin-top:8px; color:var(--accent); text-decoration:none;">
+          View documentation
+        </a>
+      </div>
+      <span class="try-note" id="try-note">
+        DocWalk will clone the repo, analyze the codebase, and build a full MkDocs Material documentation site. This typically completes in 2-5 minutes.
+      </span>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ THEMES ═══ -->
+<section id="themes" class="fade-in">
+  <div class="section-label">Theme Presets</div>
+  <h2 class="section-title">Six curated themes. Zero design work.</h2>
+  <p class="section-desc">
+    Each preset configures color palettes, typography, navigation layout, and MkDocs Material feature flags. Pick one and ship — or customize every detail.
+  </p>
+
+  <div class="themes-grid">
+    <!-- Developer -->
+    <div class="theme-card theme-card--has-screenshot">
+      <div class="theme-preview">
+        <div class="theme-preview-inner" style="background:#1a1a2e; color:#e0e0e0;">
+          <div class="theme-preview-nav" style="background:#16213e; color:#5de4c7;">
+            <span><svg width="7" height="7" viewBox="0 0 10 10" fill="currentColor" style="vertical-align:middle"><path d="M5 0L10 5L5 10L0 5Z"/></svg> Project</span>
+            <div class="theme-preview-tabs" style="color:#5de4c7;"><span>API</span><span>Guide</span><span>Types</span></div>
+          </div>
+          <div class="theme-preview-body">
+            <div class="theme-preview-sidebar" style="border-color:rgba(93,228,199,0.1);">
+              <span style="background:rgba(93,228,199,0.15); color:#5de4c7;">Overview</span>
+              <span>Architecture</span>
+              <span>Config</span>
+              <span>API Ref</span>
+            </div>
+            <div class="theme-preview-content">
+              <div class="line-heading" style="background:#5de4c7;"></div>
+              <div class="line" style="background:#e0e0e0; width:90%;"></div>
+              <div class="line" style="background:#e0e0e0; width:75%;"></div>
+              <div class="line-code" style="background:#5de4c7;"></div>
+              <div class="line" style="background:#e0e0e0; width:85%;"></div>
+              <div class="line" style="background:#e0e0e0; width:60%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <img class="theme-screenshot" src="assets/screenshots/theme-developer.webp" alt="Developer theme screenshot" loading="lazy">
+      <div class="theme-card-info">
+        <h3>Developer</h3>
+        <p>Dark terminal aesthetic with mint accents. Tabbed nav, instant search, code annotations.</p>
+        <div class="theme-card-palette">
+          <span style="background:#1a1a2e;"></span>
+          <span style="background:#5de4c7;"></span>
+          <span style="background:#16213e;"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Corporate -->
+    <div class="theme-card theme-card--has-screenshot">
+      <div class="theme-preview">
+        <div class="theme-preview-inner" style="background:#ffffff; color:#333333;">
+          <div class="theme-preview-nav" style="background:#1565c0; color:#ffffff;">
+            <span><svg width="7" height="7" viewBox="0 0 10 10" fill="currentColor" style="vertical-align:middle"><path d="M5 0L10 5L5 10L0 5Z"/></svg> Project</span>
+            <div class="theme-preview-tabs" style="color:#ffffff;"><span>API</span><span>Guide</span><span>Types</span></div>
+          </div>
+          <div class="theme-preview-body">
+            <div class="theme-preview-sidebar" style="border-color:rgba(21,101,192,0.1);">
+              <span style="background:rgba(21,101,192,0.1); color:#1565c0;">Overview</span>
+              <span>Architecture</span>
+              <span>Config</span>
+              <span>API Ref</span>
+            </div>
+            <div class="theme-preview-content">
+              <div class="line-heading" style="background:#1565c0;"></div>
+              <div class="line" style="background:#333; width:90%;"></div>
+              <div class="line" style="background:#333; width:75%;"></div>
+              <div class="line-code" style="background:#1565c0;"></div>
+              <div class="line" style="background:#333; width:85%;"></div>
+              <div class="line" style="background:#333; width:60%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <img class="theme-screenshot" src="assets/screenshots/theme-corporate.webp" alt="Corporate theme screenshot" loading="lazy">
+      <div class="theme-card-info">
+        <h3>Corporate</h3>
+        <p>Clean light theme with blue brand tones. Professional typography, smooth navigation.</p>
+        <div class="theme-card-palette">
+          <span style="background:#ffffff;"></span>
+          <span style="background:#1565c0;"></span>
+          <span style="background:#bbdefb;"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Startup -->
+    <div class="theme-card theme-card--has-screenshot">
+      <div class="theme-preview">
+        <div class="theme-preview-inner" style="background:#ffffff; color:#333333;">
+          <div class="theme-preview-nav" style="background:#6200ea; color:#ffffff;">
+            <span><svg width="7" height="7" viewBox="0 0 10 10" fill="currentColor" style="vertical-align:middle"><path d="M5 0L10 5L5 10L0 5Z"/></svg> Project</span>
+            <div class="theme-preview-tabs" style="color:#ffffff;"><span>API</span><span>Guide</span><span>Types</span></div>
+          </div>
+          <div class="theme-preview-body">
+            <div class="theme-preview-sidebar" style="border-color:rgba(98,0,234,0.1);">
+              <span style="background:rgba(98,0,234,0.1); color:#6200ea;">Overview</span>
+              <span>Architecture</span>
+              <span>Config</span>
+              <span>API Ref</span>
+            </div>
+            <div class="theme-preview-content">
+              <div class="line-heading" style="background:#6200ea;"></div>
+              <div class="line" style="background:#333; width:90%;"></div>
+              <div class="line" style="background:#333; width:75%;"></div>
+              <div class="line-code" style="background:#6200ea;"></div>
+              <div class="line" style="background:#333; width:85%;"></div>
+              <div class="line" style="background:#333; width:60%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <img class="theme-screenshot" src="assets/screenshots/theme-startup.webp" alt="Startup theme screenshot" loading="lazy">
+      <div class="theme-card-info">
+        <h3>Startup</h3>
+        <p>Bold purple energy with Poppins font. Playful gradients, instant search, section indexes.</p>
+        <div class="theme-card-palette">
+          <span style="background:#ffffff;"></span>
+          <span style="background:#6200ea;"></span>
+          <span style="background:#b388ff;"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Minimal -->
+    <div class="theme-card theme-card--has-screenshot">
+      <div class="theme-preview">
+        <div class="theme-preview-inner" style="background:#fafafa; color:#444444;">
+          <div class="theme-preview-nav" style="background:#f5f5f5; color:#444; border-bottom: 1px solid #e0e0e0;">
+            <span><svg width="7" height="7" viewBox="0 0 10 10" fill="currentColor" style="vertical-align:middle"><path d="M5 0L10 5L5 10L0 5Z"/></svg> Project</span>
+            <div class="theme-preview-tabs" style="color:#444;"><span>API</span><span>Guide</span><span>Types</span></div>
+          </div>
+          <div class="theme-preview-body">
+            <div class="theme-preview-sidebar" style="border-color:#e0e0e0;">
+              <span style="background:rgba(0,0,0,0.06); color:#333;">Overview</span>
+              <span>Architecture</span>
+              <span>Config</span>
+              <span>API Ref</span>
+            </div>
+            <div class="theme-preview-content">
+              <div class="line-heading" style="background:#444;"></div>
+              <div class="line" style="background:#444; width:90%;"></div>
+              <div class="line" style="background:#444; width:75%;"></div>
+              <div class="line-code" style="background:#444;"></div>
+              <div class="line" style="background:#444; width:85%;"></div>
+              <div class="line" style="background:#444; width:60%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <img class="theme-screenshot" src="assets/screenshots/theme-minimal.webp" alt="Minimal theme screenshot" loading="lazy">
+      <div class="theme-card-info">
+        <h3>Minimal</h3>
+        <p>Content-first with no distractions. Subtle grays, system fonts, zero visual noise.</p>
+        <div class="theme-card-palette">
+          <span style="background:#fafafa;"></span>
+          <span style="background:#444444;"></span>
+          <span style="background:#e0e0e0;"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- API Reference (Team) -->
+    <div class="theme-card">
+      <div class="badge">Pro</div>
+      <div class="theme-preview">
+        <div class="theme-preview-inner" style="background:#263238; color:#cfd8dc;">
+          <div class="theme-preview-nav" style="background:#1e272c; color:#82b1ff;">
+            <span><svg width="7" height="7" viewBox="0 0 10 10" fill="currentColor" style="vertical-align:middle"><path d="M5 0L10 5L5 10L0 5Z"/></svg> Project</span>
+            <div class="theme-preview-tabs" style="color:#82b1ff;"><span>Endpoints</span><span>Models</span><span>Auth</span></div>
+          </div>
+          <div class="theme-preview-body">
+            <div class="theme-preview-sidebar" style="border-color:rgba(130,177,255,0.1);">
+              <span style="background:rgba(130,177,255,0.15); color:#82b1ff;">GET /users</span>
+              <span>POST /auth</span>
+              <span>PUT /items</span>
+              <span>DELETE /…</span>
+            </div>
+            <div class="theme-preview-content">
+              <div class="line-heading" style="background:#82b1ff;"></div>
+              <div class="line" style="background:#cfd8dc; width:90%;"></div>
+              <div class="line-code" style="background:#82b1ff; height:28px;"></div>
+              <div class="line" style="background:#cfd8dc; width:70%;"></div>
+              <div class="line" style="background:#cfd8dc; width:50%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <img class="theme-screenshot" src="assets/screenshots/theme-api-reference.webp" alt="API Reference theme screenshot" loading="lazy" style="display:none;">
+      <div class="theme-card-info">
+        <h3>API Reference</h3>
+        <p>Slate dark with blue accents. Integrated TOC, code selection, wider code blocks for endpoint docs.</p>
+        <div class="theme-card-palette">
+          <span style="background:#263238;"></span>
+          <span style="background:#1e88e5;"></span>
+          <span style="background:#82b1ff;"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Knowledge Base (Team) -->
+    <div class="theme-card">
+      <div class="badge">Pro</div>
+      <div class="theme-preview">
+        <div class="theme-preview-inner" style="background:#ffffff; color:#333333;">
+          <div class="theme-preview-nav" style="background:#2e7d32; color:#ffffff;">
+            <span><svg width="7" height="7" viewBox="0 0 10 10" fill="currentColor" style="vertical-align:middle"><path d="M5 0L10 5L5 10L0 5Z"/></svg> Knowledge Base</span>
+            <div class="theme-preview-tabs" style="color:#ffffff;"><span>Guides</span><span>FAQ</span><span>API</span></div>
+          </div>
+          <div class="theme-preview-body">
+            <div class="theme-preview-sidebar" style="border-color:rgba(46,125,50,0.1);">
+              <span style="background:rgba(46,125,50,0.1); color:#2e7d32;">Getting Started</span>
+              <span>Installation</span>
+              <span>Configuration</span>
+              <span>Deployment</span>
+            </div>
+            <div class="theme-preview-content">
+              <div class="line-heading" style="background:#2e7d32;"></div>
+              <div class="line" style="background:#333; width:95%;"></div>
+              <div class="line" style="background:#333; width:80%;"></div>
+              <div class="line" style="background:#333; width:90%;"></div>
+              <div class="line-code" style="background:#2e7d32;"></div>
+              <div class="line" style="background:#333; width:70%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <img class="theme-screenshot" src="assets/screenshots/theme-knowledge-base.webp" alt="Knowledge Base theme screenshot" loading="lazy" style="display:none;">
+      <div class="theme-card-info">
+        <h3>Knowledge Base</h3>
+        <p>Light theme with green accents. Breadcrumbs, sticky tabs, wider content area for long-form docs.</p>
+        <div class="theme-card-palette">
+          <span style="background:#ffffff;"></span>
+          <span style="background:#2e7d32;"></span>
+          <span style="background:#66bb6a;"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ AI INSIGHTS ═══ -->
+<section id="insights" class="fade-in">
+  <div class="section-label">Code Intelligence</div>
+  <h2 class="section-title">AI-powered code insights. Not just docs — <em>understanding.</em></h2>
+  <p class="section-desc">
+    DocWalk doesn't just document your code — it analyzes it. 8 built-in static analyzers find missing docs, circular dependencies, and architectural issues. Pro adds AI-powered deep analysis.
+  </p>
+
+  <div class="features-grid insights-grid-2" style="margin-top: 48px;">
+    <div class="feature-card">
+      <div class="feature-icon icon-analyze"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div>
+      <h3>Static Analyzers (Free)</h3>
+      <p>8 built-in detectors that scan every codebase:</p>
+      <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 8px;">
+        <span style="font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Undocumented exports
+        </span>
+        <span style="font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Circular dependencies
+        </span>
+        <span style="font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Oversized & god modules
+        </span>
+        <span style="font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Orphan modules (dead code)
+        </span>
+        <span style="font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Missing types & inconsistent naming
+        </span>
+      </div>
+    </div>
+    <div class="feature-card" style="border-color: var(--accent); position: relative;">
+      <span style="position: absolute; top: 12px; right: 12px; background: var(--accent); color: #0a0a0c; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Pro</span>
+      <div class="feature-icon icon-theme"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8L12 2z"/></svg></div>
+      <h3>AI-Powered Analysis (Pro)</h3>
+      <p>Deep code review powered by LLMs:</p>
+      <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 8px;">
+        <span style="font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-purple)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Architecture review & reorganization suggestions
+        </span>
+        <span style="font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-purple)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> API design consistency analysis
+        </span>
+        <span style="font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-purple)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Security vulnerability scanning
+        </span>
+        <span style="font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-purple)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Actionable improvement suggestions
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top: 48px;">
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); margin-bottom: 12px;">Example scan results</div>
+    <div class="insights-stats-grid">
+      <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 20px; border-left: 3px solid var(--accent-tertiary);">
+        <div style="font-size: 28px; font-weight: 700; color: var(--accent-tertiary); margin-bottom: 4px;">12</div>
+        <div style="font-size: 13px; color: var(--text-secondary);">Undocumented exports</div>
+      </div>
+      <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 20px; border-left: 3px solid var(--accent-warn);">
+        <div style="font-size: 28px; font-weight: 700; color: var(--accent-warn); margin-bottom: 4px;">2</div>
+        <div style="font-size: 13px; color: var(--text-secondary);">Circular dependencies</div>
+      </div>
+      <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 20px; border-left: 3px solid var(--accent-purple);">
+        <div style="font-size: 28px; font-weight: 700; color: var(--accent-purple); margin-bottom: 4px;">3</div>
+        <div style="font-size: 13px; color: var(--text-secondary);">Architecture suggestions</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ PRICING ═══ -->
+<section id="pricing" class="fade-in">
+  <div class="section-label">Pricing</div>
+  <h2 class="section-title">Start free. Scale when ready.</h2>
+  <p class="section-desc">
+    Open-source core with premium features for professionals and teams. No vendor lock-in — your docs are always standard MkDocs Material.
+  </p>
+
+  <div class="pricing-grid">
+    <div class="price-card">
+      <div class="price-tier">Community</div>
+      <div class="price-amount">$0</div>
+      <div class="price-desc">For individual developers and OSS projects</div>
+      <ul class="price-features">
+        <li>Unlimited public repos</li>
+        <li>Up to 50 pages per repo</li>
+        <li>GitHub Pages deploy</li>
+        <li>4 built-in themes</li>
+        <li>Git-diff smart sync</li>
+        <li>Static code insights</li>
+        <li>AST-based API reference</li>
+        <li>Dependency + class diagrams</li>
+        <li>Community support</li>
+      </ul>
+      <button class="price-btn price-btn-outline">Get Started Free</button>
+    </div>
+    <div class="price-card featured">
+      <div class="price-tier">Pro</div>
+      <div class="price-amount">$12<span>/mo</span></div>
+      <div class="price-desc">AI-powered docs for serious projects</div>
+      <ul class="price-features">
+        <li>Everything in Community</li>
+        <li>Unlimited private repos + pages</li>
+        <li>All 5 deploy providers</li>
+        <li>All 6 themes + custom CSS</li>
+        <li>AI narrative documentation</li>
+        <li>Multi-provider LLM (Gemini, Anthropic, OpenAI, Ollama)</li>
+        <li>AI-enhanced diagrams (sequence, flow)</li>
+        <li>AI end-user docs (guides, troubleshooting, FAQ)</li>
+        <li>Source citations</li>
+        <li>Versioned docs</li>
+        <li>Custom domains (5)</li>
+        <li>CI sync triggers</li>
+      </ul>
+      <button class="price-btn price-btn-fill">Start 14-Day Trial</button>
+    </div>
+    <div class="price-card">
+      <div class="price-tier">Team</div>
+      <div class="price-amount">$25<span>/mo per seat</span></div>
+      <div class="price-desc">Hosted docs + collaboration for teams</div>
+      <ul class="price-features">
+        <li>Everything in Pro (min 3 seats)</li>
+        <li>Unlimited custom domains</li>
+        <li>Hosted docs — we build, host, and serve</li>
+        <li>Web UI deployment dashboard</li>
+        <li>Q&amp;A widget in generated docs</li>
+        <li>SSO (OAuth)</li>
+        <li>Monorepo per-package sites</li>
+        <li>Slack/Teams notifications</li>
+      </ul>
+      <button class="price-btn price-btn-outline">Start Team Trial</button>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ ENTERPRISE SPECS ═══ -->
+<section id="specs" class="fade-in">
+  <div class="section-label">Technical Specification</div>
+  <h2 class="section-title">Technical deep-dive</h2>
+  <p class="section-desc">
+    Full product specification for technical evaluation and procurement.
+  </p>
+
+  <div class="specs-table">
+    <div class="specs-row">
+      <div class="specs-key">CLI Runtime</div>
+      <div class="specs-val">Node.js 18+ (distributed via npm/npx). Zero global install required — <code>npx docwalk</code> works out of the box. Also available as a standalone binary via pkg for CI environments without Node.</div>
+    </div>
+    <div class="specs-row">
+      <div class="specs-key">Language Support</div>
+      <div class="specs-val"><strong>Supported now:</strong> TypeScript, JavaScript, Python, Go, Rust, Java, C#, Ruby, PHP (9 languages with full AST parsing via tree-sitter). <strong>Roadmap:</strong> Swift, Kotlin, Scala, Elixir, Dart, Lua, Zig, Haskell, C/C++. Plugin API planned for custom language parsers.</div>
+    </div>
+    <div class="specs-row">
+      <div class="specs-key">Analysis Engine</div>
+      <div class="specs-val">Multi-pass pipeline: (1) file-level AST parsing via tree-sitter, (2) symbol extraction (functions, classes, types, exports), (3) cross-file dependency resolution, (4) docstring/JSDoc/TSDoc harvesting, (5) optional LLM summarization (OpenAI, Anthropic, or local models). Outputs intermediate JSON manifest cached per commit SHA.</div>
+    </div>
+    <div class="specs-row">
+      <div class="specs-key">Git Diff Strategy</div>
+      <div class="specs-val">Compares current HEAD against last indexed commit SHA (stored in <code>.docwalk/state.json</code>). Uses <code>git diff --name-status</code> for file-level changes, then runs targeted re-analysis only on modified/added files. Cross-reference impact analysis detects downstream doc changes (e.g., a renamed export referenced in another module's docs).</div>
+    </div>
+    <div class="specs-row">
+      <div class="specs-key">Doc Generation</div>
+      <div class="specs-val">Produces standard MkDocs-compatible Markdown. Sections auto-generated: Project Overview, Getting Started, Architecture, API Reference (per module), Models/Types, Configuration, Changelog. Nav tree generated from directory structure with intelligent grouping. Full mkdocs.yml generated with Material theme config, plugins (search, minify, git-revision), and custom overrides.</div>
+    </div>
+    <div class="specs-row">
+      <div class="specs-key">Sync Triggers</div>
+      <div class="specs-val"><strong>on_push:</strong> GitHub Actions / GitLab CI trigger on push to configured branch. <strong>cron:</strong> Scheduled sync at user-defined intervals. <strong>manual:</strong> CLI command <code>npx docwalk sync</code>. <strong>webhook:</strong> HTTP endpoint for custom CI pipelines. All modes support dry-run (<code>--dry-run</code>) to preview changes without deploying.</div>
+    </div>
+    <div class="specs-row">
+      <div class="specs-key">Deploy Pipeline</div>
+      <div class="specs-val"><strong>GitHub Pages:</strong> Pushes to gh-pages branch via GitHub Actions. Generates <code>.github/workflows/docwalk.yml</code>. <strong>Cloudflare:</strong> Uses Wrangler CLI / Cloudflare API to create Pages project, upload assets, configure DNS. <strong>Vercel:</strong> Uses Vercel API to create project, deploy, and configure domain. <strong>Netlify:</strong> Uses Netlify CLI for deploy + _redirects config. <strong>S3:</strong> Direct upload with CloudFront invalidation support.</div>
+    </div>
+    <div class="specs-row">
+      <div class="specs-key">Web UI Dashboard <span style="background:var(--accent); color:#0a0a0c; font-size:9px; font-weight:700; padding:2px 6px; border-radius:3px; text-transform:uppercase; letter-spacing:0.5px; margin-left:8px; vertical-align:middle;">Team</span></div>
+      <div class="specs-val">Browser-based deployment management. View sync status across all repos, trigger manual rebuilds, manage custom domains, and monitor build logs — all from a single dashboard. No CLI required for day-to-day operations.</div>
+    </div>
+    <div class="specs-row">
+      <div class="specs-key">Domain Management</div>
+      <div class="specs-val">Auto-configures CNAME/A records via provider DNS API. Supports: subdomain routing (docs.example.com), subpath routing (example.com/docs), and root domain hosting. SSL provisioned automatically through provider (Let's Encrypt / Cloudflare). For subpath routing on non-Pages providers, generates reverse proxy configs (nginx, Caddy) or provider-specific rewrite rules.</div>
+    </div>
+    <div class="specs-row">
+      <div class="specs-key">Versioning</div>
+      <div class="specs-val">Mike-compatible versioning from git tags or branches. Each version is a separate doc build deployed to its own path (e.g., /v1.2/, /latest/). Version selector dropdown auto-generated in the Material theme. Configurable default version and alias support (e.g., /stable/ → /v2.1/).</div>
+    </div>
+    <div class="specs-row">
+      <div class="specs-key">Security</div>
+      <div class="specs-val">Secrets stored in CI environment variables — never in config files. GitHub App installation for repo access (no PATs). Cloudflare/Vercel tokens scoped to specific projects. Optional: deploy previews restricted to authenticated users via provider access policies.</div>
+    </div>
+    <div class="specs-row">
+      <div class="specs-key">Extensibility</div>
+      <div class="specs-val">Hook system with 6 lifecycle hooks: pre-analyze, post-analyze, pre-build, post-build, pre-deploy, post-deploy. Run shell commands at each stage (linting, notifications, custom transforms). Plugin API for custom analyzers planned for future release. MkDocs plugin ecosystem fully supported.</div>
+    </div>
+    <div class="specs-row">
+      <div class="specs-key">Monorepo Support</div>
+      <div class="specs-val">Analyzes multiple packages/services within a single repo. Each package can have its own doc section or be deployed as a separate site. Shared dependency docs are de-duplicated. Workspace detection for npm, yarn, pnpm, Go modules, and Cargo workspaces.</div>
+    </div>
+    <div class="specs-row">
+      <div class="specs-key">Performance</div>
+      <div class="specs-val">Full initial analysis: ~30s for 500-file repos, ~2min for 5000+ files (parallelized across CPU cores). Incremental sync: &lt;5s for typical PR-sized changes. Built site: static HTML served from CDN edge — sub-50ms TTFB globally. Search index: client-side lunr.js, no server required.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ EMAIL CAPTURE ═══ -->
+<section class="email-capture fade-in">
+  <h2>Stay in the loop</h2>
+  <p>Get notified about new features, language support, and releases.</p>
+  <form class="email-form" action="#" method="POST" onsubmit="return false;">
+    <input type="email" placeholder="you@example.com" required aria-label="Email address">
+    <button type="submit">Subscribe</button>
+  </form>
+  <p class="email-disclaimer">No spam. Unsubscribe anytime.</p>
+</section>
+
+<!-- ═══ FOOTER ═══ -->
+<footer>
+  <div style="margin-bottom:16px">
+    <span class="nav-logo" style="justify-content:center; display:inline-flex">
+      <span class="logo-icon"><svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><g transform="rotate(-15 8 8)"><ellipse cx="8" cy="5.5" rx="2.8" ry="4"/><ellipse cx="8" cy="11" rx="2" ry="1.4"/></g><g transform="rotate(15 16 16)"><ellipse cx="16" cy="13.5" rx="2.8" ry="4"/><ellipse cx="16" cy="19" rx="2" ry="1.4"/></g></svg></span>
+      DocWalk
+    </span>
+  </div>
+  <p>Your codebase, documented. Automatically.</p>
+  <p style="margin-top:8px">© 2026 DocWalk — Open-source core, built for teams.</p>
+</footer>
+
+<script>
+  // ── Hamburger menu toggle ──
+  (function() {
+    const toggle = document.querySelector('.nav-toggle');
+    const navLinks = document.querySelector('.nav-links');
+    if (toggle && navLinks) {
+      toggle.addEventListener('click', function(e) {
+        e.stopPropagation();
+        navLinks.classList.toggle('nav-open');
+      });
+      // Close on link click
+      navLinks.querySelectorAll('a').forEach(function(link) {
+        link.addEventListener('click', function() {
+          navLinks.classList.remove('nav-open');
+        });
+      });
+      // Close on outside tap
+      document.addEventListener('click', function(e) {
+        if (!navLinks.contains(e.target) && !toggle.contains(e.target)) {
+          navLinks.classList.remove('nav-open');
+        }
+      });
+    }
+  })();
+
+  // Scroll-triggered fade-in animations
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+  document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+  const TRY_KEY = 'docwalk-try-used';
+
+  function hasUsedTry() {
+    try {
+      const stored = localStorage.getItem(TRY_KEY);
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return null;
+  }
+
+  function markTryUsed(slug, resultUrl) {
+    try {
+      localStorage.setItem(TRY_KEY, JSON.stringify({ slug, resultUrl, ts: Date.now() }));
+    } catch {}
+  }
+
+  // ── Try DocWalk config state ──
+  let selectedTheme = 'developer';
+  let selectedLayout = 'tabs';
+
+  document.getElementById('try-theme-picker').addEventListener('click', function(e) {
+    const tile = e.target.closest('.try-theme-tile');
+    if (!tile) return;
+    this.querySelectorAll('.try-theme-tile').forEach(t => t.classList.remove('selected'));
+    tile.classList.add('selected');
+    selectedTheme = tile.dataset.theme;
+  });
+
+  document.getElementById('try-layout-picker').addEventListener('click', function(e) {
+    const btn = e.target.closest('.try-layout-btn');
+    if (!btn) return;
+    this.querySelectorAll('.try-layout-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedLayout = btn.dataset.layout;
+  });
+
+  // ── Try DocWalk ──
+  const PROXY_URL = 'https://docwalk-try.jonathanrannabargar.workers.dev';
+
+  async function handleTrySubmit() {
+    const input = document.getElementById('try-repo-url');
+    const errorEl = document.getElementById('try-error');
+    const statusEl = document.getElementById('try-status');
+    const btn = document.getElementById('try-submit-btn');
+    const progressEl = document.getElementById('try-progress');
+    const progressLabel = document.getElementById('try-progress-label');
+    const progressBar = document.getElementById('try-progress-bar');
+    const resultEl = document.getElementById('try-result');
+    const resultLink = document.getElementById('try-result-link');
+    const url = input.value.trim();
+
+    // Reset state
+    errorEl.classList.remove('visible');
+    statusEl.classList.remove('visible');
+    input.classList.remove('error');
+    progressEl.style.display = '';
+    resultEl.style.display = 'none';
+    progressBar.style.width = '10%';
+
+    // Validate URL
+    const match = url.match(/^https?:\/\/github\.com\/([^/]+\/[^/]+)\/?$/);
+    if (!match) {
+      errorEl.textContent = 'Please enter a valid public GitHub repo URL (e.g., https://github.com/owner/repo)';
+      errorEl.classList.add('visible');
+      input.classList.add('error');
+      return;
+    }
+
+    // Check if visitor already used their free try
+    const previous = hasUsedTry();
+    if (previous) {
+      errorEl.textContent = 'You\'ve already used your free demo. View your previous result:';
+      errorEl.classList.add('visible');
+      input.classList.add('error');
+      resultEl.style.display = '';
+      resultLink.href = previous.resultUrl;
+      resultLink.textContent = previous.resultUrl;
+      return;
+    }
+
+    // Disable button during dispatch
+    btn.disabled = true;
+    btn.textContent = 'Dispatching...';
+    statusEl.classList.add('visible');
+    progressLabel.textContent = 'Dispatching build...';
+
+    try {
+      const res = await fetch(PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repo_url: url, theme: selectedTheme, layout: selectedLayout }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to dispatch build');
+      }
+
+      // Dispatch succeeded — mark as used and start polling
+      progressBar.style.width = '25%';
+      progressLabel.textContent = 'Build dispatched. Analyzing codebase...';
+      btn.textContent = 'Building...';
+
+      const resultUrl = data.result_url;
+      markTryUsed(data.slug, resultUrl);
+      resultLink.href = resultUrl;
+      resultLink.textContent = resultUrl;
+
+      // Poll for result — typical builds take 30-90s
+      let attempts = 0;
+      const maxAttempts = 60; // ~3 minutes at 3s intervals
+      const POLL_MS = 3000;
+      const pollInterval = setInterval(async () => {
+        attempts++;
+        const elapsed = attempts * POLL_MS / 1000;
+        // Progress ramps up faster to match real build times
+        const pct = Math.min(25 + Math.min(elapsed / 90, 1) * 70, 95);
+        progressBar.style.width = pct + '%';
+
+        if (elapsed < 15) progressLabel.textContent = 'Queuing build...';
+        else if (elapsed < 35) progressLabel.textContent = 'Analyzing codebase...';
+        else if (elapsed < 55) progressLabel.textContent = 'Generating documentation...';
+        else if (elapsed < 75) progressLabel.textContent = 'Building & deploying...';
+        else progressLabel.textContent = 'Waiting for GitHub Pages...';
+
+        try {
+          const verify = await fetch(resultUrl, { cache: 'no-store' });
+          if (verify.ok) {
+            clearInterval(pollInterval);
+            progressBar.style.width = '100%';
+            progressEl.style.display = 'none';
+            resultEl.style.display = '';
+            btn.textContent = 'Generate Docs';
+            btn.disabled = false;
+            return;
+          }
+        } catch {}
+
+        if (attempts >= maxAttempts) {
+          clearInterval(pollInterval);
+          progressLabel.textContent = 'Build is taking longer than expected. Check back shortly.';
+          resultEl.style.display = '';
+          resultLink.textContent = resultUrl + ' (may still be building)';
+          btn.textContent = 'Generate Docs';
+          btn.disabled = false;
+        }
+      }, POLL_MS);
+
+    } catch (err) {
+      errorEl.textContent = err.message || 'Something went wrong. Please try again.';
+      errorEl.classList.add('visible');
+      statusEl.classList.remove('visible');
+      btn.textContent = 'Generate Docs';
+      btn.disabled = false;
+    }
+  }
+
+  // Allow Enter key to submit
+  document.getElementById('try-repo-url').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') handleTrySubmit();
+  });
+</script>
+
+</body>
+</html>
