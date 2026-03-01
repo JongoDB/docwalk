@@ -94,7 +94,7 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
     if (!config.analysis.ai_provider) {
       config.analysis.ai_provider = {
         name: "gemini",
-        model: "gemini-2.5-flash-lite",
+        model: "gemini-2.5-flash",
         api_key_env: "DOCWALK_AI_KEY",
       };
     }
@@ -103,7 +103,7 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
     const keyEnv = config.analysis.ai_provider.api_key_env;
     const needsKey = provName !== "ollama" && provName !== "local" && provName !== "docwalk-proxy";
     if (needsKey && !resolveApiKey(provName, keyEnv)) {
-      log("info", "No API key found — using DocWalk's free AI service (powered by Gemini Flash)");
+      log("info", "No API key found — using DocWalk's free AI service");
       config.analysis.ai_provider.name = "docwalk-proxy";
     }
   }
@@ -127,7 +127,7 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
           message: `AI is enabled but no ${envVarName} found:`,
           choices: [
             { name: "Enter API key now", value: "enter" },
-            { name: "Use DocWalk free tier instead", value: "proxy" },
+            { name: "Use DocWalk free AI (limited to 2 generations)", value: "proxy" },
             { name: "Continue without AI", value: "skip" },
           ],
         },

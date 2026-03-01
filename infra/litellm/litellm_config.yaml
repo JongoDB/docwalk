@@ -1,0 +1,23 @@
+# LiteLLM configuration for DocWalk's free AI tier
+#
+# Routes requests from the DocWalk CLI through a local model (Ollama).
+# Exposed to the internet via Cloudflare tunnel at ai.docwalk.dev.
+#
+# Usage:
+#   1. Install Ollama and pull a model: ollama pull llama3.2
+#   2. Start the stack: docker-compose up
+#   3. Configure Cloudflare tunnel to point ai.docwalk.dev → localhost:4000
+
+model_list:
+  - model_name: docwalk-default
+    litellm_params:
+      model: ollama/llama3.2
+      api_base: http://host.docker.internal:11434
+
+general_settings:
+  master_key: sk-docwalk-master  # override via LITELLM_MASTER_KEY env var
+  database_url: postgresql://litellm:litellm@postgres:5432/litellm
+
+litellm_settings:
+  drop_params: true       # ignore unsupported params gracefully
+  request_timeout: 120    # generous timeout for local models

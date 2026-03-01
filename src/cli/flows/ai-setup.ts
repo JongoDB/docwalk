@@ -25,7 +25,7 @@ const PROVIDER_CHOICES = [
   { name: "OpenAI GPT      — widely available", value: "openai" },
   { name: "OpenRouter       — multi-model gateway", value: "openrouter" },
   { name: "Local / Ollama   — no API key, runs locally", value: "ollama" },
-  { name: "Skip             — use DocWalk free tier (Gemini Flash)", value: "docwalk-proxy" },
+  { name: "Skip             — use DocWalk free AI", value: "docwalk-proxy" },
 ];
 
 const KEY_URLS: Record<string, string> = {
@@ -43,7 +43,7 @@ const ENV_VAR_NAMES: Record<string, string> = {
 };
 
 const DEFAULT_MODELS: Record<string, string> = {
-  gemini: "gemini-2.5-flash-lite",
+  gemini: "gemini-2.5-flash",
   anthropic: "claude-sonnet-4-6",
   openai: "gpt-4o-mini",
   openrouter: "google/gemini-2.5-flash",
@@ -135,7 +135,7 @@ export async function runAISetup(): Promise<AISetupResult> {
         choices: [
           { name: "Try a different key", value: "retry" },
           { name: "Save anyway (skip validation)", value: "save" },
-          { name: "Use DocWalk free tier instead", value: "proxy" },
+          { name: "Use DocWalk free AI instead", value: "proxy" },
         ],
       },
     ]);
@@ -176,7 +176,7 @@ async function validateApiKey(provider: string, apiKey: string): Promise<void> {
       const { GoogleGenerativeAI } = await import("@google/generative-ai");
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({
-        model: "gemini-2.5-flash-lite",
+        model: "gemini-2.5-flash",
         generationConfig: { maxOutputTokens: 10 },
       });
       await model.generateContent("Say hi");

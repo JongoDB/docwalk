@@ -1,0 +1,55 @@
+# DocWalk AI backend — LiteLLM + Postgres + Cloudflare tunnel
+#
+# Prerequisites:
+#   - Ollama running on the host with a model pulled (e.g. ollama pull llama3.2)
+#   - LITELLM_MASTER_KEY and CLOUDFLARE_TUNNEL_TOKEN set in environment or .env
+#
+# Usage:
+#   docker-compose up -d
+#
+# The stack exposes LiteLLM on port 4000. The Cloudflare tunnel routes
+# ai.docwalk.dev traffic to the LiteLLM container.
+
+services:
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    ports:
+      - "4000:4000"
+    environment:
+      - DATABASE_URL=postgresql://litellm:litellm@postgres:5432/litellm
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY:-sk-docwalk-master}
+      - STORE_MODEL_IN_DB=true
+    volumes:
+      - ./litellm_config.yaml:/app/litellm_config.yaml
+    command: --config /app/litellm_config.yaml
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: litellm
+      POSTGRES_USER: litellm
+      POSTGRES_PASSWORD: litellm
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U litellm"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - litellm
+    restart: unless-stopped
+
+volumes:
+  pgdata:

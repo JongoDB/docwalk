@@ -1,8 +1,7 @@
 /**
  * Google Gemini AI Provider
  *
- * Uses the @google/generative-ai SDK. Default model: gemini-2.5-flash-lite.
- * Flash Lite has 2x the free tier RPM (10 vs 5) compared to 2.5 Flash.
+ * Uses the @google/generative-ai SDK. Default model: gemini-2.5-flash.
  */
 
 import type { ModuleInfo, Symbol } from "../types.js";
@@ -17,7 +16,7 @@ export class GeminiProvider implements AIProvider {
 
   constructor(apiKey: string, model?: string) {
     this.apiKey = apiKey;
-    this.model = model || "gemini-2.5-flash-lite";
+    this.model = model || "gemini-2.5-flash";
   }
 
   private async getGenAI() {

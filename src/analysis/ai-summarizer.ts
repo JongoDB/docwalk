@@ -5,7 +5,7 @@
  * using LLM providers. Provider implementations live in ./providers/.
  *
  * This module contains:
- * - RateLimiter for API call throttling
+ * - RateLimiter for concurrency control
  * - SummaryCache for content-hash-based caching
  * - summarizeModules() orchestrator
  * - createProvider() factory (re-exported from providers)
@@ -118,11 +118,11 @@ export class SummaryCache {
 
 // ─── Retry Helper ────────────────────────────────────────────────────────────
 
-/** Retry an async function with exponential backoff on rate-limit errors. */
+/** Retry an async function with exponential backoff on transient errors. */
 async function withRetry<T>(
   fn: () => Promise<T>,
   maxRetries = 3,
-  baseDelayMs = 2000
+  baseDelayMs = 500
 ): Promise<T> {
   let lastError: unknown;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -136,7 +136,7 @@ async function withRetry<T>(
         || message.toLowerCase().includes("quota")
         || message.toLowerCase().includes("resource_exhausted");
       if (!isRateLimit || attempt === maxRetries) throw err;
-      // Exponential backoff: 2s, 4s, 8s
+      // Exponential backoff: 500ms, 1s, 2s
       const delay = baseDelayMs * Math.pow(2, attempt);
       await new Promise((r) => setTimeout(r, delay));
     }
@@ -193,13 +193,13 @@ export interface SummarizeResult {
  *
  * Uses batched calls: one API request per module summarizes both the module
  * and all its exported symbols. This reduces API call count from O(modules * symbols)
- * to O(modules), critical for rate-limited free tiers (e.g. Gemini: 5-10 RPM).
+ * to O(modules), which is more efficient regardless of backend.
  *
  * Fault-tolerant:
  * - If the API key is missing, returns modules unchanged
  * - If individual API calls fail, those summaries are skipped
  * - Cached summaries are reused when content hasn't changed
- * - Rate limiting + retry prevents hitting provider quotas
+ * - Retry with backoff handles transient network errors
  */
 export async function summarizeModules(
   options: SummarizeOptions
@@ -210,8 +210,8 @@ export async function summarizeModules(
     readFile,
     previousCache,
     onProgress,
-    concurrency = 2,
-    delayMs = 500,
+    concurrency = 10,
+    delayMs = 0,
   } = options;
 
   // Create provider — gracefully bail if no API key
