@@ -28,11 +28,6 @@ on:
         required: false
         default: "tabs"
         type: string
-      gemini_token:
-        description: "Optional Gemini API key for AI-enhanced docs"
-        required: false
-        default: ""
-        type: string
 
 permissions:
   contents: write
@@ -60,22 +55,24 @@ jobs:
 
       - name: Parse repo URL
         id: parse
+        env:
+          REPO_URL: ${{ github.event.inputs.repo_url }}
         run: |
-          REPO_URL="${{ github.event.inputs.repo_url }}"
           OWNER_REPO=$(echo "$REPO_URL" | sed -E 's|https?://github\.com/||' | sed 's|/$||')
           SLUG=$(echo "$OWNER_REPO" | tr '/' '-')
           echo "slug=$SLUG" >> "$GITHUB_OUTPUT"
           echo "owner_repo=$OWNER_REPO" >> "$GITHUB_OUTPUT"
 
       - name: Clone target repo
+        env:
+          REPO_URL: ${{ github.event.inputs.repo_url }}
+          BRANCH: ${{ github.event.inputs.branch }}
         run: |
-          BRANCH="${{ github.event.inputs.branch }}"
           if [ -n "$BRANCH" ]; then
-            git clone --depth 100 --branch "$BRANCH" \
-              "${{ github.event.inputs.repo_url }}" target-repo || \
-            git clone --depth 100 "${{ github.event.inputs.repo_url }}" target-repo
+            git clone --depth 100 --branch "$BRANCH" "$REPO_URL" target-repo || \
+            git clone --depth 100 "$REPO_URL" target-repo
           else
-            git clone --depth 100 "${{ github.event.inputs.repo_url }}" target-repo
+            git clone --depth 100 "$REPO_URL" target-repo
           fi
           cd target-repo && git fetch --tags
 
@@ -100,36 +97,47 @@ jobs:
 
       - name: Initialize DocWalk config
         working-directory: target-repo
+        env:
+          OWNER_REPO: ${{ steps.parse.outputs.owner_repo }}
+          THEME: ${{ github.event.inputs.theme || 'developer' }}
+          LAYOUT: ${{ github.event.inputs.layout || 'tabs' }}
         run: |
-          npx -y tsx ../docwalk-src/src/cli/index.ts init --no-interactive --repo "${{ steps.parse.outputs.owner_repo }}" --theme "${{ github.event.inputs.theme || 'developer' }}" --layout "${{ github.event.inputs.layout || 'tabs' }}"
+          npx -y tsx ../docwalk-src/src/cli/index.ts init --no-interactive --repo "$OWNER_REPO" --theme "$THEME" --layout "$LAYOUT"
+
+      - name: Configure AI provider
+        working-directory: target-repo
+        run: |
+          cat >> docwalk.config.yml << 'EOF'
+          analysis:
+            ai_provider:
+              name: openai
+              model: meta-llama/llama-4-scout-17b-16e-instruct
+              api_key_env: GROQ_API_KEY
+              base_url: "https://api.groq.com/openai/v1"
+            concurrency: 2
+          EOF
 
       - name: Generate documentation
         working-directory: target-repo
         env:
-          DOCWALK_AI_KEY: ${{ github.event.inputs.gemini_token }}
-        run: |
-          EXTRA_FLAGS=""
-          if [ -n "$DOCWALK_AI_KEY" ]; then
-            EXTRA_FLAGS="--ai --try-mode"
-          else
-            EXTRA_FLAGS="--try-mode"
-          fi
-          npx -y tsx ../docwalk-src/src/cli/index.ts generate -v $EXTRA_FLAGS
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: npx -y tsx ../docwalk-src/src/cli/index.ts generate -v --ai --try-mode
 
       - name: Build documentation site
         working-directory: target-repo/docwalk-output
         run: zensical build
 
       - name: Deploy to gh-pages
+        env:
+          SLUG: ${{ steps.parse.outputs.slug }}
         run: |
-          SLUG="${{ steps.parse.outputs.slug }}"
-          mkdir -p gh-pages/try/${SLUG}
-          cp -r target-repo/docwalk-output/site/* gh-pages/try/${SLUG}/
+          mkdir -p "gh-pages/try/${SLUG}"
+          cp -r target-repo/docwalk-output/site/* "gh-pages/try/${SLUG}/"
 
           cd gh-pages
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add try/${SLUG}
+          git add "try/${SLUG}"
           git commit -m "try: generate docs for ${SLUG}" || echo "No changes to commit"
           git pull --rebase origin gh-pages || true
           git push
@@ -145,7 +153,8 @@ jobs:
           git push || true
 
       - name: Output result URL
+        env:
+          SLUG: ${{ steps.parse.outputs.slug }}
         run: |
-          SLUG="${{ steps.parse.outputs.slug }}"
           echo "Documentation available at:"
           echo "https://jongodb.github.io/docwalk/try/${SLUG}/"

@@ -1,8 +1,8 @@
 /**
  * DocWalk AI Proxy — Cloudflare Worker
  *
- * Forwards AI generation requests to Gemini Flash so the CLI
- * can offer zero-config AI features without users needing their own key.
+ * Forwards AI generation requests to Groq (OpenAI-compatible API)
+ * so the CLI can offer zero-config AI features without users needing their own key.
  *
  * POST /v1/generate  { prompt, maxTokens?, temperature?, systemPrompt? }
  * → { text: string }
@@ -11,7 +11,7 @@
  */
 
 interface Env {
-  GEMINI_API_KEY: string;
+  GROQ_API_KEY: string;
   ALLOWED_ORIGINS: string;
 }
 
@@ -44,33 +44,44 @@ function corsHeaders(origin: string, allowedOrigins: string): Record<string, str
   };
 }
 
-// ─── Gemini REST API (no SDK in Workers) ─────────────────────────────────────
+// ─── Groq API (OpenAI-compatible) ───────────────────────────────────────────
 
-interface GeminiRequest {
-  contents: { parts: { text: string }[] }[];
-  systemInstruction?: { parts: { text: string }[] };
-  generationConfig?: { maxOutputTokens?: number; temperature?: number };
+interface GroqMessage {
+  role: "system" | "user";
+  content: string;
 }
 
-async function callGemini(apiKey: string, body: GeminiRequest): Promise<string> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-  const res = await fetch(url, {
+async function callGroq(
+  apiKey: string,
+  messages: GroqMessage[],
+  maxTokens?: number,
+  temperature?: number,
+): Promise<string> {
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "meta-llama/llama-4-scout-17b-16e-instruct",
+      messages,
+      ...(maxTokens && { max_tokens: maxTokens }),
+      ...(temperature !== undefined && { temperature }),
+    }),
   });
 
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`Gemini API error (${res.status}): ${errText}`);
+    throw new Error(`Groq API error (${res.status}): ${errText}`);
   }
 
   const data = (await res.json()) as {
-    candidates?: { content?: { parts?: { text?: string }[] } }[];
+    choices?: { message?: { content?: string } }[];
   };
 
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error("Empty response from Gemini");
+  const text = data.choices?.[0]?.message?.content;
+  if (!text) throw new Error("Empty response from Groq");
   return text;
 }
 
@@ -117,26 +128,20 @@ export default {
       return Response.json({ error: "Missing 'prompt' field" }, { status: 400, headers });
     }
 
-    // Build Gemini request
-    const geminiBody: GeminiRequest = {
-      contents: [{ parts: [{ text: prompt }] }],
-    };
+    // Build messages array
+    const messages: GroqMessage[] = [];
     if (systemPrompt) {
-      geminiBody.systemInstruction = { parts: [{ text: systemPrompt }] };
+      messages.push({ role: "system", content: systemPrompt });
     }
-    if (maxTokens || temperature !== undefined) {
-      geminiBody.generationConfig = {};
-      if (maxTokens) geminiBody.generationConfig.maxOutputTokens = maxTokens;
-      if (temperature !== undefined) geminiBody.generationConfig.temperature = temperature;
-    }
+    messages.push({ role: "user", content: prompt });
 
-    // Forward to Gemini
+    // Forward to Groq
     try {
-      const text = await callGemini(env.GEMINI_API_KEY, geminiBody);
+      const text = await callGroq(env.GROQ_API_KEY, messages, maxTokens, temperature);
       return Response.json({ text }, { headers });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unknown error";
-      console.error("Gemini call failed:", message);
+      console.error("Groq call failed:", message);
       return Response.json({ error: message }, { status: 502, headers });
     }
   },
