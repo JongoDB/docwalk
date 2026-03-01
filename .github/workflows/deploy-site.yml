@@ -1,8 +1,8 @@
-# Deploy Marketing Site + MkDocs to GitHub Pages
+# Deploy Marketing Site + DocWalk Docs to GitHub Pages
 #
 # Builds and deploys the full gh-pages structure:
 #   /            <- marketing site (index.html + assets)
-#   /docs/       <- MkDocs-built documentation
+#   /docs/       <- DocWalk-generated documentation
 #   /try/        <- preserved ephemeral demo outputs
 #
 # Triggered on push to master.
@@ -65,7 +65,9 @@ jobs:
 
       - name: Generate documentation
         working-directory: docwalk
-        run: npx tsx src/cli/index.ts generate
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: npx tsx src/cli/index.ts generate --ai
 
       - name: Build documentation site
         working-directory: docwalk/docwalk-output
@@ -88,7 +90,7 @@ jobs:
             cp -r docwalk/assets/screenshots/* deploy/assets/screenshots/
           fi
 
-          # Copy MkDocs output to /docs/
+          # Copy DocWalk output to /docs/
           mkdir -p deploy/docs
           cp -r docwalk/docwalk-output/site/* deploy/docs/
 
