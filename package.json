@@ -25,7 +25,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
-    "postinstall": "node scripts/postinstall.js",
+    "postinstall": "node scripts/postinstall.cjs",
     "prepublishOnly": "npm run build",
     "docwalk": "tsx src/cli/index.ts"
   },
