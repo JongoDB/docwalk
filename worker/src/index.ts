@@ -78,6 +78,7 @@ async function ghApi(path: string, pat: string): Promise<Response> {
 
 async function handleStatus(
   slug: string,
+  sinceMs: number,
   env: Env,
   headers: Record<string, string>,
 ): Promise<Response> {
@@ -96,20 +97,41 @@ async function handleStatus(
 
   const runsData = (await runsRes.json()) as { workflow_runs: WorkflowRun[] };
 
-  // Match run to slug — check the dispatch time against our tracked dispatches
-  const dispatchTime = recentDispatches.get(slug);
+  // Use the `since` timestamp from the frontend to find the correct run.
+  // This avoids depending on in-memory state which doesn't survive across
+  // CF Worker instances. We look for a run created after (or near) the
+  // dispatch time — this is the run the frontend triggered.
   let matchedRun: WorkflowRun | undefined;
 
-  for (const run of runsData.workflow_runs) {
-    const runCreated = new Date(run.created_at).getTime();
-    // Match if the run was created within 30s of our dispatch
-    if (dispatchTime && Math.abs(runCreated - dispatchTime) < 30_000) {
-      matchedRun = run;
-      break;
+  if (sinceMs) {
+    // Find the run created closest to (and after) the dispatch time
+    for (const run of runsData.workflow_runs) {
+      const runCreated = new Date(run.created_at).getTime();
+      // Run must have been created within 2 minutes after dispatch
+      // (accounts for GitHub queue delay)
+      if (runCreated >= sinceMs - 5_000 && runCreated <= sinceMs + 120_000) {
+        matchedRun = run;
+        break;
+      }
     }
   }
 
-  // Fallback: if no time match, pick the most recent in_progress or queued run
+  // Fallback: use in-memory dispatch time if frontend didn't send `since`
+  if (!matchedRun) {
+    const dispatchTime = recentDispatches.get(slug);
+    if (dispatchTime) {
+      for (const run of runsData.workflow_runs) {
+        const runCreated = new Date(run.created_at).getTime();
+        if (Math.abs(runCreated - dispatchTime) < 30_000) {
+          matchedRun = run;
+          break;
+        }
+      }
+    }
+  }
+
+  // Last resort: pick the most recent in_progress or queued run only
+  // (never match a completed run — that could be from a previous build)
   if (!matchedRun) {
     matchedRun = runsData.workflow_runs.find(
       (r) => r.status === "in_progress" || r.status === "queued",
@@ -117,21 +139,9 @@ async function handleStatus(
   }
 
   if (!matchedRun) {
-    // Check if the most recent run completed (might be our build)
-    const latest = runsData.workflow_runs[0];
-    if (latest && latest.status === "completed") {
-      return Response.json(
-        {
-          status: latest.conclusion === "success" ? "completed" : "failed",
-          current_step: null,
-          steps_completed: 0,
-          steps_total: 0,
-          elapsed_seconds: 0,
-        },
-        { headers },
-      );
-    }
-
+    // No active run found — either still queuing or already finished.
+    // Return "queued" so the frontend keeps polling. The frontend's own
+    // result URL check will catch the completed case.
     return Response.json(
       { status: "queued", current_step: null, steps_completed: 0, steps_total: 0, elapsed_seconds: 0 },
       { headers },
@@ -211,10 +221,12 @@ export default {
       return new Response(null, { status: 204, headers });
     }
 
-    // Route: GET /status/:slug
+    // Route: GET /status/:slug?since=<timestamp>
     const statusMatch = url.pathname.match(/^\/status\/([A-Za-z0-9._-]+)$/);
     if (request.method === "GET" && statusMatch) {
-      return handleStatus(statusMatch[1], env, headers);
+      const sinceParam = url.searchParams.get("since");
+      const sinceMs = sinceParam ? parseInt(sinceParam, 10) : 0;
+      return handleStatus(statusMatch[1], sinceMs, env, headers);
     }
 
     // Only accept POST for dispatch

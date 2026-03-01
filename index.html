@@ -2762,11 +2762,14 @@
       resultLink.textContent = resultUrl;
 
       // Poll for real progress from GitHub Actions via /status/:slug
+      // Pass dispatch timestamp so the worker can match the correct run
+      // even across different CF Worker instances
       let attempts = 0;
       const maxAttempts = 200; // ~10 minutes at 3s intervals (large repos need time)
       const POLL_MS = 3000;
       const slug = data.slug;
-      let hasReceivedRealStatus = false;
+      const dispatchedAt = Date.now();
+      let buildConfirmedComplete = false;
 
       const stepLabels = {
         'Set up job': 'Setting up build environment...',
@@ -2787,60 +2790,49 @@
         'Output result URL': 'Finishing up...',
       };
 
+      function showResult() {
+        progressBar.style.width = '100%';
+        progressEl.style.display = 'none';
+        resultEl.style.display = '';
+        btn.textContent = 'Generate Docs';
+        btn.disabled = false;
+      }
+
       const pollInterval = setInterval(async () => {
         attempts++;
 
-        // Try real status endpoint
+        // If build already confirmed complete, just wait for gh-pages
+        if (buildConfirmedComplete) {
+          try {
+            const verify = await fetch(resultUrl, { cache: 'no-store' });
+            if (verify.ok) { clearInterval(pollInterval); showResult(); }
+          } catch {}
+          if (attempts >= maxAttempts) { clearInterval(pollInterval); showResult(); }
+          return;
+        }
+
+        // Poll status endpoint with dispatch timestamp for accurate matching
         try {
-          const statusRes = await fetch(`${PROXY_URL}/status/${slug}`);
+          const statusRes = await fetch(`${PROXY_URL}/status/${slug}?since=${dispatchedAt}`);
           if (statusRes.ok) {
             const status = await statusRes.json();
 
             if (status.steps_total > 0) {
-              hasReceivedRealStatus = true;
-              // Use steps for progress, but cap at 95% until truly complete
               const pct = Math.round((status.steps_completed / status.steps_total) * 100);
               progressBar.style.width = Math.min(pct, 95) + '%';
               progressLabel.textContent = stepLabels[status.current_step] || status.current_step || 'Working...';
             } else if (status.status === 'queued') {
               progressBar.style.width = '15%';
               progressLabel.textContent = 'Queued — waiting for a runner...';
-            } else if (!hasReceivedRealStatus) {
-              // Still waiting for GitHub to pick up the run
+            } else {
               progressBar.style.width = Math.min(10 + attempts * 0.5, 20) + '%';
               progressLabel.textContent = 'Starting build...';
             }
 
             if (status.status === 'completed') {
-              clearInterval(pollInterval);
+              buildConfirmedComplete = true;
               progressBar.style.width = '98%';
               progressLabel.textContent = 'Build complete! Waiting for GitHub Pages to propagate...';
-
-              // Poll result URL until it's live (gh-pages can take 10-30s)
-              let pageChecks = 0;
-              const pageCheckInterval = setInterval(async () => {
-                pageChecks++;
-                try {
-                  const verify = await fetch(resultUrl, { cache: 'no-store' });
-                  if (verify.ok) {
-                    clearInterval(pageCheckInterval);
-                    progressBar.style.width = '100%';
-                    progressEl.style.display = 'none';
-                    resultEl.style.display = '';
-                    btn.textContent = 'Generate Docs';
-                    btn.disabled = false;
-                  }
-                } catch {}
-                if (pageChecks >= 20) {
-                  // 60s of page checks — show link anyway
-                  clearInterval(pageCheckInterval);
-                  progressBar.style.width = '100%';
-                  progressEl.style.display = 'none';
-                  resultEl.style.display = '';
-                  btn.textContent = 'Generate Docs';
-                  btn.disabled = false;
-                }
-              }, 3000);
               return;
             }
 
@@ -2854,34 +2846,17 @@
               return;
             }
 
-            // Got real status — skip the result URL fallback check
-            return;
+            return; // Got real status — don't fall through
           }
         } catch {
-          // Status endpoint unavailable — fall through to result URL check
+          // Status endpoint unavailable
         }
 
-        // Fallback: if no real status yet, show time-based progress
-        if (!hasReceivedRealStatus) {
-          const elapsed = attempts * POLL_MS / 1000;
-          progressBar.style.width = Math.min(10 + elapsed * 0.3, 40) + '%';
-          if (elapsed < 20) progressLabel.textContent = 'Starting build...';
-          else progressLabel.textContent = 'Waiting for build to start...';
-        }
-
-        // Fallback: check if result URL is already live
-        try {
-          const verify = await fetch(resultUrl, { cache: 'no-store' });
-          if (verify.ok) {
-            clearInterval(pollInterval);
-            progressBar.style.width = '100%';
-            progressEl.style.display = 'none';
-            resultEl.style.display = '';
-            btn.textContent = 'Generate Docs';
-            btn.disabled = false;
-            return;
-          }
-        } catch {}
+        // Fallback: time-based progress when status endpoint is down
+        const elapsed = attempts * POLL_MS / 1000;
+        progressBar.style.width = Math.min(10 + elapsed * 0.3, 40) + '%';
+        if (elapsed < 20) progressLabel.textContent = 'Starting build...';
+        else progressLabel.textContent = 'Waiting for build to start...';
 
         if (attempts >= maxAttempts) {
           clearInterval(pollInterval);
