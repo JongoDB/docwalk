@@ -7,7 +7,7 @@
  * or pip is unavailable instead of failing the install.
  */
 
-import { execFileSync } from "child_process";
+const { execFileSync } = require("child_process");
 
 const PACKAGES = ["zensical"];
 
@@ -16,7 +16,6 @@ function run(cmd, args) {
 }
 
 function tryInstall() {
-  // Find pip
   let pip;
   for (const candidate of ["pip3", "pip"]) {
     try {
@@ -46,4 +45,8 @@ function tryInstall() {
   }
 }
 
-tryInstall();
+try {
+  tryInstall();
+} catch {
+  // Never let postinstall block npm install
+}
