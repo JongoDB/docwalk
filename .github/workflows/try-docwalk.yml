@@ -115,7 +115,7 @@ jobs:
             /^(analysis:)/m,
             'analysis:\n  ai_provider:\n    name: openai\n    model: meta-llama/llama-4-scout-17b-16e-instruct\n    api_key_env: GROQ_API_KEY\n    base_url: \"https://api.groq.com/openai/v1\"'
           );
-          cfg = cfg.replace(/concurrency: \d+/, 'concurrency: 2');
+          cfg = cfg.replace(/concurrency: \d+/, 'concurrency: 1');
           fs.writeFileSync('docwalk.config.yml', cfg);
           "
 

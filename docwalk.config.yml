@@ -24,7 +24,7 @@ analysis:
   dependency_graph: true
   changelog: false
   max_file_size: 500000
-  concurrency: 2
+  concurrency: 1
 
 deploy:
   provider: gh-pages
