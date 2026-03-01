@@ -1,7 +1,7 @@
 import path from "path";
 import type { AnalysisManifest, GeneratedPage } from "../../analysis/types.js";
 import type { AIProvider } from "../../analysis/providers/base.js";
-import { sanitizeMermaidId } from "../utils.js";
+import { sanitizeMermaidId, shouldGenerateModulePage } from "../utils.js";
 import { generateArchitectureNarrative, renderCitations } from "../narrative-engine.js";
 
 export function generateArchitecturePage(
@@ -106,11 +106,12 @@ description: System architecture and dependency graph
   }
 
   // Module relationship table sorted by connections
+  const codeModuleSet = new Set(manifest.modules.filter(shouldGenerateModulePage).map(m => m.filePath));
   const moduleRows = manifest.modules
     .map((m) => {
       const outgoing = dependencyGraph.edges.filter((e) => e.from === m.filePath).length;
       const incoming = dependencyGraph.edges.filter((e) => e.to === m.filePath).length;
-      return { filePath: m.filePath, deps: outgoing, dependents: incoming, total: outgoing + incoming };
+      return { filePath: m.filePath, deps: outgoing, dependents: incoming, total: outgoing + incoming, hasPage: codeModuleSet.has(m.filePath) };
     })
     .sort((a, b) => b.total - a.total)
     .slice(0, 30);
@@ -139,7 +140,8 @@ ${dependencyGraph.nodes.length > 30 ? `\n!!! note "Showing ${topNodes.size} of $
 |--------|:-----------:|:----------:|:-----:|
 ${moduleRows.map((r) => {
   const slug = r.filePath.replace(/\.[^.]+$/, "");
-  return `| [\`${r.filePath}\`](api/${slug}.md) | ${r.deps} | ${r.dependents} | **${r.total}** |`;
+  const label = r.hasPage ? `[\`${r.filePath}\`](api/${slug}.md)` : `\`${r.filePath}\``;
+  return `| ${label} | ${r.deps} | ${r.dependents} | **${r.total}** |`;
 }).join("\n")}
 
 ## Statistics
@@ -265,6 +267,7 @@ graph ${packageMap.size > 15 ? "TD" : "LR"}
       .slice(0, 3)
       .map((s) => `\`${s.name}\``)
       .join(", ");
+    // Link to tier-2 page (relative to architecture/index.md)
     t1Content += `| [**${dir}**](${dirSlug}.md) | ${nodes.length} | ${totalSymbols} | ${keyExports || "—"} |\n`;
   }
 
@@ -339,7 +342,8 @@ graph ${nodes.length > 15 ? "TD" : "LR"}
       const dependents = dependencyGraph.edges.filter((e) => e.to === mod.filePath).length;
       const exports = mod.symbols.filter((s) => s.exported).length;
       const modSlug = mod.filePath.replace(/\.[^.]+$/, "");
-      t2Content += `| [\`${path.basename(mod.filePath)}\`](../api/${modSlug}.md) | ${deps} | ${dependents} | ${exports} |\n`;
+      const label = shouldGenerateModulePage(mod) ? `[\`${path.basename(mod.filePath)}\`](../api/${modSlug}.md)` : `\`${path.basename(mod.filePath)}\``;
+      t2Content += `| ${label} | ${deps} | ${dependents} | ${exports} |\n`;
     }
 
     t2Content += `

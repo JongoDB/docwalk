@@ -129,6 +129,13 @@ export function detectOversizedModules(manifest: AnalysisManifest, maxLines = 50
   const oversized: Array<{ file: string; lines: number; symbols: number }> = [];
 
   for (const mod of manifest.modules) {
+    // Skip config/schema files — they legitimately grow large (data-heavy, not logic)
+    const lowerPath = mod.filePath.toLowerCase();
+    const isConfigFile = lowerPath.includes("config") || lowerPath.includes("schema")
+      || lowerPath.endsWith(".json") || lowerPath.endsWith(".yaml") || lowerPath.endsWith(".yml")
+      || lowerPath.endsWith(".toml") || lowerPath.endsWith(".lock");
+    if (isConfigFile) continue;
+
     if (mod.lineCount > maxLines || mod.symbols.length > maxSymbols) {
       oversized.push({
         file: mod.filePath,
@@ -199,10 +206,20 @@ export function detectOrphanModules(manifest: AnalysisManifest): Insight[] {
   }
 
   const orphans = nodes.filter((n) => !connectedNodes.has(n));
-  // Filter out entry points — they're expected to be roots
-  const nonEntryOrphans = orphans.filter(
-    (o) => !o.includes("index.") && !o.includes("main.") && !o.includes("app.")
-  );
+  // Filter out entry points, utility modules, and config files — these are often
+  // intentionally standalone and not connected in the dependency graph
+  const nonEntryOrphans = orphans.filter((o) => {
+    const lower = o.toLowerCase();
+    // Entry points
+    if (lower.includes("index.") || lower.includes("main.") || lower.includes("app.")) return false;
+    // Utility/helper modules
+    if (lower.includes("utils") || lower.includes("helpers") || lower.includes("lib/")) return false;
+    // Config/schema files
+    if (lower.includes("config") || lower.includes("schema")) return false;
+    // Non-source files (JSON, YAML, etc.)
+    if (lower.endsWith(".json") || lower.endsWith(".yaml") || lower.endsWith(".yml") || lower.endsWith(".toml")) return false;
+    return true;
+  });
 
   if (nonEntryOrphans.length > 0) {
     insights.push({

@@ -339,6 +339,48 @@ export function appendTryUpsell(content: string, totalModules: number): string {
 `;
 }
 
+// ─── Module Page Filter ──────────────────────────────────────────────────────
+
+/**
+ * Determine whether a module should get its own API reference page.
+ * Filters out config/meta files, lockfiles, shell scripts, and trivial barrel files.
+ */
+export function shouldGenerateModulePage(mod: ModuleInfo): boolean {
+  const basename = mod.filePath.split("/").pop()?.toLowerCase() || "";
+  const ext = basename.slice(basename.lastIndexOf("."));
+
+  // Skip config/meta files that aren't real source code
+  const SKIP_BASENAMES = new Set([
+    "package.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock",
+    "tsconfig.json", "tsconfig.node.json", "tsconfig.preload.json",
+    "postcss.config.js", "tailwind.config.ts", "tailwind.config.js",
+    "vite.config.ts", "vite.config.js",
+    "eslint.config.js", ".eslintrc.js", "jest.config.ts", "vitest.config.ts",
+    "electron-builder-update.yml", "manifest.json",
+    "pyproject.toml",
+  ]);
+  if (SKIP_BASENAMES.has(basename)) return false;
+
+  // Skip non-source extensions (JSON, YAML, TOML, lockfiles, shell scripts)
+  const SKIP_EXTENSIONS = new Set([".json", ".yaml", ".yml", ".toml", ".lock", ".sh", ".bash", ".zsh"]);
+  if (SKIP_EXTENSIONS.has(ext)) return false;
+
+  // Skip root-level markdown docs (README, CLAUDE_CONTEXT, etc.)
+  // but keep markdown inside source directories (e.g. docs/knowledge/)
+  if (ext === ".md") {
+    const depth = mod.filePath.split("/").length;
+    if (depth <= 2 || mod.filePath.includes("docs/plans/")) return false;
+  }
+
+  // Skip trivial barrel files (tiny files with 0 exported symbols)
+  if (mod.lineCount <= 10 && mod.symbols.filter(s => s.exported).length === 0) return false;
+
+  // Skip files where all exports are re-exports and no own symbols
+  if (mod.exports.length > 0 && mod.exports.every(e => e.isReExport) && mod.symbols.length === 0) return false;
+
+  return true;
+}
+
 export function buildSymbolPageMap(modules: ModuleInfo[]): Map<string, string> {
   const map = new Map<string, string>();
   for (const mod of modules) {

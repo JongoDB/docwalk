@@ -45,21 +45,45 @@ Having trouble? Check the common issues below or see the error reference.
     }
   }
 
-  // Common issues section (template)
+  // Common issues section — data-driven where possible
   content += `---\n\n## Common Issues\n\n`;
 
-  content += `### Installation Problems\n\n`;
-  content += `If you're having trouble installing ${projectName}:\n\n`;
-  content += `1. Make sure you have the required runtime installed\n`;
-  content += `2. Check that your version meets the minimum requirements\n`;
-  content += `3. Try clearing your package manager cache and reinstalling\n\n`;
+  // Surface real error types as actionable troubleshooting items
+  if (signals.errorTypes.length > 0) {
+    content += `### Known Error Types\n\n`;
+    content += `| Error | Source | Description |\n`;
+    content += `|-------|--------|-------------|\n`;
+    for (const err of signals.errorTypes.slice(0, 15)) {
+      const desc = err.description || (err.extends ? `Extends \`${err.extends}\`` : "—");
+      content += `| **${err.name}** | \`${err.filePath}\` | ${desc} |\n`;
+    }
+    content += `\n`;
+  }
 
+  // Configuration troubleshooting — list real config options
   if (signals.configOptions.length > 0) {
+    const requiredOpts = signals.configOptions.filter((o) => !o.defaultValue);
     content += `### Configuration Issues\n\n`;
+    if (requiredOpts.length > 0) {
+      content += `**Required options** (no defaults — must be set explicitly):\n\n`;
+      for (const opt of requiredOpts.slice(0, 10)) {
+        content += `- \`${opt.name}\`${opt.type ? ` (${opt.type})` : ""}${opt.description ? ` — ${opt.description}` : ""}\n`;
+      }
+      content += `\n`;
+    }
     content += `If ${projectName} isn't behaving as expected:\n\n`;
     content += `1. Check your configuration file for syntax errors\n`;
     content += `2. Verify all required options are set\n`;
     content += `3. Check environment variables are properly set\n\n`;
+  }
+
+  // Only show generic installation section if no real data was shown above
+  if (signals.errorTypes.length === 0 && signals.configOptions.length === 0) {
+    content += `### Installation Problems\n\n`;
+    content += `If you're having trouble installing ${projectName}:\n\n`;
+    content += `1. Make sure you have the required runtime installed\n`;
+    content += `2. Check that your version meets the minimum requirements\n`;
+    content += `3. Try clearing your package manager cache and reinstalling\n\n`;
   }
 
   content += `### Getting Help\n\n`;

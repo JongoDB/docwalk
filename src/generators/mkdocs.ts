@@ -25,6 +25,7 @@ import {
   groupByLogicalSection,
   buildSymbolPageMap,
   renderNavYaml,
+  shouldGenerateModulePage,
 } from "./utils.js";
 import {
   generateOverviewPage,
@@ -195,7 +196,8 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
 
   // API Reference pages — one per module, grouped logically
   onProgress?.("Generating API reference pages...");
-  const modulesByGroup = groupModulesLogically(manifest.modules);
+  const codeModules = manifest.modules.filter(shouldGenerateModulePage);
+  const modulesByGroup = groupModulesLogically(codeModules);
   for (const [group, modules] of Object.entries(modulesByGroup)) {
     for (const mod of modules) {
       pages.push(generateModulePage(mod, group, modulePageCtx));
@@ -463,6 +465,11 @@ function buildNavigation(pages: GeneratedPage[], audienceSeparation?: boolean): 
         apiNav.children = sectionPages
           .sort((a, b) => a.title.localeCompare(b.title))
           .map((p) => ({ title: p.title, path: p.path }));
+      } else if (section === "API Reference") {
+        // Flatten — don't create redundant nested "API Reference" section
+        for (const p of sectionPages.sort((a, b) => a.title.localeCompare(b.title))) {
+          apiNav.children!.push({ title: p.title, path: p.path });
+        }
       } else {
         apiNav.children!.push({
           title: section,
@@ -548,6 +555,11 @@ function buildTabbedNavigation(pages: GeneratedPage[]): NavigationItem[] {
         apiNav.children = sectionPages
           .sort((a, b) => a.title.localeCompare(b.title))
           .map((p) => ({ title: p.title, path: p.path }));
+      } else if (section === "API Reference") {
+        // Flatten — don't create redundant nested "API Reference" section
+        for (const p of sectionPages.sort((a, b) => a.title.localeCompare(b.title))) {
+          apiNav.children!.push({ title: p.title, path: p.path });
+        }
       } else {
         apiNav.children!.push({
           title: section,

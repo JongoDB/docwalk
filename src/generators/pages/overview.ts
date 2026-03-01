@@ -121,7 +121,13 @@ export function generateOverviewPage(manifest: AnalysisManifest, config: DocWalk
     .map(([section, modules]) => {
       const topModule = modules[0];
       const slug = topModule.filePath.replace(/\.[^.]+$/, "");
-      const keyFiles = modules.map((m) => `\`${path.basename(m.filePath)}\``).slice(0, 4).join(", ");
+      // Filter out __init__.py and bare index files from the key files display
+      const meaningfulFiles = modules.filter((m) => {
+        const base = path.basename(m.filePath);
+        return base !== "__init__.py" && base !== "index.ts" && base !== "index.js" && base !== "index.d.ts";
+      });
+      const displayFiles = meaningfulFiles.length > 0 ? meaningfulFiles : modules;
+      const keyFiles = displayFiles.map((m) => `\`${path.basename(m.filePath)}\``).slice(0, 4).join(", ");
       const extra = modules.length > 4 ? ` +${modules.length - 4} more` : "";
       return `-   :material-folder-outline:{ .lg .middle } **[${section}](api/${slug}.md)**
 

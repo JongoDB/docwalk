@@ -59,13 +59,28 @@ A comprehensive guide to everything ${projectName} can do.
 
   // Components as features
   if (signals.components.length > 0) {
+    const described = signals.components.filter(c => c.description);
+    const undescribed = signals.components.filter(c => !c.description);
+
     content += `---\n\n## Components\n\n`;
-    for (const comp of signals.components.slice(0, 20)) {
+
+    // Described components get full sections
+    for (const comp of described.slice(0, 20)) {
       content += `### ${comp.name}\n\n`;
-      content += `${comp.description || `The ${comp.name} component.`}\n\n`;
-      if (comp.props && comp.props.length > 0) {
+      content += `${comp.description}\n\n`;
+      if (comp.props?.length) {
         content += `**Props:** ${comp.props.map((p) => `\`${p}\``).join(", ")}\n\n`;
       }
+    }
+
+    // Undescribed components → compact table (no fake "The X component.")
+    if (undescribed.length > 0) {
+      content += `| Component | Props |\n|-----------|-------|\n`;
+      for (const comp of undescribed.slice(0, 30)) {
+        const props = comp.props?.length ? `\`${comp.props.join(", ")}\`` : "—";
+        content += `| **${comp.name}** | ${props} |\n`;
+      }
+      content += `\n`;
     }
   }
 

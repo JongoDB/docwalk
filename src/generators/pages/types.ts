@@ -20,18 +20,39 @@ export function generateTypesPage(manifest: AnalysisManifest): GeneratedPage {
     }
   }
 
-  // Master summary table
+  // Master summary table — split described vs undescribed
   let masterTable = "";
   if (typeSymbols.length > 0) {
-    masterTable += `| Name | Kind | Module | Description |\n`;
-    masterTable += `|------|------|--------|-------------|\n`;
-    for (const { symbol: sym, module: mod } of typeSymbols) {
-      const kindBadge = getKindBadge(sym.kind);
-      const desc = sym.docs?.summary || sym.aiSummary || "";
-      const symAnchor = sym.name.toLowerCase().replace(/[^a-z0-9-_]/g, "");
-      masterTable += `| [\`${sym.name}\`](#${symAnchor}) | ${kindBadge} | \`${path.basename(mod.filePath)}\` | ${desc} |\n`;
+    const described = typeSymbols.filter(({ symbol: sym }) => sym.docs?.summary || sym.aiSummary);
+    const undescribed = typeSymbols.filter(({ symbol: sym }) => !sym.docs?.summary && !sym.aiSummary);
+
+    // Described types get the full 4-column table
+    if (described.length > 0) {
+      masterTable += `| Name | Kind | Module | Description |\n`;
+      masterTable += `|------|------|--------|-------------|\n`;
+      for (const { symbol: sym, module: mod } of described) {
+        const kindBadge = getKindBadge(sym.kind);
+        const desc = sym.docs?.summary || sym.aiSummary || "";
+        const symAnchor = sym.name.toLowerCase().replace(/[^a-z0-9-_]/g, "");
+        masterTable += `| [\`${sym.name}\`](#${symAnchor}) | ${kindBadge} | \`${path.basename(mod.filePath)}\` | ${desc} |\n`;
+      }
+      masterTable += "\n";
     }
-    masterTable += "\n";
+
+    // Undescribed types get a compact 3-column table (no empty Description column)
+    if (undescribed.length > 0) {
+      if (described.length > 0) {
+        masterTable += `### Other Types\n\n`;
+      }
+      masterTable += `| Name | Kind | Module |\n`;
+      masterTable += `|------|------|--------|\n`;
+      for (const { symbol: sym, module: mod } of undescribed) {
+        const kindBadge = getKindBadge(sym.kind);
+        const symAnchor = sym.name.toLowerCase().replace(/[^a-z0-9-_]/g, "");
+        masterTable += `| [\`${sym.name}\`](#${symAnchor}) | ${kindBadge} | \`${path.basename(mod.filePath)}\` |\n`;
+      }
+      masterTable += "\n";
+    }
   }
 
   // Detailed sections grouped by logical section
