@@ -1,56 +1,33 @@
-/**
- * DocWalk CLI — doctor command
- *
- * Checks prerequisites and installs Zensical into a managed venv
- * at .docwalk/venv/ — no system-wide pip install needed.
- */
+import {
+  ZENSICAL_PACKAGES
+} from "./chunk-MRKS4VWN.js";
+import {
+  blank,
+  header,
+  log
+} from "./chunk-YQ34VMHP.js";
 
+// src/cli/commands/doctor.ts
 import chalk from "chalk";
 import path from "path";
 import { existsSync } from "fs";
-import { ZENSICAL_PACKAGES } from "../../utils/cli-tools.js";
-import { log, header, blank } from "../../utils/logger.js";
-
-interface DoctorOptions {
-  install?: boolean;
-}
-
-interface CheckResult {
-  name: string;
-  ok: boolean;
-  version?: string;
-  detail?: string;
-}
-
-/** Path to the managed venv. */
-const VENV_DIR = path.resolve(".docwalk", "venv");
-
-/** Path to the venv's python binary. */
-function venvPython(): string {
+var VENV_DIR = path.resolve(".docwalk", "venv");
+function venvPython() {
   return path.join(VENV_DIR, "bin", "python3");
 }
-
-/** Path to the venv's pip binary. */
-function venvPip(): string {
+function venvPip() {
   return path.join(VENV_DIR, "bin", "pip");
 }
-
-/** Exported: path to the venv's zensical binary. */
-export function zensicalBin(): string {
+function zensicalBin() {
   return path.join(VENV_DIR, "bin", "zensical");
 }
-
-/** Check if the managed venv exists. */
-export function hasVenv(): boolean {
+function hasVenv() {
   return existsSync(venvPython());
 }
-
-/** Check if zensical is installed in the managed venv. */
-export function hasZensicalInVenv(): boolean {
+function hasZensicalInVenv() {
   return existsSync(zensicalBin());
 }
-
-async function getCommandOutput(command: string, args: string[]): Promise<string | null> {
+async function getCommandOutput(command, args) {
   try {
     const { execa } = await import("execa");
     const result = await execa(command, args);
@@ -59,66 +36,49 @@ async function getCommandOutput(command: string, args: string[]): Promise<string
     return null;
   }
 }
-
-async function checkPython(): Promise<CheckResult> {
+async function checkPython() {
   const output = await getCommandOutput("python3", ["--version"]);
   if (output) {
     const version = output.replace("Python ", "");
     return { name: "Python", ok: true, version };
   }
-  return { name: "Python", ok: false, detail: "not found — install python3" };
+  return { name: "Python", ok: false, detail: "not found \u2014 install python3" };
 }
-
-async function checkZensical(): Promise<CheckResult> {
-  // Check managed venv first
+async function checkZensical() {
   if (hasZensicalInVenv()) {
-    const output = await getCommandOutput(venvPython(), ["-c", "import zensical; print(zensical.__version__)"]);
-    const version = output || "installed";
+    const output2 = await getCommandOutput(venvPython(), ["-c", "import zensical; print(zensical.__version__)"]);
+    const version = output2 || "installed";
     return { name: "zensical", ok: true, version, detail: `in .docwalk/venv` };
   }
-
-  // Check system install
   const output = await getCommandOutput("python3", ["-c", "import zensical; print(zensical.__version__)"]);
   if (output) {
     return { name: "zensical", ok: true, version: output, detail: "system" };
   }
-
   return { name: "zensical", ok: false, detail: "not installed" };
 }
-
-export async function doctorCommand(options: DoctorOptions): Promise<void> {
-  header("Doctor — Prerequisites Check");
-
-  const results: CheckResult[] = [];
-
+async function doctorCommand(options) {
+  header("Doctor \u2014 Prerequisites Check");
+  const results = [];
   results.push(await checkPython());
   results.push(await checkZensical());
-
-  // Display results
   console.log(chalk.bold("  Prerequisites"));
-  console.log(chalk.dim("  ──────────────────────────"));
-
+  console.log(chalk.dim("  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"));
   for (const result of results) {
     if (result.ok) {
       const version = result.version ? chalk.dim(` ${result.version}`) : "";
       const detail = result.detail ? chalk.dim(` (${result.detail})`) : "";
-      console.log(`  ${chalk.green("✓")} ${result.name}${version}${detail}`);
+      console.log(`  ${chalk.green("\u2713")} ${result.name}${version}${detail}`);
     } else {
-      const detail = result.detail ? chalk.dim(` — ${result.detail}`) : "";
-      console.log(`  ${chalk.red("✗")} ${result.name}${detail}`);
+      const detail = result.detail ? chalk.dim(` \u2014 ${result.detail}`) : "";
+      console.log(`  ${chalk.red("\u2717")} ${result.name}${detail}`);
     }
   }
-
   blank();
-
   const missing = results.filter((r) => !r.ok);
-
   if (missing.length === 0) {
     log("success", "All prerequisites satisfied!");
     return;
   }
-
-  // Python missing — can't do anything
   if (!results[0].ok) {
     log("warn", "Python 3 is required. Install it first:");
     console.log(`    ${chalk.cyan("brew install python")}     ${chalk.dim("# macOS")}`);
@@ -126,48 +86,42 @@ export async function doctorCommand(options: DoctorOptions): Promise<void> {
     blank();
     return;
   }
-
-  // Zensical missing — offer to install
   if (options.install) {
     await installZensical();
   } else {
     log("info", `Run ${chalk.cyan("docwalk doctor --install")} to install Zensical.`);
   }
 }
-
-/**
- * Install Zensical into a managed venv at .docwalk/venv/.
- * This avoids the macOS "externally-managed-environment" error.
- */
-export async function installZensical(): Promise<boolean> {
+async function installZensical() {
   const { execa } = await import("execa");
   const { mkdir } = await import("fs/promises");
-
   await mkdir(".docwalk", { recursive: true });
-
-  // Create venv if it doesn't exist
   if (!hasVenv()) {
     log("info", "Creating Python virtual environment in .docwalk/venv/...");
     try {
       await execa("python3", ["-m", "venv", VENV_DIR], { stdio: "inherit" });
-    } catch (err: any) {
+    } catch (err) {
       log("error", `Failed to create venv: ${err.message}`);
       return false;
     }
   }
-
-  // Install packages into the venv
   log("info", `Installing ${ZENSICAL_PACKAGES.join(", ")}...`);
   blank();
-
   try {
     await execa(venvPip(), ["install", ...ZENSICAL_PACKAGES], { stdio: "inherit" });
     blank();
     log("success", `Zensical installed to ${chalk.dim(".docwalk/venv/")}`);
     return true;
-  } catch (err: any) {
+  } catch (err) {
     blank();
     log("error", `Installation failed: ${err.message}`);
     return false;
   }
 }
+export {
+  doctorCommand,
+  hasVenv,
+  hasZensicalInVenv,
+  installZensical,
+  zensicalBin
+};

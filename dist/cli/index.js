@@ -16,11 +16,11 @@ program.name("docwalk").description(
   banner();
 });
 program.command("init").description("Initialize DocWalk for a repository").option("-r, --repo <repo>", "Repository (owner/repo or local path)").option("-p, --provider <provider>", "Deploy provider (gh-pages, cloudflare, vercel)").option("-d, --domain <domain>", "Custom domain").option("-t, --theme <theme>", "Theme preset (developer, corporate, startup, minimal, api-reference, knowledge-base)").option("-l, --layout <layout>", "Navigation layout (tabs, sidebar)").option("--no-interactive", "Skip interactive prompts, use defaults").action(async (options) => {
-  const { initCommand } = await import("../init-H7L2A5O6.js");
+  const { initCommand } = await import("../init-YM7SQG5H.js");
   await initCommand(options);
 });
 program.command("generate").description("Analyze codebase and generate documentation").option("-c, --config <path>", "Config file path").option("-o, --output <dir>", "Output directory", "docwalk-output").option("--full", "Force full re-analysis (ignore cache)").option("--dry-run", "Show what would be generated without writing files").option("--ai", "Enable AI features using DOCWALK_AI_KEY environment variable").option("--try-mode", "Try mode: limit output and append upsell banners").option("-t, --theme <theme>", "Theme preset (developer, corporate, startup, minimal)").option("-l, --layout <layout>", "Navigation layout (tabs, sidebar, tabs-sticky)").option("-v, --verbose", "Verbose output").action(async (options) => {
-  const { generateCommand } = await import("../generate-CRFYZAMP.js");
+  const { generateCommand } = await import("../generate-2YER35XY.js");
   await generateCommand(options);
 });
 program.command("sync").description("Incremental sync \u2014 detect changes and update docs").option("-c, --config <path>", "Config file path").option("--dry-run", "Show diff without applying changes").option("--full", "Force full re-analysis instead of incremental").option("--since <commit>", "Diff from a specific commit SHA instead of last synced").option("-v, --verbose", "Verbose output").action(async (options) => {
@@ -36,7 +36,7 @@ program.command("undeploy").description("Remove deployment from hosting provider
   await undeployCommand(options);
 });
 program.command("dev").description("Start local preview server").option("-c, --config <path>", "Config file path").option("--port <port>", "Port number", "8000").option("--host <host>", "Host to bind to", "127.0.0.1").option("-w, --watch", "Watch source files and auto-regenerate docs").option("-v, --verbose", "Verbose output").action(async (options) => {
-  const { devCommand } = await import("../dev-SXY4N5A4.js");
+  const { devCommand } = await import("../dev-W736BR2G.js");
   await devCommand(options);
 });
 program.command("status").description("Show sync state, project info, and deployment status").option("-c, --config <path>", "Config file path").action(async (options) => {
@@ -44,7 +44,7 @@ program.command("status").description("Show sync state, project info, and deploy
   await statusCommand(options);
 });
 program.command("doctor").description("Check Zensical prerequisites and optionally install missing packages").option("--install", "Install missing Python packages").action(async (options) => {
-  const { doctorCommand } = await import("../doctor-DTAB6N33.js");
+  const { doctorCommand } = await import("../doctor-UMIFOYKA.js");
   await doctorCommand(options);
 });
 program.command("ci-setup").description("Generate CI/CD pipeline configuration for your provider").option("-c, --config <path>", "Config file path").option("-p, --provider <provider>", "Override deploy provider").option("--preview", "Also generate PR preview deployment workflow").action(async (options) => {

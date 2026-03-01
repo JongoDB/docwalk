@@ -394,7 +394,7 @@ async function quickStartTrack(options) {
     blank();
     const { clearConfigCache } = await import("./loader-5BOX56KF.js");
     clearConfigCache();
-    const { generateCommand } = await import("./generate-CRFYZAMP.js");
+    const { generateCommand } = await import("./generate-2YER35XY.js");
     await generateCommand({ output: "docwalk-output" });
   } else {
     blank();
@@ -700,7 +700,7 @@ ${yamlContent}`);
   log("success", `Configuration written to ${chalk2.cyan("docwalk.config.yml")}`);
   await mkdir(".docwalk", { recursive: true });
   const gitignorePath = path.resolve(".docwalk/.gitignore");
-  await writeFile(gitignorePath, "state.json\nmanifest.json\n.env\n");
+  await writeFile(gitignorePath, "state.json\nmanifest.json\n.env\nvenv/\n");
 }
 function detectProvider(repo) {
   if (repo === "." || repo.startsWith("/") || repo.startsWith("./") || repo.startsWith("../")) {
@@ -754,7 +754,7 @@ async function writeDefaultConfig(options) {
 
 ${yamlContent}`);
   await mkdir(".docwalk", { recursive: true });
-  await writeFile(path.resolve(".docwalk/.gitignore"), "state.json\nmanifest.json\n.env\n");
+  await writeFile(path.resolve(".docwalk/.gitignore"), "state.json\nmanifest.json\n.env\nvenv/\n");
   log("success", `Configuration written to ${chalk2.cyan("docwalk.config.yml")}`);
 }
 export {

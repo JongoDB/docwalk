@@ -76,13 +76,17 @@ async function startWatcher(repoRoot, include, verbose) {
   log("success", `Watching ${watchDirs.size} source director${watchDirs.size === 1 ? "y" : "ies"} for changes`);
   blank();
 }
-async function hasZensical() {
+async function findZensical() {
+  const { hasZensicalInVenv, zensicalBin } = await import("./doctor-UMIFOYKA.js");
+  if (hasZensicalInVenv()) {
+    return zensicalBin();
+  }
   try {
     const { execa } = await import("execa");
-    await execa("python3", ["-c", "import zensical"]);
-    return true;
+    await execa("zensical", ["--version"]);
+    return "zensical";
   } catch {
-    return false;
+    return null;
   }
 }
 async function devCommand(options) {
@@ -93,7 +97,7 @@ async function devCommand(options) {
   if (options.watch) {
     await startWatcher(repoRoot, config.source.include, !!options.verbose);
   }
-  const port = parseInt(options.port, 10);
+  const port = options.port;
   const host = options.host;
   const outputDir = path.resolve("docwalk-output");
   const fs = await import("fs");
@@ -101,12 +105,28 @@ async function devCommand(options) {
     log("error", "No generated docs found. Run docwalk generate first.");
     process.exit(1);
   }
-  if (await hasZensical()) {
-    log("info", `Starting Zensical dev server on ${host}:${port}...`);
+  let zensical = await findZensical();
+  if (!zensical) {
+    log("info", "Zensical not found \u2014 installing to .docwalk/venv/...");
     blank();
-    const { runTool } = await import("./cli-tools-ZOSG3UVT.js");
-    await runTool(
-      "zensical",
+    const { installZensical, zensicalBin } = await import("./doctor-UMIFOYKA.js");
+    const installed = await installZensical();
+    if (installed) {
+      zensical = zensicalBin();
+    } else {
+      log("error", "Could not install Zensical. Please install Python 3 first:");
+      console.log(`    ${chalk.cyan("brew install python")}     ${chalk.dim("# macOS")}`);
+      console.log(`    ${chalk.cyan("sudo apt install python3")} ${chalk.dim("# Ubuntu/Debian")}`);
+      process.exit(1);
+    }
+    blank();
+  }
+  log("info", `Starting dev server on ${host}:${port}...`);
+  blank();
+  const { execa } = await import("execa");
+  try {
+    await execa(
+      zensical,
       [
         "serve",
         "--config-file",
@@ -116,18 +136,12 @@ async function devCommand(options) {
       ],
       { stdio: "inherit" }
     );
-  } else {
-    log("info", "Starting Node.js preview server (no Python needed)...");
-    blank();
-    const { startPreviewServer } = await import("./preview-server-ARW6MZ2F.js");
-    await startPreviewServer(outputDir, host, port);
-    const url = `http://${host === "127.0.0.1" ? "localhost" : host}:${port}`;
-    log("success", `Preview server running at ${chalk.cyan(url)}`);
-    blank();
-    console.log(chalk.dim("  Press Ctrl+C to stop"));
-    blank();
-    await new Promise(() => {
-    });
+  } catch (err) {
+    if (err.exitCode !== void 0) {
+      return;
+    }
+    log("error", `Dev server failed: ${err.message}`);
+    process.exit(1);
   }
 }
 export {

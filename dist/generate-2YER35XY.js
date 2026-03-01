@@ -52,7 +52,7 @@ async function generateCommand(options) {
       blank();
       log("info", "No configuration found \u2014 let's set up DocWalk.");
       blank();
-      const { initCommand } = await import("./init-H7L2A5O6.js");
+      const { initCommand } = await import("./init-YM7SQG5H.js");
       await initCommand({ _skipGenerate: true });
       clearConfigCache();
       try {

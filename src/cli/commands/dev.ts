@@ -1,8 +1,8 @@
 /**
  * DocWalk CLI — dev command
  *
- * Starts a local preview server. Uses Zensical (MkDocs) if available,
- * otherwise falls back to a pure Node.js preview server — no Python needed.
+ * Starts Zensical dev server for local preview. If Zensical isn't installed,
+ * auto-installs it into .docwalk/venv/ (no system pip needed).
  */
 
 import chalk from "chalk";
@@ -104,15 +104,23 @@ async function startWatcher(
 }
 
 /**
- * Check if Zensical is available.
+ * Find the zensical binary — check managed venv first, then system PATH.
  */
-async function hasZensical(): Promise<boolean> {
+async function findZensical(): Promise<string | null> {
+  const { hasZensicalInVenv, zensicalBin } = await import("./doctor.js");
+
+  // Check managed venv
+  if (hasZensicalInVenv()) {
+    return zensicalBin();
+  }
+
+  // Check system install
   try {
     const { execa } = await import("execa");
-    await execa("python3", ["-c", "import zensical"]);
-    return true;
+    await execa("zensical", ["--version"]);
+    return "zensical";
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -132,7 +140,7 @@ export async function devCommand(options: DevOptions): Promise<void> {
     await startWatcher(repoRoot, config.source.include, !!options.verbose);
   }
 
-  const port = parseInt(options.port, 10);
+  const port = options.port;
   const host = options.host;
   const outputDir = path.resolve("docwalk-output");
 
@@ -143,14 +151,34 @@ export async function devCommand(options: DevOptions): Promise<void> {
     process.exit(1);
   }
 
-  // Try Zensical first, fall back to Node.js preview server
-  if (await hasZensical()) {
-    log("info", `Starting Zensical dev server on ${host}:${port}...`);
+  // Find zensical — auto-install if missing
+  let zensical = await findZensical();
+
+  if (!zensical) {
+    log("info", "Zensical not found — installing to .docwalk/venv/...");
     blank();
 
-    const { runTool } = await import("../../utils/cli-tools.js");
-    await runTool(
-      "zensical",
+    const { installZensical, zensicalBin } = await import("./doctor.js");
+    const installed = await installZensical();
+
+    if (installed) {
+      zensical = zensicalBin();
+    } else {
+      log("error", "Could not install Zensical. Please install Python 3 first:");
+      console.log(`    ${chalk.cyan("brew install python")}     ${chalk.dim("# macOS")}`);
+      console.log(`    ${chalk.cyan("sudo apt install python3")} ${chalk.dim("# Ubuntu/Debian")}`);
+      process.exit(1);
+    }
+    blank();
+  }
+
+  log("info", `Starting dev server on ${host}:${port}...`);
+  blank();
+
+  const { execa } = await import("execa");
+  try {
+    await execa(
+      zensical,
       [
         "serve",
         "--config-file",
@@ -160,20 +188,12 @@ export async function devCommand(options: DevOptions): Promise<void> {
       ],
       { stdio: "inherit" }
     );
-  } else {
-    log("info", "Starting Node.js preview server (no Python needed)...");
-    blank();
-
-    const { startPreviewServer } = await import("../preview-server.js");
-    await startPreviewServer(outputDir, host, port);
-
-    const url = `http://${host === "127.0.0.1" ? "localhost" : host}:${port}`;
-    log("success", `Preview server running at ${chalk.cyan(url)}`);
-    blank();
-    console.log(chalk.dim("  Press Ctrl+C to stop"));
-    blank();
-
-    // Keep process alive
-    await new Promise(() => {});
+  } catch (err: any) {
+    if (err.exitCode !== undefined) {
+      // Zensical exited (user pressed Ctrl+C, etc.)
+      return;
+    }
+    log("error", `Dev server failed: ${err.message}`);
+    process.exit(1);
   }
 }

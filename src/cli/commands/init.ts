@@ -566,7 +566,7 @@ async function writeConfigAndScaffold(config: Record<string, any>): Promise<void
 
   // Create .gitignore (includes .env for API key storage)
   const gitignorePath = path.resolve(".docwalk/.gitignore");
-  await writeFile(gitignorePath, "state.json\nmanifest.json\n.env\n");
+  await writeFile(gitignorePath, "state.json\nmanifest.json\n.env\nvenv/\n");
 }
 
 /**
@@ -628,7 +628,7 @@ async function writeDefaultConfig(options: InitOptions): Promise<void> {
   const yamlContent = yaml.dump(config, { indent: 2, lineWidth: 100, noRefs: true });
   await writeFile("docwalk.config.yml", `# DocWalk Configuration\n\n${yamlContent}`);
   await mkdir(".docwalk", { recursive: true });
-  await writeFile(path.resolve(".docwalk/.gitignore"), "state.json\nmanifest.json\n.env\n");
+  await writeFile(path.resolve(".docwalk/.gitignore"), "state.json\nmanifest.json\n.env\nvenv/\n");
 
   log("success", `Configuration written to ${chalk.cyan("docwalk.config.yml")}`);
 }
