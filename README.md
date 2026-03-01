@@ -27,49 +27,52 @@ DocWalk is a CLI tool that turns any codebase into a professional documentation 
 4. **Deploys** to GitHub Pages, Cloudflare Pages, Vercel, Netlify, or S3 — with custom domain support
 5. **Syncs** incrementally — uses `git diff` to only re-analyze changed files, keeping docs up-to-date in seconds
 
+## Install
+
+```bash
+# Install globally from GitHub
+npm install -g github:JongoDB/docwalk
+
+# Or clone and link (more reliable on some systems)
+git clone https://github.com/JongoDB/docwalk.git ~/.docwalk-cli
+cd ~/.docwalk-cli && npm install && npm link
+```
+
 ## Quickstart
 
 ```bash
-# Initialize DocWalk in your repo
-npx docwalk init
-
-# Generate documentation
-npx docwalk generate
-
-# Preview locally
-npx docwalk dev
-
-# Deploy
-npx docwalk deploy
+# Just run generate — DocWalk guides you through setup if needed
+docwalk generate
 ```
 
-That's it. No API keys, no config files, no accounts required for the basics.
+That's it. If there's no config, DocWalk launches the Quick Start wizard: confirm your repo, set up AI (with interactive key entry and validation), pick a theme, and generate — all in one flow.
 
 ### With AI (zero config)
 
 ```bash
 # AI summaries, narratives, and diagrams — no API key needed
-npx docwalk generate --ai
+docwalk generate --ai
 ```
 
 When you pass `--ai` without any API key configured, DocWalk automatically routes through its free AI proxy service (powered by Gemini Flash). No setup required.
 
 ### With your own API key
 
+The interactive setup prompts for your API key, validates it, and stores it in `.docwalk/.env` (gitignored) so you never have to set it again. Or set it manually:
+
 ```bash
-# Use your own key for higher rate limits
 export DOCWALK_AI_KEY=your-key-here
-npx docwalk generate --ai
+docwalk generate --ai
 ```
 
 ### Customize theme and layout
 
 ```bash
 # Pick a theme and layout directly from the CLI
-npx docwalk generate --theme startup --layout sidebar
+docwalk generate --theme startup --layout sidebar
 
 # Or use the interactive init wizard for full customization
-npx docwalk init
+docwalk init
 ```
 
 ## How It Works
@@ -96,13 +99,13 @@ DocWalk doesn't re-analyze your entire codebase on every change. Instead:
 
 ```bash
 # See what would change without applying
-npx docwalk sync --dry-run
+docwalk sync --dry-run
 
 # Run incremental sync
-npx docwalk sync
+docwalk sync
 
 # Force full re-analysis
-npx docwalk sync --full
+docwalk sync --full
 ```
 
 ## AI-Powered Documentation
@@ -159,7 +162,7 @@ DocWalk ships with four built-in themes. Pass `--theme` to `init` or `generate`,
 Layout modes: `tabs` (default), `sidebar`, `tabs-sticky`
 
 ```bash
-npx docwalk generate --theme corporate --layout tabs-sticky
+docwalk generate --theme corporate --layout tabs-sticky
 ```
 
 ## End-User Documentation
@@ -197,7 +200,7 @@ DocWalk detects workspace structures (npm workspaces, pnpm-workspace.yaml, Lerna
 
 ## Configuration
 
-DocWalk is configured via `docwalk.config.yml` in your repo root. Run `npx docwalk init` to generate one interactively, or create it manually:
+DocWalk is configured via `docwalk.config.yml` in your repo root. Run `docwalk init` to generate one interactively, or create it manually:
 
 ```yaml
 source:
@@ -267,13 +270,13 @@ theme:
 
 ```bash
 # Deploy to your configured provider
-npx docwalk deploy
+docwalk deploy
 
 # Override provider and domain
-npx docwalk deploy --provider cloudflare --domain docs.yoursite.com
+docwalk deploy --provider cloudflare --domain docs.yoursite.com
 
 # Generate CI/CD pipeline for automatic deploys
-npx docwalk ci-setup
+docwalk ci-setup
 ```
 
 ## CLI Reference
@@ -307,8 +310,9 @@ TypeScript, JavaScript, Python, Go, Rust, Java, C#, Ruby, PHP, Swift, Kotlin, Sc
 git clone https://github.com/JongoDB/docwalk.git
 cd docwalk
 npm install
+npm link    # makes `docwalk` available globally
 
-# Run in dev mode
+# Run in dev mode (without link)
 npm run docwalk -- init
 npm run docwalk -- generate
 npm run docwalk -- dev
