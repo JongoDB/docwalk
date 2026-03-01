@@ -33,10 +33,14 @@ description: Frequently asked questions about ${projectName}
   const hasValidRepo = repo && repo !== "." && repo.includes("/");
   const repoUrl = hasValidRepo ? `https://github.com/${repo}` : "";
 
-  // Build a better description — prefer README, then package description, then a rich fallback
+  // Build a better description — prefer package.json description, then README, then fallback
   const langList = manifest.projectMeta.languages.map((l) => l.name).join(", ");
-  const description = manifest.projectMeta.readmeDescription
-    || manifest.projectMeta.description
+  const rawDescription = manifest.projectMeta.description
+    || manifest.projectMeta.readmeDescription
+    || "";
+  // Strip HTML tags that may leak from READMEs with centered badges/headers
+  const cleanedDescription = rawDescription.replace(/<[^>]+>/g, "").trim();
+  const description = cleanedDescription
     || `A ${langList} project with ${manifest.stats.totalFiles} source files and ${manifest.stats.totalSymbols} symbols.`;
 
   // Generate FAQ items based on project signals

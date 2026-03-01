@@ -34,8 +34,11 @@ export function generateGettingStartedPage(
     ? `https://github.com/${meta.repository}`
     : "<repository-url>";
 
-  const readmeIntro = meta.readmeDescription
-    ? `${meta.readmeDescription}\n\n---\n\n`
+  // Prefer package.json description, fall back to README description
+  const rawIntro = meta.description || meta.readmeDescription || "";
+  const cleanDescription = rawIntro.replace(/<[^>]+>/g, "").trim();
+  const readmeIntro = cleanDescription
+    ? `${cleanDescription}\n\n---\n\n`
     : "";
 
   // Prerequisites as task list checkboxes

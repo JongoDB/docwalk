@@ -21,7 +21,7 @@ import {
   generateTieredArchitecturePages,
   generateTypesPage,
   generateUsageGuidePage
-} from "./chunk-EBPJLC2J.js";
+} from "./chunk-ECGUKQHA.js";
 import {
   buildSymbolPageMap,
   groupByLogicalSection,
@@ -1260,7 +1260,7 @@ async function generateDocs(options) {
       generateFeaturesPageNarrative,
       generateTroubleshootingPageNarrative,
       generateFAQPageNarrative
-    } = await import("./pages-5JRDHIDE.js");
+    } = await import("./pages-LUTJPCRZ.js");
     if (useNarrative) {
       const userDocPromises = [];
       if (userDocsConfig?.overview !== false) {

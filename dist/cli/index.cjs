@@ -5091,16 +5091,35 @@ var init_markdown = __esm({
           }
         }
         let summary = "";
+        let foundHeading = false;
         for (const line of lines) {
           const trimmed = line.trim();
           if (trimmed === "") continue;
+          if (/^<\/?[a-z][^>]*>$/i.test(trimmed) || /^<!--/.test(trimmed)) continue;
+          if (/^\[!\[/.test(trimmed) || /^<img\s/i.test(trimmed)) continue;
+          if (/^(\s*<a\s|.*•.*<a\s)/i.test(trimmed)) continue;
+          if (trimmed.startsWith("---") || trimmed.startsWith("```")) continue;
           const headingMatch = trimmed.match(headingPattern);
           if (headingMatch) {
-            summary = headingMatch[2].trim();
-          } else if (!trimmed.startsWith("---") && !trimmed.startsWith("```")) {
-            if (!summary) summary = trimmed.slice(0, 120);
+            foundHeading = true;
+            continue;
           }
-          if (summary) break;
+          const stripped = trimmed.replace(/<[^>]+>/g, "").trim();
+          if (!stripped) continue;
+          if (stripped.length < 20 && !stripped.includes(".")) continue;
+          summary = stripped.slice(0, 200);
+          break;
+        }
+        if (!summary) {
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed === "") continue;
+            const headingMatch = trimmed.match(headingPattern);
+            if (headingMatch) {
+              summary = headingMatch[2].trim();
+              break;
+            }
+          }
         }
         const basename = filePath.split("/").pop()?.toLowerCase() || "";
         if (basename === "readme.md") summary = summary || "Project README";
@@ -6073,14 +6092,16 @@ function computeProjectMeta(modules, repoRoot, source) {
   ).map((m) => m.filePath);
   const rawName = source.repo.split("/").pop() || source.repo;
   let name;
+  let description;
+  let pkgData;
+  try {
+    const pkgPath = import_path4.default.join(repoRoot, "package.json");
+    pkgData = JSON.parse((0, import_fs.readFileSync)(pkgPath, "utf-8"));
+    description = pkgData?.description;
+  } catch {
+  }
   if (rawName === ".") {
-    try {
-      const pkgPath = import_path4.default.join(repoRoot, "package.json");
-      const pkg = JSON.parse((0, import_fs.readFileSync)(pkgPath, "utf-8"));
-      name = pkg.name || import_path4.default.basename(repoRoot);
-    } catch {
-      name = import_path4.default.basename(repoRoot);
-    }
+    name = pkgData?.name || import_path4.default.basename(repoRoot);
   } else {
     name = rawName;
   }
@@ -6093,6 +6114,7 @@ function computeProjectMeta(modules, repoRoot, source) {
   }
   return {
     name,
+    description,
     readmeDescription,
     languages,
     entryPoints,
@@ -8355,7 +8377,9 @@ function generateGettingStartedPage(manifest, config) {
     return `| **${section}** | ${modules.length} | ${files}${modules.length > 5 ? " ..." : ""} |`;
   }).join("\n");
   const repoUrl = meta.repository?.includes("/") ? `https://github.com/${meta.repository}` : "<repository-url>";
-  const readmeIntro = meta.readmeDescription ? `${meta.readmeDescription}
+  const rawIntro = meta.description || meta.readmeDescription || "";
+  const cleanDescription = rawIntro.replace(/<[^>]+>/g, "").trim();
+  const readmeIntro = cleanDescription ? `${cleanDescription}
 
 ---
 
@@ -10836,7 +10860,9 @@ description: Frequently asked questions about ${projectName}
   const hasValidRepo = repo && repo !== "." && repo.includes("/");
   const repoUrl = hasValidRepo ? `https://github.com/${repo}` : "";
   const langList = manifest.projectMeta.languages.map((l) => l.name).join(", ");
-  const description = manifest.projectMeta.readmeDescription || manifest.projectMeta.description || `A ${langList} project with ${manifest.stats.totalFiles} source files and ${manifest.stats.totalSymbols} symbols.`;
+  const rawDescription = manifest.projectMeta.description || manifest.projectMeta.readmeDescription || "";
+  const cleanedDescription = rawDescription.replace(/<[^>]+>/g, "").trim();
+  const description = cleanedDescription || `A ${langList} project with ${manifest.stats.totalFiles} source files and ${manifest.stats.totalSymbols} symbols.`;
   content += `??? question "What is ${projectName}?"
 `;
   content += `    ${description}

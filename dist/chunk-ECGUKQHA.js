@@ -262,7 +262,9 @@ function generateGettingStartedPage(manifest, config) {
     return `| **${section}** | ${modules.length} | ${files}${modules.length > 5 ? " ..." : ""} |`;
   }).join("\n");
   const repoUrl = meta.repository?.includes("/") ? `https://github.com/${meta.repository}` : "<repository-url>";
-  const readmeIntro = meta.readmeDescription ? `${meta.readmeDescription}
+  const rawIntro = meta.description || meta.readmeDescription || "";
+  const cleanDescription = rawIntro.replace(/<[^>]+>/g, "").trim();
+  const readmeIntro = cleanDescription ? `${cleanDescription}
 
 ---
 
@@ -2622,7 +2624,9 @@ description: Frequently asked questions about ${projectName}
   const hasValidRepo = repo && repo !== "." && repo.includes("/");
   const repoUrl = hasValidRepo ? `https://github.com/${repo}` : "";
   const langList = manifest.projectMeta.languages.map((l) => l.name).join(", ");
-  const description = manifest.projectMeta.readmeDescription || manifest.projectMeta.description || `A ${langList} project with ${manifest.stats.totalFiles} source files and ${manifest.stats.totalSymbols} symbols.`;
+  const rawDescription = manifest.projectMeta.description || manifest.projectMeta.readmeDescription || "";
+  const cleanedDescription = rawDescription.replace(/<[^>]+>/g, "").trim();
+  const description = cleanedDescription || `A ${langList} project with ${manifest.stats.totalFiles} source files and ${manifest.stats.totalSymbols} symbols.`;
   content += `??? question "What is ${projectName}?"
 `;
   content += `    ${description}

@@ -479,17 +479,18 @@ function computeProjectMeta(
     .map((m) => m.filePath);
 
   const rawName = source.repo.split("/").pop() || source.repo;
-  // If repo is "." (local), try package.json name, then directory basename
+  // Try reading package.json for name and description
   let name: string;
+  let description: string | undefined;
+  let pkgData: { name?: string; description?: string } | undefined;
+  try {
+    const pkgPath = path.join(repoRoot, "package.json");
+    pkgData = JSON.parse(readFileSync(pkgPath, "utf-8"));
+    description = pkgData?.description;
+  } catch { /* no package.json */ }
+
   if (rawName === ".") {
-    // Try reading package.json directly for the name field
-    try {
-      const pkgPath = path.join(repoRoot, "package.json");
-      const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
-      name = pkg.name || path.basename(repoRoot);
-    } catch {
-      name = path.basename(repoRoot);
-    }
+    name = pkgData?.name || path.basename(repoRoot);
   } else {
     name = rawName;
   }
@@ -505,6 +506,7 @@ function computeProjectMeta(
 
   return {
     name,
+    description,
     readmeDescription,
     languages,
     entryPoints,

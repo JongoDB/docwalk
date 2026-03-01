@@ -3769,16 +3769,35 @@ var MarkdownParser = class {
       }
     }
     let summary = "";
+    let foundHeading = false;
     for (const line of lines) {
       const trimmed = line.trim();
       if (trimmed === "") continue;
+      if (/^<\/?[a-z][^>]*>$/i.test(trimmed) || /^<!--/.test(trimmed)) continue;
+      if (/^\[!\[/.test(trimmed) || /^<img\s/i.test(trimmed)) continue;
+      if (/^(\s*<a\s|.*•.*<a\s)/i.test(trimmed)) continue;
+      if (trimmed.startsWith("---") || trimmed.startsWith("```")) continue;
       const headingMatch = trimmed.match(headingPattern);
       if (headingMatch) {
-        summary = headingMatch[2].trim();
-      } else if (!trimmed.startsWith("---") && !trimmed.startsWith("```")) {
-        if (!summary) summary = trimmed.slice(0, 120);
+        foundHeading = true;
+        continue;
       }
-      if (summary) break;
+      const stripped = trimmed.replace(/<[^>]+>/g, "").trim();
+      if (!stripped) continue;
+      if (stripped.length < 20 && !stripped.includes(".")) continue;
+      summary = stripped.slice(0, 200);
+      break;
+    }
+    if (!summary) {
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed === "") continue;
+        const headingMatch = trimmed.match(headingPattern);
+        if (headingMatch) {
+          summary = headingMatch[2].trim();
+          break;
+        }
+      }
     }
     const basename = filePath.split("/").pop()?.toLowerCase() || "";
     if (basename === "readme.md") summary = summary || "Project README";
@@ -4215,14 +4234,16 @@ function computeProjectMeta(modules, repoRoot, source) {
   ).map((m) => m.filePath);
   const rawName = source.repo.split("/").pop() || source.repo;
   let name;
+  let description;
+  let pkgData;
+  try {
+    const pkgPath = path3.join(repoRoot, "package.json");
+    pkgData = JSON.parse(readFileSync(pkgPath, "utf-8"));
+    description = pkgData?.description;
+  } catch {
+  }
   if (rawName === ".") {
-    try {
-      const pkgPath = path3.join(repoRoot, "package.json");
-      const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
-      name = pkg.name || path3.basename(repoRoot);
-    } catch {
-      name = path3.basename(repoRoot);
-    }
+    name = pkgData?.name || path3.basename(repoRoot);
   } else {
     name = rawName;
   }
@@ -4235,6 +4256,7 @@ function computeProjectMeta(modules, repoRoot, source) {
   }
   return {
     name,
+    description,
     readmeDescription,
     languages,
     entryPoints,

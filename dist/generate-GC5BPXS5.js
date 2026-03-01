@@ -1,9 +1,9 @@
 import {
   generateDocs
-} from "./chunk-NWL4H3AH.js";
+} from "./chunk-D22PLWCU.js";
 import {
   analyzeCodebase
-} from "./chunk-2EVPGTRU.js";
+} from "./chunk-YKWC67OC.js";
 import "./chunk-W5SRVZUR.js";
 import {
   saveProjectApiKey
@@ -17,7 +17,7 @@ import {
 import {
   resolveApiKey
 } from "./chunk-AOVQF4UT.js";
-import "./chunk-EBPJLC2J.js";
+import "./chunk-ECGUKQHA.js";
 import "./chunk-WZW77HOO.js";
 import "./chunk-D4RNNKFF.js";
 import "./chunk-KPWUZIKC.js";
@@ -52,7 +52,7 @@ async function generateCommand(options) {
       blank();
       log("info", "No configuration found \u2014 let's set up DocWalk.");
       blank();
-      const { initCommand } = await import("./init-JVKJRAYL.js");
+      const { initCommand } = await import("./init-WEZ34M7D.js");
       await initCommand({ _skipGenerate: true });
       clearConfigCache();
       try {
