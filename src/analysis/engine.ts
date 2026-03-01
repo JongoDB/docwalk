@@ -219,6 +219,8 @@ export async function analyzeCodebase(
       },
       previousCache: previousSummaryCache,
       onProgress: onAIProgress,
+      concurrency: analysis.concurrency,
+      delayMs: analysis.concurrency && analysis.concurrency <= 2 ? 2000 : 0,
     });
 
     finalModules = result.modules;

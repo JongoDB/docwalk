@@ -1,18 +1,23 @@
 # LiteLLM configuration for DocWalk's free AI tier
 #
-# Routes requests from the DocWalk CLI through a local model (Ollama).
+# Routes requests from the DocWalk CLI through Groq's free tier.
 # Exposed to the internet via Cloudflare tunnel at ai.docwalk.dev.
 #
+# Groq free tier limits (llama-4-scout-17b-16e-instruct):
+#   - 30 RPM, 1,000 RPD
+#   - 30,000 TPM
+#   - 500,000 TPD
+#
 # Usage:
-#   1. Install Ollama and pull a model: ollama pull llama3.2
+#   1. Set GROQ_API_KEY env var
 #   2. Start the stack: docker-compose up
 #   3. Configure Cloudflare tunnel to point ai.docwalk.dev → localhost:4000
 
 model_list:
   - model_name: docwalk-default
     litellm_params:
-      model: ollama/llama3.2
-      api_base: http://host.docker.internal:11434
+      model: groq/meta-llama/llama-4-scout-17b-16e-instruct
+      api_key: os.environ/GROQ_API_KEY
 
 general_settings:
   master_key: sk-docwalk-master  # override via LITELLM_MASTER_KEY env var
@@ -20,4 +25,4 @@ general_settings:
 
 litellm_settings:
   drop_params: true       # ignore unsupported params gracefully
-  request_timeout: 120    # generous timeout for local models
+  request_timeout: 30     # Groq is fast, no need for long timeouts

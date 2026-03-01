@@ -15,15 +15,16 @@ analysis:
   depth: full
   ai_summaries: true
   ai_provider:
-    name: local
-    model: granite3.3:2b
-    base_url: "http://localhost:11434/v1"
+    name: openai
+    model: meta-llama/llama-4-scout-17b-16e-instruct
+    api_key_env: GROQ_API_KEY
+    base_url: "https://api.groq.com/openai/v1"
   insights: true
   insights_ai: true
   dependency_graph: true
   changelog: false
   max_file_size: 500000
-  concurrency: 8
+  concurrency: 2
 
 deploy:
   provider: gh-pages

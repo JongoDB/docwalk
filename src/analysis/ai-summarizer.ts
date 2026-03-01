@@ -14,7 +14,14 @@
 import type { AnalysisConfig } from "../config/schema.js";
 import type { ModuleInfo, Symbol } from "./types.js";
 import type { AISummaryProvider, AIProvider } from "./providers/base.js";
-import { buildBatchSummaryPrompt, parseBatchSummaryResponse } from "./providers/base.js";
+import {
+  buildBatchSystemPrompt,
+  buildBatchSummaryPrompt,
+  parseBatchSummaryResponse,
+  buildMultiFileBatchPrompt,
+  parseMultiFileBatchResponse,
+} from "./providers/base.js";
+import type { MultiFileBatchEntry } from "./providers/base.js";
 import { createProvider as _createProvider } from "./providers/index.js";
 
 // Re-export provider types and factory
@@ -235,9 +242,98 @@ export async function summarizeModules(
 
   // Check if provider supports general generate() (needed for batch prompts)
   const canBatch = "generate" in provider && typeof (provider as AIProvider).generate === "function";
+
+  // Rate-limited providers skip symbol-level summaries to halve token usage.
+  // Local models have no rate limits; remote free tiers (concurrency ≤ 2) do.
   const isLocal = providerConfig.name === "local" || providerConfig.name === "ollama";
+  const isRateLimited = !isLocal && concurrency <= 2;
+
+  // Pre-build the system prompt once (Groq caches these — cached tokens are free)
+  const systemPrompt = buildBatchSystemPrompt();
+
+  // Number of files to pack into each API request.
+  // Rate-limited providers batch 3 files/request to reduce RPM usage.
+  const filesPerRequest = isRateLimited ? 3 : 1;
 
   let progressCount = 0;
+
+  // ── Multi-file batch path (rate-limited providers) ──────────────────────
+  // Packs N files into a single API call, reducing request count by N×.
+
+  async function processMultiFileBatch(batch: ModuleInfo[]): Promise<ModuleInfo[]> {
+    // Separate cached vs uncached modules
+    const results: ModuleInfo[] = [];
+    const uncached: ModuleInfo[] = [];
+
+    for (const mod of batch) {
+      const cachedSummary = cache.get(mod.contentHash);
+      if (cachedSummary) {
+        cached++;
+        results.push({ ...mod, aiSummary: cachedSummary });
+        onProgress?.(++progressCount, modules.length, `Cached ${mod.filePath}`);
+      } else {
+        uncached.push(mod);
+      }
+    }
+
+    if (uncached.length === 0) return results;
+
+    try {
+      await limiter.acquire();
+
+      // Read all file contents in parallel
+      const entries: MultiFileBatchEntry[] = await Promise.all(
+        uncached.map(async (mod) => ({
+          module: mod,
+          content: await readFile(mod.filePath),
+        }))
+      );
+
+      const prompt = buildMultiFileBatchPrompt(entries);
+      const filePaths = uncached.map((m) => m.filePath);
+
+      onProgress?.(progressCount + 1, modules.length, `Summarizing ${filePaths.length} files...`);
+
+      const response = await withRetry(
+        () => (provider as AIProvider).generate(prompt, {
+          maxTokens: 512,
+          temperature: 0.2,
+          systemPrompt,
+        })
+      );
+
+      const summaries = parseMultiFileBatchResponse(response, filePaths);
+
+      for (const mod of uncached) {
+        const summary = summaries[mod.filePath];
+        if (summary) {
+          cache.set(mod.contentHash, summary);
+          generated++;
+          results.push({ ...mod, aiSummary: summary });
+        } else {
+          failed++;
+          results.push(mod);
+        }
+        onProgress?.(++progressCount, modules.length, `Summarizing ${mod.filePath}`);
+      }
+
+      return results;
+    } catch (err) {
+      for (const mod of uncached) {
+        failed++;
+        results.push(mod);
+        onProgress?.(++progressCount, modules.length, `Summarizing ${mod.filePath}`);
+      }
+      if (!firstError) {
+        firstError = err instanceof Error ? err.message : String(err);
+      }
+      return results;
+    } finally {
+      await limiter.release();
+    }
+  }
+
+  // ── Single-file path (local/unrestricted providers) ─────────────────────
 
   async function processModule(mod: ModuleInfo): Promise<ModuleInfo> {
     onProgress?.(++progressCount, modules.length, `Summarizing ${mod.filePath}`);
@@ -266,20 +362,21 @@ export async function summarizeModules(
       return { ...mod, aiSummary: cachedModuleSummary, symbols: updatedSymbols };
     }
 
-    // Use batched call: one API request for module + all uncached symbols
     try {
       await limiter.acquire();
       const content = await readFile(mod.filePath);
 
       if (canBatch && uncachedSymbols.length > 0) {
-        // Batched: module + symbols in one call
         const batchPrompt = buildBatchSummaryPrompt(mod, content, uncachedSymbols);
         const response = await withRetry(
-          () => (provider as AIProvider).generate(batchPrompt, { maxTokens: 1024, temperature: 0.2 })
+          () => (provider as AIProvider).generate(batchPrompt, {
+            maxTokens: 256,
+            temperature: 0.2,
+            systemPrompt,
+          })
         );
         const result = parseBatchSummaryResponse(response, uncachedSymbols.map(s => s.name));
 
-        // Apply module summary
         const moduleSummary = cachedModuleSummary || result.moduleSummary;
         if (!cachedModuleSummary && result.moduleSummary) {
           cache.set(mod.contentHash, result.moduleSummary);
@@ -288,7 +385,6 @@ export async function summarizeModules(
           cached++;
         }
 
-        // Apply symbol summaries
         for (const sym of uncachedSymbols) {
           const summary = result.symbolSummaries[sym.name];
           if (summary) {
@@ -300,12 +396,24 @@ export async function summarizeModules(
 
         return { ...mod, aiSummary: moduleSummary, symbols: updatedSymbols };
       } else {
-        // Non-batched fallback: just the module summary
         let moduleSummary = cachedModuleSummary;
         if (!moduleSummary) {
-          moduleSummary = await withRetry(
-            () => provider!.summarizeModule(mod, content)
-          );
+          if (canBatch) {
+            const batchPrompt = buildBatchSummaryPrompt(mod, content, []);
+            const response = await withRetry(
+              () => (provider as AIProvider).generate(batchPrompt, {
+                maxTokens: 256,
+                temperature: 0.2,
+                systemPrompt,
+              })
+            );
+            const result = parseBatchSummaryResponse(response, []);
+            moduleSummary = result.moduleSummary;
+          } else {
+            moduleSummary = await withRetry(
+              () => provider!.summarizeModule(mod, content)
+            );
+          }
           cache.set(mod.contentHash, moduleSummary);
           generated++;
         } else {
@@ -318,7 +426,6 @@ export async function summarizeModules(
       if (!firstError) {
         firstError = err instanceof Error ? err.message : String(err);
       }
-      // Still return cached module summary if available
       return {
         ...mod,
         aiSummary: cachedModuleSummary,
@@ -329,7 +436,26 @@ export async function summarizeModules(
     }
   }
 
-  const updatedModules = await Promise.all(modules.map(processModule));
+  // ── Dispatch ────────────────────────────────────────────────────────────
+
+  let updatedModules: ModuleInfo[];
+
+  if (isRateLimited && canBatch && filesPerRequest > 1) {
+    // Multi-file batching: group modules into chunks, process sequentially
+    const chunks: ModuleInfo[][] = [];
+    for (let i = 0; i < modules.length; i += filesPerRequest) {
+      chunks.push(modules.slice(i, i + filesPerRequest));
+    }
+    const allResults: ModuleInfo[] = [];
+    for (const chunk of chunks) {
+      const batchResults = await processMultiFileBatch(chunk);
+      allResults.push(...batchResults);
+    }
+    updatedModules = allResults;
+  } else {
+    // Single-file: parallel with rate limiter
+    updatedModules = await Promise.all(modules.map(processModule));
+  }
 
   // Log failure summary if many calls failed
   if (failed > 0 && onProgress) {
