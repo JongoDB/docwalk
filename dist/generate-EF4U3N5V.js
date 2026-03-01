@@ -1,23 +1,25 @@
 import {
   generateDocs
-} from "./chunk-TYU3C4NS.js";
+} from "./chunk-T77BLHBI.js";
 import {
   analyzeCodebase
 } from "./chunk-NC7KAWM7.js";
 import "./chunk-W5SRVZUR.js";
 import {
-  ConfigNotFoundError,
-  loadConfig,
-  loadConfigFile
-} from "./chunk-DTNMTRIJ.js";
-import {
   saveProjectApiKey
 } from "./chunk-LPLYQTRT.js";
 import {
+  ConfigNotFoundError,
+  clearConfigCache,
+  loadConfig,
+  loadConfigFile
+} from "./chunk-DI75Y54W.js";
+import {
   resolveApiKey
 } from "./chunk-NOZSCKAF.js";
-import "./chunk-GCUJBNZ3.js";
+import "./chunk-B3WUVWF6.js";
 import "./chunk-D64ADTHM.js";
+import "./chunk-GEYCHOKI.js";
 import "./chunk-KPWUZIKC.js";
 import {
   resolveRepoRoot
@@ -28,7 +30,6 @@ import {
   log,
   setVerbose
 } from "./chunk-YQ34VMHP.js";
-import "./chunk-GEYCHOKI.js";
 
 // src/cli/commands/generate.ts
 import chalk from "chalk";
@@ -51,8 +52,9 @@ async function generateCommand(options) {
       blank();
       log("info", "No configuration found \u2014 let's set up DocWalk.");
       blank();
-      const { initCommand } = await import("./init-WKU2SNQT.js");
-      await initCommand({});
+      const { initCommand } = await import("./init-RIEPHJA2.js");
+      await initCommand({ _skipGenerate: true });
+      clearConfigCache();
       try {
         const result = await loadConfig();
         config = result.config;

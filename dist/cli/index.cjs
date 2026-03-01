@@ -979,6 +979,18 @@ var init_schema = __esm({
 });
 
 // src/config/loader.ts
+var loader_exports = {};
+__export(loader_exports, {
+  ConfigNotFoundError: () => ConfigNotFoundError,
+  ConfigValidationError: () => ConfigValidationError,
+  clearConfigCache: () => clearConfigCache,
+  loadConfig: () => loadConfig,
+  loadConfigFile: () => loadConfigFile
+});
+function clearConfigCache() {
+  explorer.clearSearchCache();
+  explorer.clearLoadCache();
+}
 async function loadConfig(searchFrom) {
   const result = await explorer.search(searchFrom);
   if (!result || result.isEmpty) {
@@ -12222,7 +12234,8 @@ async function generateCommand(options) {
       log("info", "No configuration found \u2014 let's set up DocWalk.");
       blank();
       const { initCommand: initCommand2 } = await Promise.resolve().then(() => (init_init(), init_exports));
-      await initCommand2({});
+      await initCommand2({ _skipGenerate: true });
+      clearConfigCache();
       try {
         const result = await loadConfig();
         config = result.config;
@@ -12596,6 +12609,9 @@ async function quickStartTrack(options) {
     }
   };
   await writeConfigAndScaffold(config);
+  if (options._skipGenerate) {
+    return;
+  }
   blank();
   const { generateNow } = await import_inquirer3.default.prompt([
     {
@@ -12607,6 +12623,8 @@ async function quickStartTrack(options) {
   ]);
   if (generateNow) {
     blank();
+    const { clearConfigCache: clearConfigCache2 } = await Promise.resolve().then(() => (init_loader(), loader_exports));
+    clearConfigCache2();
     const { generateCommand: generateCommand2 } = await Promise.resolve().then(() => (init_generate(), generate_exports));
     await generateCommand2({ output: "docwalk-output" });
   } else {

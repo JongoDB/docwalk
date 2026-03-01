@@ -9,7 +9,7 @@ import {
   loadPremiumPresets,
   registerPresets,
   resolvePreset
-} from "./chunk-TYU3C4NS.js";
+} from "./chunk-T77BLHBI.js";
 import {
   runSync
 } from "./chunk-MBWIQ4KR.js";
@@ -20,23 +20,24 @@ import {
   getRegisteredLanguages,
   registerParser
 } from "./chunk-NC7KAWM7.js";
-import "./chunk-W5SRVZUR.js";
 import {
   getAvailableProviders,
   getProvider,
   registerProvider
 } from "./chunk-EQALQVQO.js";
 import "./chunk-RI67YQXQ.js";
+import "./chunk-W5SRVZUR.js";
 import {
   ConfigNotFoundError,
   ConfigValidationError,
   DocWalkConfigSchema,
   loadConfig,
   loadConfigFile
-} from "./chunk-DTNMTRIJ.js";
+} from "./chunk-DI75Y54W.js";
 import "./chunk-NOZSCKAF.js";
-import "./chunk-GCUJBNZ3.js";
+import "./chunk-B3WUVWF6.js";
 import "./chunk-D64ADTHM.js";
+import "./chunk-GEYCHOKI.js";
 import {
   detectLanguage,
   getLanguageDisplayName,
@@ -46,7 +47,6 @@ import {
   computeFileHash
 } from "./chunk-BAPW5PUT.js";
 import "./chunk-YQ34VMHP.js";
-import "./chunk-GEYCHOKI.js";
 export {
   ConfigNotFoundError,
   ConfigValidationError,

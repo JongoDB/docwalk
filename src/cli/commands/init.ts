@@ -22,6 +22,8 @@ interface InitOptions {
   theme?: string;
   layout?: string;
   interactive?: boolean;
+  /** When true, skip the "Generate now?" prompt (called from generate's auto-init). */
+  _skipGenerate?: boolean;
 }
 
 /** Default file include patterns shared by both tracks. */
@@ -198,6 +200,11 @@ async function quickStartTrack(options: InitOptions): Promise<void> {
 
   await writeConfigAndScaffold(config);
 
+  // If called from generate's auto-init, skip the prompt — generate will continue itself
+  if (options._skipGenerate) {
+    return;
+  }
+
   // Offer to generate immediately
   blank();
   const { generateNow } = await inquirer.prompt([
@@ -211,6 +218,8 @@ async function quickStartTrack(options: InitOptions): Promise<void> {
 
   if (generateNow) {
     blank();
+    const { clearConfigCache } = await import("../../config/loader.js");
+    clearConfigCache();
     const { generateCommand } = await import("./generate.js");
     await generateCommand({ output: "docwalk-output" });
   } else {

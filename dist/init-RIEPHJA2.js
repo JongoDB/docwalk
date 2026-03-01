@@ -378,6 +378,9 @@ async function quickStartTrack(options) {
     }
   };
   await writeConfigAndScaffold(config);
+  if (options._skipGenerate) {
+    return;
+  }
   blank();
   const { generateNow } = await inquirer2.prompt([
     {
@@ -389,7 +392,9 @@ async function quickStartTrack(options) {
   ]);
   if (generateNow) {
     blank();
-    const { generateCommand } = await import("./generate-I2GQ23RB.js");
+    const { clearConfigCache } = await import("./loader-5BOX56KF.js");
+    clearConfigCache();
+    const { generateCommand } = await import("./generate-EF4U3N5V.js");
     await generateCommand({ output: "docwalk-output" });
   } else {
     blank();

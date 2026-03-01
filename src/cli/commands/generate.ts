@@ -12,7 +12,7 @@ import path from "path";
 import ora from "ora";
 import inquirer from "inquirer";
 import { readFile as fsReadFile } from "fs/promises";
-import { loadConfig, loadConfigFile, ConfigNotFoundError } from "../../config/loader.js";
+import { loadConfig, loadConfigFile, clearConfigCache, ConfigNotFoundError } from "../../config/loader.js";
 import { analyzeCodebase } from "../../analysis/engine.js";
 import { generateDocs } from "../../generators/mkdocs.js";
 import { resolveApiKey } from "../../analysis/providers/index.js";
@@ -56,9 +56,10 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
       blank();
 
       const { initCommand } = await import("./init.js");
-      await initCommand({});
+      await initCommand({ _skipGenerate: true });
 
-      // Reload config after init
+      // Clear cosmiconfig cache and reload the freshly written config
+      clearConfigCache();
       try {
         const result = await loadConfig();
         config = result.config;

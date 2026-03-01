@@ -1,3 +1,6 @@
+// src/config/loader.ts
+import { cosmiconfig } from "cosmiconfig";
+
 // src/config/schema.ts
 import { z } from "zod";
 var SourceSchema = z.object({
@@ -306,7 +309,6 @@ var DocWalkConfigSchema = z.object({
 });
 
 // src/config/loader.ts
-import { cosmiconfig } from "cosmiconfig";
 import chalk from "chalk";
 var MODULE_NAME = "docwalk";
 var explorer = cosmiconfig(MODULE_NAME, {
@@ -322,6 +324,10 @@ var explorer = cosmiconfig(MODULE_NAME, {
     ".docwalkrc.json"
   ]
 });
+function clearConfigCache() {
+  explorer.clearSearchCache();
+  explorer.clearLoadCache();
+}
 async function loadConfig(searchFrom) {
   const result = await explorer.search(searchFrom);
   if (!result || result.isEmpty) {
@@ -383,6 +389,7 @@ var ConfigValidationError = class extends Error {
 
 export {
   DocWalkConfigSchema,
+  clearConfigCache,
   loadConfig,
   loadConfigFile,
   ConfigNotFoundError,

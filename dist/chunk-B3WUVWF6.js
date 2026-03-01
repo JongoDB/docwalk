@@ -6,12 +6,6 @@ import {
   renderCitations
 } from "./chunk-D64ADTHM.js";
 import {
-  getLanguageDisplayName
-} from "./chunk-KPWUZIKC.js";
-import {
-  resolveRepoRoot
-} from "./chunk-BAPW5PUT.js";
-import {
   detectPackageManager,
   generateDirectoryTree,
   getAlternativeInstallCommands,
@@ -24,6 +18,12 @@ import {
   resolveProjectName,
   sanitizeMermaidId
 } from "./chunk-GEYCHOKI.js";
+import {
+  getLanguageDisplayName
+} from "./chunk-KPWUZIKC.js";
+import {
+  resolveRepoRoot
+} from "./chunk-BAPW5PUT.js";
 
 // src/generators/pages/overview.ts
 import path from "path";

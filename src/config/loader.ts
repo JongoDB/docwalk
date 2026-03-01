@@ -25,6 +25,12 @@ const explorer = cosmiconfig(MODULE_NAME, {
   ],
 });
 
+/** Clear cosmiconfig's search/load caches (needed after writing a new config). */
+export function clearConfigCache(): void {
+  explorer.clearSearchCache();
+  explorer.clearLoadCache();
+}
+
 export interface LoadConfigResult {
   config: DocWalkConfig;
   filepath: string;
