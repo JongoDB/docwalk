@@ -2142,7 +2142,7 @@
         </a>
       </div>
       <span class="try-note" id="try-note">
-        DocWalk will clone the repo, analyze the codebase with AI, and build a full documentation site. You'll see real-time progress below.
+        DocWalk will clone the repo, analyze the codebase with AI, and build a full documentation site. You'll see real-time progress above.
       </span>
     </div>
   </div>
@@ -2790,6 +2790,33 @@
         'Output result URL': 'Finishing up...',
       };
 
+      // Sub-phases for "Generate documentation" (the longest step)
+      // Cycle through these while stuck on that step to show activity
+      const genSubPhases = [
+        'Scanning source files...',
+        'Parsing AST & extracting symbols...',
+        'Writing AI summaries for each module...',
+        'Generating narrative pages (overview, architecture)...',
+        'Generating API reference pages...',
+        'Generating configuration & types pages...',
+        'Generating end-user documentation...',
+        'Generating diagrams & insights...',
+        'Building navigation tree...',
+      ];
+      let genSubIndex = 0;
+      let lastStepName = '';
+      let stuckOnStepCount = 0;
+
+      function formatEta(elapsedSec, pct) {
+        if (pct <= 5 || pct >= 95) return '';
+        const totalEstimate = elapsedSec / (pct / 100);
+        const remaining = Math.max(0, Math.round(totalEstimate - elapsedSec));
+        if (remaining < 10) return ' — almost done';
+        if (remaining < 60) return ` — ~${remaining}s remaining`;
+        const mins = Math.ceil(remaining / 60);
+        return ` — ~${mins} min remaining`;
+      }
+
       function showResult() {
         progressBar.style.width = '100%';
         progressEl.style.display = 'none';
@@ -2800,6 +2827,7 @@
 
       const pollInterval = setInterval(async () => {
         attempts++;
+        const elapsedSec = Math.round((Date.now() - dispatchedAt) / 1000);
 
         // If build already confirmed complete, just wait for gh-pages
         if (buildConfirmedComplete) {
@@ -2820,7 +2848,31 @@
             if (status.steps_total > 0) {
               const pct = Math.round((status.steps_completed / status.steps_total) * 100);
               progressBar.style.width = Math.min(pct, 95) + '%';
-              progressLabel.textContent = stepLabels[status.current_step] || status.current_step || 'Working...';
+
+              const currentStep = status.current_step;
+
+              // Track if we're stuck on the same step (show sub-phases)
+              if (currentStep === lastStepName) {
+                stuckOnStepCount++;
+              } else {
+                stuckOnStepCount = 0;
+                genSubIndex = 0;
+                lastStepName = currentStep;
+              }
+
+              // For "Generate documentation" — cycle through sub-phases
+              if (currentStep === 'Generate documentation' && stuckOnStepCount > 2) {
+                genSubIndex = Math.min(
+                  Math.floor(stuckOnStepCount / 3),
+                  genSubPhases.length - 1
+                );
+                const eta = formatEta(elapsedSec, pct);
+                progressLabel.textContent = genSubPhases[genSubIndex] + eta;
+              } else {
+                const label = stepLabels[currentStep] || currentStep || 'Working...';
+                const eta = formatEta(elapsedSec, pct);
+                progressLabel.textContent = label + eta;
+              }
             } else if (status.status === 'queued') {
               progressBar.style.width = '15%';
               progressLabel.textContent = 'Queued — waiting for a runner...';
@@ -2853,9 +2905,8 @@
         }
 
         // Fallback: time-based progress when status endpoint is down
-        const elapsed = attempts * POLL_MS / 1000;
-        progressBar.style.width = Math.min(10 + elapsed * 0.3, 40) + '%';
-        if (elapsed < 20) progressLabel.textContent = 'Starting build...';
+        progressBar.style.width = Math.min(10 + elapsedSec * 0.3, 40) + '%';
+        if (elapsedSec < 20) progressLabel.textContent = 'Starting build...';
         else progressLabel.textContent = 'Waiting for build to start...';
 
         if (attempts >= maxAttempts) {
