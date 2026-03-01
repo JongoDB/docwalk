@@ -115,6 +115,34 @@ export class SummaryCache {
   }
 }
 
+// ─── Retry Helper ────────────────────────────────────────────────────────────
+
+/** Retry an async function with exponential backoff on rate-limit errors. */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+  baseDelayMs = 2000
+): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      const message = err instanceof Error ? err.message : String(err);
+      const isRateLimit = message.includes("429")
+        || message.toLowerCase().includes("rate")
+        || message.toLowerCase().includes("quota")
+        || message.toLowerCase().includes("resource_exhausted");
+      if (!isRateLimit || attempt === maxRetries) throw err;
+      // Exponential backoff: 2s, 4s, 8s
+      const delay = baseDelayMs * Math.pow(2, attempt);
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastError;
+}
+
 // ─── Orchestrator ────────────────────────────────────────────────────────────
 
 /** Options for the AI summarization pass. */
@@ -177,8 +205,8 @@ export async function summarizeModules(
     readFile,
     previousCache,
     onProgress,
-    concurrency = 10,
-    delayMs = 0,
+    concurrency = 3,
+    delayMs = 200,
   } = options;
 
   // Create provider — gracefully bail if no API key
@@ -198,6 +226,7 @@ export async function summarizeModules(
   let generated = 0;
   let cached = 0;
   let failed = 0;
+  let firstError: string | undefined;
 
   // Determine if we should skip symbol-level summaries (local/small models)
   const isLocal = providerConfig.name === "local" || providerConfig.name === "ollama";
@@ -219,11 +248,16 @@ export async function summarizeModules(
       try {
         await limiter.acquire();
         const content = await readFile(mod.filePath);
-        moduleSummary = await provider!.summarizeModule(mod, content);
+        moduleSummary = await withRetry(
+          () => provider!.summarizeModule(mod, content)
+        );
         cache.set(mod.contentHash, moduleSummary);
         generated++;
-      } catch {
+      } catch (err) {
         failed++;
+        if (!firstError) {
+          firstError = err instanceof Error ? err.message : String(err);
+        }
       } finally {
         await limiter.release();
       }
@@ -248,12 +282,17 @@ export async function summarizeModules(
           try {
             await limiter.acquire();
             const content = await readFile(mod.filePath);
-            const summary = await provider!.summarizeSymbol(sym, content, mod.filePath);
+            const summary = await withRetry(
+              () => provider!.summarizeSymbol(sym, content, mod.filePath)
+            );
             sym.aiSummary = summary;
             cache.set(symbolCacheKey, summary);
             generated++;
-          } catch {
+          } catch (err) {
             failed++;
+            if (!firstError) {
+              firstError = err instanceof Error ? err.message : String(err);
+            }
           } finally {
             await limiter.release();
           }
@@ -269,6 +308,15 @@ export async function summarizeModules(
   }
 
   const updatedModules = await Promise.all(modules.map(processModule));
+
+  // Log failure summary if many calls failed
+  if (failed > 0 && onProgress) {
+    const truncatedError = firstError && firstError.length > 120
+      ? firstError.slice(0, 120) + "..."
+      : firstError;
+    onProgress(modules.length, modules.length,
+      `AI summary failures: ${failed} calls failed. First error: ${truncatedError || "unknown"}`);
+  }
 
   return {
     modules: updatedModules,
