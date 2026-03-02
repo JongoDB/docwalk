@@ -226,6 +226,92 @@ ${snippet}
 
 Write only the summary \u2014 no preamble, no code blocks.`;
 }
+function buildBatchSystemPrompt() {
+  return `You summarize source code files for a developer documentation site. Respond ONLY with valid JSON \u2014 no markdown fences, no explanation.
+
+Module summaries must be 3-4 sentences: state the module's architectural role, name its key exports, and explain how it connects to the broader system.
+
+Symbol summaries must be 1 sentence stating what the symbol does and when a developer would use it.
+
+ANTI-PATTERNS \u2014 never write:
+- "This module provides..." or "This file contains..."
+- "A utility for..." or "Helper functions for..."
+- Generic descriptions that could apply to any module
+
+INSTEAD \u2014 always:
+- State the architectural role: "Orchestrates the X pipeline by..."
+- Name actual exports: "Exposes createProvider() and resolveApiKey() for..."
+- Reference connected modules: "Consumed by the CLI layer to..."`;
+}
+function buildBatchSummaryPrompt(module2, fileContent, symbols) {
+  const truncated = fileContent.split("\n").slice(0, 120).join("\n");
+  const symbolList = symbols.map((s) => {
+    const params = s.parameters?.map((p) => p.name).join(", ") || "";
+    const ret = s.returns?.type ? ` \u2192 ${s.returns.type}` : "";
+    return `- ${s.kind} ${s.name}(${params})${ret}`;
+  }).join("\n");
+  const importList = module2.imports.map((imp) => imp.source).slice(0, 15).join(", ");
+  return `File: ${module2.filePath} (${module2.language}, ${module2.lineCount} lines)
+${importList ? `Imports: ${importList}` : ""}
+
+Source:
+\`\`\`
+${truncated}
+\`\`\`
+${symbols.length > 0 ? `
+Exported symbols:
+${symbolList}
+` : ""}
+Respond with this exact JSON structure:
+{"module":"3-4 sentence summary stating purpose, key exports, and architectural role"${symbols.map((s) => `,"${s.name}":"1 sentence summary"`).join("")}}`;
+}
+function parseBatchSummaryResponse(response, symbolNames) {
+  let cleaned = response.trim();
+  cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?\s*```\s*$/i, "");
+  try {
+    const parsed = JSON.parse(cleaned);
+    const moduleSummary = parsed.module || "";
+    const symbolSummaries = {};
+    for (const name of symbolNames) {
+      if (parsed[name]) {
+        symbolSummaries[name] = parsed[name];
+      }
+    }
+    return { moduleSummary, symbolSummaries };
+  } catch {
+    return { moduleSummary: cleaned, symbolSummaries: {} };
+  }
+}
+function buildMultiFileBatchPrompt(entries) {
+  const fileSections = entries.map((e) => {
+    const truncated = e.content.split("\n").slice(0, 50).join("\n");
+    return `## ${e.module.filePath} (${e.module.language}, ${e.module.lineCount} lines)
+\`\`\`
+${truncated}
+\`\`\``;
+  }).join("\n\n");
+  const keys = entries.map((e) => `"${e.module.filePath}":"3-4 sentence summary stating purpose, key exports, and architectural role"`).join(",");
+  return `${fileSections}
+
+Respond with this exact JSON structure:
+{${keys}}`;
+}
+function parseMultiFileBatchResponse(response, filePaths) {
+  let cleaned = response.trim();
+  cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?\s*```\s*$/i, "");
+  try {
+    const parsed = JSON.parse(cleaned);
+    const result = {};
+    for (const fp of filePaths) {
+      if (parsed[fp]) {
+        result[fp] = parsed[fp];
+      }
+    }
+    return result;
+  } catch {
+    return {};
+  }
+}
 var init_base = __esm({
   "src/analysis/providers/base.ts"() {
     "use strict";
@@ -301,6 +387,13 @@ var init_openai = __esm({
         this.apiKey = apiKey;
         this.model = model || "gpt-4o-mini";
         this.baseURL = baseURL;
+      }
+      /** Swap the active model (used for model rotation on rate-limited providers). */
+      setModel(model) {
+        this.model = model;
+      }
+      getModel() {
+        return this.model;
       }
       async getClient() {
         if (!this._client) {
@@ -422,7 +515,7 @@ var init_docwalk_proxy = __esm({
     init_base();
     DEFAULT_BASE_URL = "https://docwalk-ai-proxy.jonathanrannabargar.workers.dev";
     DocWalkProxyProvider = class {
-      name = "DocWalk Proxy (Gemini Flash)";
+      name = "DocWalk AI";
       baseURL;
       constructor(baseURL) {
         this.baseURL = (baseURL || DEFAULT_BASE_URL).replace(/\/+$/, "");
@@ -439,14 +532,14 @@ var init_docwalk_proxy = __esm({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             prompt,
-            maxTokens: options?.maxTokens,
-            temperature: options?.temperature,
-            systemPrompt: options?.systemPrompt
+            systemPrompt: options?.systemPrompt,
+            maxTokens: options?.maxTokens ?? 256,
+            temperature: options?.temperature ?? 0.7
           })
         });
         if (!res.ok) {
           const body = await res.text();
-          throw new Error(`DocWalk proxy error (${res.status}): ${body}`);
+          throw new Error(`DocWalk AI error (${res.status}): ${body}`);
         }
         const data = await res.json();
         return data.text.trim();
@@ -552,6 +645,54 @@ __export(ai_summarizer_exports, {
   createProvider: () => createProvider,
   summarizeModules: () => summarizeModules
 });
+async function withRetry(fn, maxRetries = 3, baseDelayMs = 3e3, onRateLimit) {
+  let lastError;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      const message = err instanceof Error ? err.message : String(err);
+      const isRateLimit = message.includes("429") || message.toLowerCase().includes("rate") || message.toLowerCase().includes("quota") || message.toLowerCase().includes("resource_exhausted");
+      if (!isRateLimit || attempt === maxRetries) throw err;
+      onRateLimit?.();
+      const delay = onRateLimit ? 500 : baseDelayMs * Math.pow(2, attempt);
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastError;
+}
+function scoreModuleForDemo(mod) {
+  let score = 0;
+  const exported = mod.symbols.filter((s) => s.exported);
+  const classes = exported.filter((s) => s.kind === "class");
+  const interfaces = exported.filter((s) => s.kind === "interface");
+  const functions = exported.filter((s) => s.kind === "function");
+  const types = exported.filter((s) => s.kind === "type" || s.kind === "enum");
+  score += classes.length * 15;
+  score += interfaces.length * 12;
+  score += functions.length * 5;
+  score += types.length * 3;
+  score += Math.min(exported.length, 20) * 2;
+  const documented = exported.filter((s) => s.docs?.summary);
+  score += documented.length * 3;
+  const name = mod.filePath.toLowerCase();
+  if (/index\.[^/]+$/.test(name)) score += 8;
+  if (/main\.[^/]+$/.test(name)) score += 10;
+  if (/app\.[^/]+$/.test(name)) score += 10;
+  if (/server\.[^/]+$/.test(name)) score += 8;
+  if (/config|schema/.test(name)) score += 6;
+  if (/router|routes/.test(name)) score += 6;
+  if (/model|entity/.test(name)) score += 6;
+  if (mod.lineCount >= 50 && mod.lineCount <= 500) score += 5;
+  if (mod.lineCount < 10) score -= 10;
+  if (/\.(test|spec|mock)\.[^/]+$/.test(name)) score -= 20;
+  if (/__(tests|mocks|fixtures)__/.test(name)) score -= 20;
+  if (/\.d\.ts$/.test(name)) score -= 10;
+  if (/generated|dist\//.test(name)) score -= 15;
+  score += Math.min(mod.imports.length, 10);
+  return score;
+}
 async function summarizeModules(options) {
   const {
     providerConfig,
@@ -560,7 +701,8 @@ async function summarizeModules(options) {
     previousCache,
     onProgress,
     concurrency = 10,
-    delayMs = 0
+    delayMs = 0,
+    maxModules
   } = options;
   const provider = createProvider(providerConfig);
   if (!provider) {
@@ -573,66 +715,279 @@ async function summarizeModules(options) {
     };
   }
   const cache = new SummaryCache(previousCache);
-  const limiter = new RateLimiter(concurrency, delayMs);
   let generated = 0;
   let cached = 0;
   let failed = 0;
+  let firstError;
+  const canBatch = "generate" in provider && typeof provider.generate === "function";
   const isLocal = providerConfig.name === "local" || providerConfig.name === "ollama";
+  const isRateLimited = !isLocal && concurrency <= 4;
+  const systemPrompt = buildBatchSystemPrompt();
+  const filesPerRequest = isRateLimited ? 4 : 1;
+  const isGroq = providerConfig.base_url?.includes("groq.com") ?? false;
+  const poolApiKey = providerConfig.api_key_env ? process.env[providerConfig.api_key_env] : void 0;
+  const pool = isGroq && poolApiKey && providerConfig.base_url ? new ProviderPool(poolApiKey, providerConfig.base_url, GROQ_MODELS) : void 0;
+  const effectiveConcurrency = pool ? pool.size : concurrency;
+  const limiter = new RateLimiter(effectiveConcurrency, pool ? 0 : delayMs);
+  let modulesToSummarize = modules;
+  let skippedModules = [];
+  if (maxModules && modules.length > maxModules) {
+    const scored = modules.map((mod) => ({ mod, score: scoreModuleForDemo(mod) }));
+    scored.sort((a, b) => b.score - a.score);
+    modulesToSummarize = scored.slice(0, maxModules).map((s) => s.mod);
+    skippedModules = scored.slice(maxModules).map((s) => s.mod);
+  }
   let progressCount = 0;
-  async function processModule(mod) {
-    onProgress?.(++progressCount, modules.length, `Summarizing ${mod.filePath}`);
-    const cachedModuleSummary = cache.get(mod.contentHash);
-    let moduleSummary;
-    if (cachedModuleSummary) {
-      moduleSummary = cachedModuleSummary;
-      cached++;
-    } else {
-      try {
-        await limiter.acquire();
-        const content = await readFile5(mod.filePath);
-        moduleSummary = await provider.summarizeModule(mod, content);
-        cache.set(mod.contentHash, moduleSummary);
-        generated++;
-      } catch {
-        failed++;
-      } finally {
-        await limiter.release();
+  async function processMultiFileBatch(batch, batchProvider) {
+    const results = [];
+    const uncached = [];
+    for (const mod of batch) {
+      const cachedSummary = cache.get(mod.contentHash);
+      if (cachedSummary) {
+        cached++;
+        results.push({ ...mod, aiSummary: cachedSummary });
+        onProgress?.(++progressCount, modules.length, `Cached ${mod.filePath}`);
+      } else {
+        uncached.push(mod);
       }
     }
-    const updatedSymbols = [...mod.symbols];
-    if (!isLocal) {
-      const exportedSymbols = updatedSymbols.filter(
-        (s) => s.exported && (s.kind === "function" || s.kind === "class" || s.kind === "interface")
+    if (uncached.length === 0) return results;
+    try {
+      await limiter.acquire();
+      const entries = await Promise.all(
+        uncached.map(async (mod) => ({
+          module: mod,
+          content: await readFile5(mod.filePath)
+        }))
       );
-      await Promise.all(exportedSymbols.map(async (sym) => {
-        const symbolCacheKey = `${mod.contentHash}:${sym.id}`;
-        const cachedSymSummary = cache.get(symbolCacheKey);
-        if (cachedSymSummary) {
-          sym.aiSummary = cachedSymSummary;
-          cached++;
+      const prompt = buildMultiFileBatchPrompt(entries);
+      const filePaths = uncached.map((m) => m.filePath);
+      onProgress?.(progressCount + 1, modules.length, `Summarizing ${filePaths.length} files...`);
+      const onRateLimit = pool ? () => {
+        if (batchProvider instanceof OpenAIProvider) {
+          batchProvider.setModel(pool.nextAfter(batchProvider).getModel());
+        }
+      } : void 0;
+      const response = await withRetry(
+        () => batchProvider.generate(prompt, {
+          maxTokens: 512,
+          temperature: 0.2,
+          systemPrompt
+        }),
+        3,
+        3e3,
+        onRateLimit
+      );
+      const summaries = parseMultiFileBatchResponse(response, filePaths);
+      for (const mod of uncached) {
+        const summary = summaries[mod.filePath];
+        if (summary) {
+          cache.set(mod.contentHash, summary);
+          generated++;
+          results.push({ ...mod, aiSummary: summary });
         } else {
-          try {
-            await limiter.acquire();
-            const content = await readFile5(mod.filePath);
-            const summary = await provider.summarizeSymbol(sym, content, mod.filePath);
+          failed++;
+          results.push(mod);
+        }
+        onProgress?.(++progressCount, modules.length, `Summarizing ${mod.filePath}`);
+      }
+      return results;
+    } catch (err) {
+      for (const mod of uncached) {
+        failed++;
+        results.push(mod);
+        onProgress?.(++progressCount, modules.length, `Summarizing ${mod.filePath}`);
+      }
+      if (!firstError) {
+        firstError = err instanceof Error ? err.message : String(err);
+      }
+      return results;
+    } finally {
+      await limiter.release();
+    }
+  }
+  async function processModule(mod) {
+    onProgress?.(++progressCount, modules.length, `Summarizing ${mod.filePath}`);
+    const updatedSymbols = [...mod.symbols];
+    const exportedSymbols = isLocal ? [] : updatedSymbols.filter(
+      (s) => s.exported && (s.kind === "function" || s.kind === "class" || s.kind === "interface")
+    );
+    const cachedModuleSummary = cache.get(mod.contentHash);
+    const uncachedSymbols = [];
+    for (const sym of exportedSymbols) {
+      const symbolCacheKey = `${mod.contentHash}:${sym.id}`;
+      const cachedSym = cache.get(symbolCacheKey);
+      if (cachedSym) {
+        sym.aiSummary = cachedSym;
+        cached++;
+      } else {
+        uncachedSymbols.push(sym);
+      }
+    }
+    if (cachedModuleSummary && uncachedSymbols.length === 0) {
+      cached++;
+      return { ...mod, aiSummary: cachedModuleSummary, symbols: updatedSymbols };
+    }
+    try {
+      await limiter.acquire();
+      const content = await readFile5(mod.filePath);
+      if (canBatch && uncachedSymbols.length > 0) {
+        const batchPrompt = buildBatchSummaryPrompt(mod, content, uncachedSymbols);
+        const response = await withRetry(
+          () => provider.generate(batchPrompt, {
+            maxTokens: 256,
+            temperature: 0.2,
+            systemPrompt
+          })
+        );
+        const result = parseBatchSummaryResponse(response, uncachedSymbols.map((s) => s.name));
+        const moduleSummary = cachedModuleSummary || result.moduleSummary;
+        if (!cachedModuleSummary && result.moduleSummary) {
+          cache.set(mod.contentHash, result.moduleSummary);
+          generated++;
+        } else if (cachedModuleSummary) {
+          cached++;
+        }
+        for (const sym of uncachedSymbols) {
+          const summary = result.symbolSummaries[sym.name];
+          if (summary) {
             sym.aiSummary = summary;
-            cache.set(symbolCacheKey, summary);
+            cache.set(`${mod.contentHash}:${sym.id}`, summary);
             generated++;
-          } catch {
-            failed++;
-          } finally {
-            await limiter.release();
           }
         }
-      }));
+        return { ...mod, aiSummary: moduleSummary, symbols: updatedSymbols };
+      } else {
+        let moduleSummary = cachedModuleSummary;
+        if (!moduleSummary) {
+          if (canBatch) {
+            const batchPrompt = buildBatchSummaryPrompt(mod, content, []);
+            const response = await withRetry(
+              () => provider.generate(batchPrompt, {
+                maxTokens: 256,
+                temperature: 0.2,
+                systemPrompt
+              })
+            );
+            const result = parseBatchSummaryResponse(response, []);
+            moduleSummary = result.moduleSummary;
+          } else {
+            moduleSummary = await withRetry(
+              () => provider.summarizeModule(mod, content)
+            );
+          }
+          cache.set(mod.contentHash, moduleSummary);
+          generated++;
+        } else {
+          cached++;
+        }
+        return { ...mod, aiSummary: moduleSummary, symbols: updatedSymbols };
+      }
+    } catch (err) {
+      failed++;
+      if (!firstError) {
+        firstError = err instanceof Error ? err.message : String(err);
+      }
+      return {
+        ...mod,
+        aiSummary: cachedModuleSummary,
+        symbols: updatedSymbols
+      };
+    } finally {
+      await limiter.release();
     }
-    return {
-      ...mod,
-      aiSummary: moduleSummary,
-      symbols: updatedSymbols
-    };
   }
-  const updatedModules = await Promise.all(modules.map(processModule));
+  let updatedModules;
+  if (isRateLimited && canBatch && filesPerRequest > 1) {
+    const allResults = [];
+    if (pool) {
+      let remaining = [...modulesToSummarize];
+      while (remaining.length > 0) {
+        const assignments = pool.planWave(remaining);
+        const consumed = assignments.reduce((n, a) => n + a.batch.length, 0);
+        const waveResults = await Promise.all(
+          assignments.map(
+            ({ provider: p, batch }) => processMultiFileBatch(batch, p)
+          )
+        );
+        for (const results of waveResults) {
+          allResults.push(...results);
+        }
+        remaining = remaining.slice(consumed);
+        if (remaining.length > 0) {
+          await new Promise((r) => setTimeout(r, 1e3));
+        }
+      }
+    } else {
+      const chunks = [];
+      for (let i = 0; i < modulesToSummarize.length; i += filesPerRequest) {
+        chunks.push(modulesToSummarize.slice(i, i + filesPerRequest));
+      }
+      for (const chunk of chunks) {
+        const batchResults = await processMultiFileBatch(chunk, provider);
+        allResults.push(...batchResults);
+      }
+    }
+    updatedModules = [...allResults, ...skippedModules];
+  } else {
+    const summarized = await Promise.all(modulesToSummarize.map(processModule));
+    updatedModules = [...summarized, ...skippedModules];
+  }
+  const failedModules = updatedModules.filter((m) => !m.aiSummary && !skippedModules.includes(m));
+  if (failedModules.length > 0 && failedModules.length < modules.length && canBatch) {
+    onProgress?.(
+      progressCount,
+      modules.length,
+      `Retrying ${failedModules.length} failed modules...`
+    );
+    await new Promise((r) => setTimeout(r, 3e3));
+    const retryFailed = failed;
+    failed = 0;
+    progressCount = modules.length - failedModules.length;
+    if (pool) {
+      let remaining = [...failedModules];
+      while (remaining.length > 0) {
+        const assignments = pool.planWave(remaining);
+        const consumed = assignments.reduce((n, a) => n + a.batch.length, 0);
+        const waveResults = await Promise.all(
+          assignments.map(({ provider: p, batch }) => processMultiFileBatch(batch, p))
+        );
+        for (const results of waveResults) {
+          for (const mod of results) {
+            if (mod.aiSummary) {
+              const idx = updatedModules.findIndex((m) => m.filePath === mod.filePath);
+              if (idx >= 0) updatedModules[idx] = mod;
+            }
+          }
+        }
+        remaining = remaining.slice(consumed);
+        if (remaining.length > 0) await new Promise((r) => setTimeout(r, 1500));
+      }
+    } else {
+      const retryChunks = [];
+      for (let i = 0; i < failedModules.length; i += filesPerRequest) {
+        retryChunks.push(failedModules.slice(i, i + filesPerRequest));
+      }
+      for (const chunk of retryChunks) {
+        const results = await processMultiFileBatch(chunk, provider);
+        for (const mod of results) {
+          if (mod.aiSummary) {
+            const idx = updatedModules.findIndex((m) => m.filePath === mod.filePath);
+            if (idx >= 0) updatedModules[idx] = mod;
+          }
+        }
+      }
+    }
+    failed = updatedModules.filter((m) => !m.aiSummary && !skippedModules.includes(m)).length;
+  }
+  if (failed > 0 && onProgress) {
+    const truncatedError = firstError && firstError.length > 120 ? firstError.slice(0, 120) + "..." : firstError;
+    onProgress(
+      modules.length,
+      modules.length,
+      `AI summary failures: ${failed} calls failed after retry. First error: ${truncatedError || "unknown"}`
+    );
+  }
   return {
     modules: updatedModules,
     cache: cache.toArray(),
@@ -641,12 +996,82 @@ async function summarizeModules(options) {
     failed
   };
 }
-var RateLimiter, SummaryCache;
+var GROQ_MODELS, ProviderPool, RateLimiter, SummaryCache;
 var init_ai_summarizer = __esm({
   "src/analysis/ai-summarizer.ts"() {
     "use strict";
+    init_base();
     init_providers();
+    init_openai();
     init_providers();
+    GROQ_MODELS = [
+      // Compound models: 70K TPM each — by far the highest capacity.
+      // Groq's compound AI routing models. Cap at 10 files/req to keep prompt size reasonable.
+      { id: "groq/compound", rpm: 30, tpm: 7e4, filesPerRequest: 10 },
+      { id: "groq/compound-mini", rpm: 30, tpm: 7e4, filesPerRequest: 10 },
+      // Scout: best all-rounder, 30K TPM
+      { id: "meta-llama/llama-4-scout-17b-16e-instruct", rpm: 30, tpm: 3e4, filesPerRequest: 8 },
+      // High-quality large models
+      { id: "llama-3.3-70b-versatile", rpm: 30, tpm: 12e3, filesPerRequest: 6 },
+      { id: "moonshotai/kimi-k2-instruct", rpm: 60, tpm: 1e4, filesPerRequest: 5 },
+      { id: "moonshotai/kimi-k2-instruct-0905", rpm: 60, tpm: 1e4, filesPerRequest: 5 },
+      { id: "openai/gpt-oss-120b", rpm: 30, tpm: 8e3, filesPerRequest: 4 },
+      { id: "openai/gpt-oss-20b", rpm: 30, tpm: 8e3, filesPerRequest: 4 },
+      { id: "openai/gpt-oss-safeguard-20b", rpm: 30, tpm: 8e3, filesPerRequest: 4 },
+      // Smaller/faster models
+      { id: "qwen/qwen3-32b", rpm: 60, tpm: 6e3, filesPerRequest: 3 },
+      { id: "meta-llama/llama-4-maverick-17b-128e-instruct", rpm: 30, tpm: 6e3, filesPerRequest: 3 },
+      { id: "llama-3.1-8b-instant", rpm: 30, tpm: 6e3, filesPerRequest: 3 }
+    ];
+    ProviderPool = class {
+      slots;
+      slotIndex = 0;
+      constructor(apiKey, baseURL, specs) {
+        this.slots = specs.map((spec) => ({
+          provider: new OpenAIProvider(apiKey, spec.id, baseURL),
+          spec
+        }));
+      }
+      /**
+       * Plan work distribution for a set of modules.
+       * Returns assignments: which provider handles which modules, respecting
+       * per-model TPM capacity. Higher-TPM models get more files.
+       */
+      planWave(modules) {
+        const assignments = [];
+        let offset = 0;
+        for (const slot of this.slots) {
+          if (offset >= modules.length) break;
+          const count = Math.min(slot.spec.filesPerRequest, modules.length - offset);
+          assignments.push({
+            provider: slot.provider,
+            batch: modules.slice(offset, offset + count)
+          });
+          offset += count;
+        }
+        return assignments;
+      }
+      /** Total files that can be processed in one wave across all models. */
+      get waveCapacity() {
+        return this.slots.reduce((sum, s) => sum + s.spec.filesPerRequest, 0);
+      }
+      /** Get a different provider than the one that failed (for retry on 429). */
+      nextAfter(failed) {
+        const startIdx = this.slotIndex;
+        for (let i = 0; i < this.slots.length; i++) {
+          const slot = this.slots[(startIdx + i) % this.slots.length];
+          if (slot.provider !== failed) {
+            this.slotIndex = (startIdx + i + 1) % this.slots.length;
+            return slot.provider;
+          }
+        }
+        this.slotIndex++;
+        return this.slots[this.slotIndex % this.slots.length].provider;
+      }
+      get size() {
+        return this.slots.length;
+      }
+    };
     RateLimiter = class {
       constructor(maxConcurrent, delayMs) {
         this.maxConcurrent = maxConcurrent;
@@ -767,11 +1192,11 @@ function detectCircularDependencies(manifest) {
   const visited = /* @__PURE__ */ new Set();
   const inStack = /* @__PURE__ */ new Set();
   const cycles = [];
-  function dfs(node, path19) {
+  function dfs(node, path20) {
     if (inStack.has(node)) {
-      const cycleStart = path19.indexOf(node);
+      const cycleStart = path20.indexOf(node);
       if (cycleStart !== -1) {
-        cycles.push(path19.slice(cycleStart));
+        cycles.push(path20.slice(cycleStart));
       }
       return;
     }
@@ -779,7 +1204,7 @@ function detectCircularDependencies(manifest) {
     visited.add(node);
     inStack.add(node);
     for (const neighbor of adj.get(node) || []) {
-      dfs(neighbor, [...path19, node]);
+      dfs(neighbor, [...path20, node]);
     }
     inStack.delete(node);
   }
@@ -805,6 +1230,9 @@ function detectOversizedModules(manifest, maxLines = 500, maxSymbols = 30) {
   const insights = [];
   const oversized = [];
   for (const mod of manifest.modules) {
+    const lowerPath = mod.filePath.toLowerCase();
+    const isConfigFile = lowerPath.includes("config") || lowerPath.includes("schema") || lowerPath.endsWith(".json") || lowerPath.endsWith(".yaml") || lowerPath.endsWith(".yml") || lowerPath.endsWith(".toml") || lowerPath.endsWith(".lock");
+    if (isConfigFile) continue;
     if (mod.lineCount > maxLines || mod.symbols.length > maxSymbols) {
       oversized.push({
         file: mod.filePath,
@@ -859,9 +1287,14 @@ function detectOrphanModules(manifest) {
     connectedNodes.add(edge.to);
   }
   const orphans = nodes.filter((n) => !connectedNodes.has(n));
-  const nonEntryOrphans = orphans.filter(
-    (o) => !o.includes("index.") && !o.includes("main.") && !o.includes("app.")
-  );
+  const nonEntryOrphans = orphans.filter((o) => {
+    const lower = o.toLowerCase();
+    if (lower.includes("index.") || lower.includes("main.") || lower.includes("app.")) return false;
+    if (lower.includes("utils") || lower.includes("helpers") || lower.includes("lib/")) return false;
+    if (lower.includes("config") || lower.includes("schema")) return false;
+    if (lower.endsWith(".json") || lower.endsWith(".yaml") || lower.endsWith(".yml") || lower.endsWith(".toml")) return false;
+    return true;
+  });
   if (nonEntryOrphans.length > 0) {
     insights.push({
       id: "orphan-modules",
@@ -1255,6 +1688,41 @@ function parseConventionalType(message) {
   const match = message.match(/^(feat|fix|docs|refactor|test|chore|perf|ci|style|build)(\([^)]*\))?:/);
   return match ? match[1] : "other";
 }
+function shouldGenerateModulePage(mod) {
+  const basename = mod.filePath.split("/").pop()?.toLowerCase() || "";
+  const ext = basename.slice(basename.lastIndexOf("."));
+  const SKIP_BASENAMES = /* @__PURE__ */ new Set([
+    "package.json",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+    "tsconfig.json",
+    "tsconfig.node.json",
+    "tsconfig.preload.json",
+    "postcss.config.js",
+    "tailwind.config.ts",
+    "tailwind.config.js",
+    "vite.config.ts",
+    "vite.config.js",
+    "eslint.config.js",
+    ".eslintrc.js",
+    "jest.config.ts",
+    "vitest.config.ts",
+    "electron-builder-update.yml",
+    "manifest.json",
+    "pyproject.toml"
+  ]);
+  if (SKIP_BASENAMES.has(basename)) return false;
+  const SKIP_EXTENSIONS = /* @__PURE__ */ new Set([".json", ".yaml", ".yml", ".toml", ".lock", ".sh", ".bash", ".zsh"]);
+  if (SKIP_EXTENSIONS.has(ext)) return false;
+  if (ext === ".md") {
+    const depth = mod.filePath.split("/").length;
+    if (depth <= 2 || mod.filePath.includes("docs/plans/")) return false;
+  }
+  if (mod.lineCount <= 10 && mod.symbols.filter((s) => s.exported).length === 0) return false;
+  if (mod.exports.length > 0 && mod.exports.every((e) => e.isReExport) && mod.symbols.length === 0) return false;
+  return true;
+}
 function buildSymbolPageMap(modules) {
   const map = /* @__PURE__ */ new Map();
   for (const mod of modules) {
@@ -1268,14 +1736,23 @@ function buildSymbolPageMap(modules) {
   }
   return map;
 }
-function renderTypeWithLinks(typeStr, symbolPageMap) {
+function renderTypeWithLinks(typeStr, symbolPageMap, currentPagePath) {
   if (!symbolPageMap || symbolPageMap.size === 0) return `\`${typeStr}\``;
   let result = typeStr;
   for (const [symName, pagePath] of symbolPageMap) {
     const regex = new RegExp(`\\b${symName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
     if (regex.test(result)) {
       const symAnchor = symName.toLowerCase().replace(/[^a-z0-9-_]/g, "");
-      result = result.replace(regex, `[${symName}](../${pagePath}#${symAnchor})`);
+      let relativePath;
+      if (currentPagePath) {
+        relativePath = import_path5.default.posix.relative(
+          import_path5.default.posix.dirname(currentPagePath),
+          pagePath
+        );
+      } else {
+        relativePath = `../${pagePath}`;
+      }
+      result = result.replace(regex, `[${symName}](${relativePath}#${symAnchor})`);
       break;
     }
   }
@@ -1378,7 +1855,7 @@ classDiagram
         const docDesc = sym.docs?.params?.[param.name] || param.description || "";
         const opt = param.optional ? "?" : "";
         const def = param.defaultValue ? `\`${param.defaultValue}\`` : "";
-        const typeStr = renderTypeWithLinks(param.type || "unknown", opts?.symbolPageMap);
+        const typeStr = renderTypeWithLinks(param.type || "unknown", opts?.symbolPageMap, opts?.currentPagePath);
         md += `    | \`${param.name}${opt}\` | ${typeStr} | ${def} | ${docDesc} |
 `;
       }
@@ -1395,7 +1872,7 @@ classDiagram
         const docDesc = sym.docs?.params?.[param.name] || param.description || "";
         const opt = param.optional ? "?" : "";
         const def = param.defaultValue ? `\`${param.defaultValue}\`` : "";
-        const typeStr = renderTypeWithLinks(param.type || "unknown", opts?.symbolPageMap);
+        const typeStr = renderTypeWithLinks(param.type || "unknown", opts?.symbolPageMap, opts?.currentPagePath);
         md += `| \`${param.name}${opt}\` | ${typeStr} | ${def} | ${docDesc} |
 `;
       }
@@ -1416,7 +1893,7 @@ classDiagram
     md += "\n";
   }
   if (sym.returns?.type || sym.docs?.returns) {
-    const retType = sym.returns?.type ? renderTypeWithLinks(sym.returns.type, opts?.symbolPageMap) : "";
+    const retType = sym.returns?.type ? renderTypeWithLinks(sym.returns.type, opts?.symbolPageMap, opts?.currentPagePath) : "";
     md += `**Returns:** ${retType} ${sym.docs?.returns || ""}
 
 `;
@@ -1475,6 +1952,50 @@ function detectSection(filePath) {
     }
   }
   return "";
+}
+function bestChunkBySymbolDensity(content, symbolNames, maxTokens) {
+  const lines = content.split("\n");
+  const tokensPerLine = Math.max(1, estimateTokens(content) / lines.length);
+  const maxLines = Math.floor(maxTokens / tokensPerLine);
+  if (maxLines >= lines.length) return content;
+  if (maxLines <= 0) return "";
+  const chunkLines = maxLines;
+  const overlap = Math.min(Math.floor(chunkLines * 0.3), 25);
+  const step = Math.max(1, chunkLines - overlap);
+  const chunks = [];
+  for (let start = 0; start < lines.length; start += step) {
+    const end = Math.min(start + chunkLines, lines.length);
+    const text = lines.slice(start, end).join("\n");
+    chunks.push({ text, startLine: start });
+    if (end >= lines.length) break;
+  }
+  if (chunks.length <= 1) {
+    return lines.slice(0, maxLines).join("\n");
+  }
+  let bestIdx = 0;
+  let bestScore = -1;
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i].text;
+    let score = 0;
+    for (const sym of symbolNames) {
+      let pos = 0;
+      while ((pos = chunk.indexOf(sym, pos)) !== -1) {
+        score++;
+        pos += sym.length;
+      }
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestIdx = i;
+    }
+  }
+  const selected = chunks[bestIdx].text;
+  if (estimateTokens(selected) <= maxTokens) return selected;
+  const selectedLines = selected.split("\n");
+  while (selectedLines.length > 1 && estimateTokens(selectedLines.join("\n")) > maxTokens) {
+    selectedLines.pop();
+  }
+  return selectedLines.join("\n");
 }
 async function buildContext(options) {
   const { targetModule, topic, tokenBudget, manifest, readFile: readFile5 } = options;
@@ -1581,18 +2102,19 @@ async function buildContext(options) {
         });
         usedTokens += tokens;
       } else {
-        const lines = content.split("\n");
-        const maxLines = Math.floor(tokenBudget * 0.4 / (estimateTokens(content) / lines.length));
-        const truncated = lines.slice(0, maxLines).join("\n");
+        const maxBudget = Math.floor(tokenBudget * 0.4);
+        const symbolNames = targetModule.symbols.map((s) => s.name);
+        const bestChunk = bestChunkBySymbolDensity(content, symbolNames, maxBudget);
+        const bestLines = bestChunk.split("\n");
         chunks.push({
           filePath: targetModule.filePath,
           startLine: 1,
-          endLine: maxLines,
-          content: truncated,
+          endLine: bestLines.length,
+          content: bestChunk,
           relevanceScore: 1,
           kind: "full-file"
         });
-        usedTokens += estimateTokens(truncated);
+        usedTokens += estimateTokens(bestChunk);
       }
     } catch {
     }
@@ -1614,19 +2136,20 @@ async function buildContext(options) {
         });
         usedTokens += tokens;
       } else if (remaining > 100) {
-        const lines = content.split("\n");
-        const maxLines = Math.floor(remaining / (tokens / lines.length));
-        if (maxLines > 5) {
-          const truncated = lines.slice(0, maxLines).join("\n");
+        const symbolNames = mod.symbols.map((s) => s.name);
+        const bestChunk = bestChunkBySymbolDensity(content, symbolNames, remaining);
+        const chunkTokens = estimateTokens(bestChunk);
+        if (chunkTokens > 20) {
+          const bestLines = bestChunk.split("\n");
           chunks.push({
             filePath: mod.filePath,
             startLine: 1,
-            endLine: maxLines,
-            content: truncated,
+            endLine: bestLines.length,
+            content: bestChunk,
             relevanceScore: score,
             kind: "full-file"
           });
-          usedTokens += estimateTokens(truncated);
+          usedTokens += chunkTokens;
         }
       }
     } catch {
@@ -1644,12 +2167,59 @@ var init_context_builder = __esm({
 });
 
 // src/generators/diagrams.ts
+function validateMermaid(code) {
+  const errors = [];
+  let fixed = code;
+  const firstLine = code.trim().split("\n")[0].trim();
+  const validTypes = ["flowchart", "graph", "sequenceDiagram", "classDiagram", "stateDiagram", "erDiagram", "gantt", "pie", "mindmap", "timeline"];
+  if (!validTypes.some((t) => firstLine.startsWith(t))) {
+    errors.push(`Invalid diagram type: ${firstLine}`);
+  }
+  const subgraphCount = (code.match(/\bsubgraph\b/g) || []).length;
+  const endCount = (code.match(/^\s*end\s*$/gm) || []).length;
+  if (subgraphCount > endCount) {
+    errors.push(`Unbalanced subgraphs: ${subgraphCount} subgraph vs ${endCount} end`);
+    for (let i = 0; i < subgraphCount - endCount; i++) {
+      fixed += "\n    end";
+    }
+  }
+  const unquotedLabelRegex = /([A-Za-z0-9_]+)\[([^\]"]+)\]/g;
+  let match;
+  const fixedParts = [];
+  while ((match = unquotedLabelRegex.exec(code)) !== null) {
+    const label = match[2];
+    if (/[(){}:;'<>]/.test(label)) {
+      errors.push(`Special characters in unquoted label: "${label}"`);
+      fixedParts.push({
+        original: match[0],
+        replacement: `${match[1]}["${label.replace(/"/g, "'")}"]`
+      });
+    }
+  }
+  for (const { original, replacement } of fixedParts) {
+    fixed = fixed.replace(original, replacement);
+  }
+  if (/flowchart\s+LR/i.test(code)) {
+    errors.push("Using LR orientation instead of TD");
+    fixed = fixed.replace(/flowchart\s+LR/gi, "flowchart TD");
+  }
+  if (firstLine.startsWith("flowchart") || firstLine.startsWith("graph")) {
+    const nodeDefinitions = code.match(/[A-Za-z0-9_]+[\[({]/g) || [];
+    const uniqueNodes = new Set(nodeDefinitions.map((n) => n.replace(/[\[({]$/, "")));
+    if (uniqueNodes.size > 20) {
+      errors.push(`Too many nodes (${uniqueNodes.size}), may render poorly`);
+    }
+  }
+  return { valid: errors.length === 0, errors, fixed };
+}
 function extractAllMermaidBlocks(text) {
   const blocks = [];
   const globalRegex = new RegExp(MERMAID_BLOCK_REGEX.source, "g");
   let match;
   while ((match = globalRegex.exec(text)) !== null) {
-    blocks.push(match[1].trim());
+    const code = match[1].trim();
+    const { fixed } = validateMermaid(code);
+    blocks.push(fixed);
   }
   return blocks;
 }
@@ -1663,6 +2233,177 @@ var init_diagrams = __esm({
   }
 });
 
+// src/generators/prompt-builder.ts
+function buildPageSystemPrompt() {
+  return [
+    "You are an expert technical writer and software architect.",
+    "You produce clear, accurate, developer-focused documentation grounded exclusively in the source code provided to you.",
+    "You never invent information, speculate about behaviour, or use knowledge outside the supplied context.",
+    "Your writing is precise, concise, and free of marketing language."
+  ].join(" ");
+}
+function buildPagePrompt(options) {
+  const {
+    title,
+    projectName,
+    contextChunks,
+    pageInstructions,
+    sourceFiles,
+    repoUrl,
+    branch = "main"
+  } = options;
+  const sections = [];
+  sections.push(formatSourceContext(contextChunks));
+  sections.push(formatProvenanceInstruction(sourceFiles, projectName, title, repoUrl, branch));
+  sections.push(formatPageInstructions(title, projectName, pageInstructions));
+  sections.push(MERMAID_RULES);
+  sections.push(CITATION_RULES);
+  sections.push(FORMATTING_RULES);
+  return sections.join("\n\n");
+}
+function formatSourceContext(chunks) {
+  if (chunks.length === 0) {
+    return "## Source Code Context\n\nNo source code context was provided.";
+  }
+  const formatted = chunks.map((chunk) => {
+    const header2 = `### ${chunk.filePath} (lines ${chunk.startLine}-${chunk.endLine})`;
+    return `${header2}
+\`\`\`
+${chunk.content}
+\`\`\``;
+  });
+  return `## Source Code Context
+
+Below is the source code you MUST base your documentation on.
+
+${formatted.join("\n\n")}`;
+}
+function formatProvenanceInstruction(sourceFiles, projectName, title, repoUrl, branch = "main") {
+  const fileList = sourceFiles.map((f) => {
+    if (repoUrl) {
+      const cleanUrl = repoUrl.replace(/\/$/, "");
+      return `- [\`${f}\`](${cleanUrl}/blob/${branch}/${f})`;
+    }
+    return `- \`${f}\``;
+  }).join("\n");
+  return [
+    "## CRITICAL STARTING INSTRUCTION",
+    "",
+    "Your page MUST begin with the following provenance block before ANY other content:",
+    "",
+    "```markdown",
+    "<details>",
+    `<summary>Sources for "${title}" in ${projectName}</summary>`,
+    "",
+    fileList,
+    "",
+    "</details>",
+    "```",
+    "",
+    "Do NOT omit or reformat this block. It must appear verbatim as the first element of your output."
+  ].join("\n");
+}
+function formatPageInstructions(title, projectName, pageInstructions) {
+  return [
+    "## Page Instructions",
+    "",
+    `Write a documentation page titled **"${title}"** for the project **${projectName}**.`,
+    "",
+    pageInstructions
+  ].join("\n");
+}
+var MERMAID_RULES, CITATION_RULES, FORMATTING_RULES;
+var init_prompt_builder = __esm({
+  "src/generators/prompt-builder.ts"() {
+    "use strict";
+    MERMAID_RULES = `## MERMAID DIAGRAM RULES
+
+When including diagrams, follow these rules exactly. Broken Mermaid cannot be retried in a static site.
+
+1. Use \`\`\`mermaid code blocks for all diagrams.
+2. Always use \`flowchart TD\` (top-down). Never use \`flowchart LR\`.
+3. Maximum 15 nodes per diagram. Keep labels to 3-4 words.
+4. Do NOT use special characters in node labels: no parentheses, brackets, quotes, colons, or semicolons inside the label text itself.
+5. Do NOT use HTML tags in labels.
+6. Wrap labels in double quotes if they contain spaces: \`A["My Label"]\`.
+7. Use simple arrow syntax: \`A --> B\`.
+8. For labeled edges: \`A -->|"label"| B\`.
+9. For subgraphs: \`subgraph Name["Display Name"] ... end\`.
+10. Every node referenced in an arrow MUST be defined.
+11. For sequence diagrams: use \`sequenceDiagram\`, max 6 participants, max 15 messages.
+12. Solid arrows (\`->>\`) for calls, dashed arrows (\`-->>\`) for returns.
+13. If a diagram would exceed these limits, split it into multiple smaller diagrams with explanatory text between them.`;
+    CITATION_RULES = `## SOURCE CITATION RULES
+
+1. For EVERY piece of significant information, cite the source file and line numbers.
+2. Place citations at the end of the paragraph or directly under diagrams and tables.
+3. Format for a line range: \`Sources: [filename.ext:start_line-end_line]()\`
+4. Format for a single line: \`Sources: [filename.ext:line_number]()\`
+5. Multiple sources: \`Sources: [file1.ext:1-10](), [file2.ext:5]()\`
+6. ALL information MUST be derived SOLELY from the provided source files.
+7. Do NOT infer, invent, or use external knowledge beyond what the source code shows.`;
+    FORMATTING_RULES = `## FORMATTING RULES
+
+1. Use standard Markdown headings (\`##\`, \`###\`). Do not use \`#\` (h1) -- the page title is set by MkDocs.
+2. Use fenced code blocks with language identifiers for all code snippets.
+3. Use tables for structured comparisons or parameter descriptions.
+4. Use admonition syntax (\`!!! note\`, \`!!! warning\`, \`!!! tip\`) for callouts.
+5. Do NOT start paragraphs with "This module provides..." or similar filler phrases.
+6. Do NOT use marketing language, superlatives, or promotional tone.
+7. Write in second person ("you") when addressing the reader.
+8. Keep paragraphs short -- 2-4 sentences maximum.
+9. Prefer concrete examples over abstract descriptions.`;
+  }
+});
+
+// src/generators/validators.ts
+function validateNarrativeProse(prose, kind, options) {
+  const warnings = [];
+  let cleaned = prose;
+  for (const pattern of TEMPLATE_ARTIFACT_PATTERNS) {
+    const before = cleaned;
+    cleaned = cleaned.replace(pattern, "");
+    if (cleaned !== before) {
+      warnings.push(`Stripped template artifact matching ${pattern.source}`);
+    }
+  }
+  if (options?.expectNoH1) {
+    const h1Pattern = /^# .+$/gm;
+    const before = cleaned;
+    cleaned = cleaned.replace(h1Pattern, "");
+    if (cleaned !== before) {
+      warnings.push("Stripped H1 heading from narrative prose");
+    }
+  }
+  cleaned = cleaned.replace(/\n{3,}/g, "\n\n").trim();
+  const minLength = MIN_LENGTH[kind] ?? 100;
+  const valid = cleaned.length >= minLength;
+  if (!valid) {
+    warnings.push(`Prose too short: ${cleaned.length} chars (minimum ${minLength} for ${kind})`);
+  }
+  return { valid, warnings, prose: cleaned };
+}
+var TEMPLATE_ARTIFACT_PATTERNS, MIN_LENGTH;
+var init_validators = __esm({
+  "src/generators/validators.ts"() {
+    "use strict";
+    TEMPLATE_ARTIFACT_PATTERNS = [
+      /^.*YOUR_.*$/gm,
+      /^.*TODO:.*$/gm,
+      /^.*PLACEHOLDER.*$/gm,
+      /^.*\[INSERT.*$/gm,
+      /^.*\{\{.*\}\}.*$/gm
+    ];
+    MIN_LENGTH = {
+      overview: 200,
+      architecture: 200,
+      module: 100,
+      "getting-started": 200,
+      concept: 100
+    };
+  }
+});
+
 // src/generators/narrative-engine.ts
 async function generateOverviewNarrative(options) {
   const { provider, manifest, readFile: readFile5, contextBudget = 8e3 } = options;
@@ -1671,11 +2412,8 @@ async function generateOverviewNarrative(options) {
     manifest,
     readFile: readFile5
   });
-  const contextText = formatContextChunks(contextChunks);
   const moduleList = manifest.modules.map((m) => `- ${m.filePath} (${m.language}, ${m.symbols.length} symbols)`).slice(0, 30).join("\n");
-  const prompt = `You are an expert technical writer creating the overview page for a documentation site.
-
-PROJECT: ${manifest.projectMeta.name}
+  const pageInstructions = `PROJECT: ${manifest.projectMeta.name}
 LANGUAGES: ${manifest.projectMeta.languages.map((l) => `${l.name} (${l.percentage}%)`).join(", ")}
 TOTAL FILES: ${manifest.stats.totalFiles}
 TOTAL SYMBOLS: ${manifest.stats.totalSymbols}
@@ -1683,19 +2421,11 @@ TOTAL SYMBOLS: ${manifest.stats.totalSymbols}
 KEY MODULES:
 ${moduleList}
 
-SOURCE CODE CONTEXT:
-${contextText}
-
 Write a comprehensive technical overview following this structure:
 
 1. **Introduction** (1-2 paragraphs): What the project does, who it's for, and the core problem it solves. Reference the main entry point and key modules.
 
-2. **Architecture Overview**: Describe the major layers/components and how they interact. Include a Mermaid diagram showing the high-level architecture:
-\`\`\`mermaid
-flowchart TD
-    A[Component] --> B[Component]
-\`\`\`
-Use \`flowchart TD\` (top-down), keep nodes to 3-4 words max, maximum 12 nodes.
+2. **Architecture Overview**: Describe the major layers/components and how they interact. Include a Mermaid diagram showing the high-level architecture.
 
 3. **Core Components**: For each major component/layer, explain its purpose and key design decisions. Use tables to summarize modules:
 | Module | Purpose |
@@ -1705,29 +2435,52 @@ Use \`flowchart TD\` (top-down), keep nodes to 3-4 words max, maximum 12 nodes.
 
 5. **Key Design Decisions**: Trade-offs made, patterns used (e.g., provider pattern, plugin architecture), and why.
 
-RULES:
-- Cite sources with [file:line] notation (e.g., [src/engine.ts:42]) for every significant claim
-- Reference actual function, class, and type names from the code \u2014 never invent names
-- Use Markdown: ## headings, tables, code blocks, bold for emphasis
-- Do NOT use marketing language. Be technical and precise.
-- Do NOT include a title heading (# Overview) \u2014 it will be added by the template`;
-  const prose = await provider.generate(prompt, {
+Do NOT include a title heading (# Overview) \u2014 it will be added by the template.`;
+  const prompt = buildPagePrompt({
+    title: "Overview",
+    projectName: manifest.projectMeta.name,
+    contextChunks,
+    pageInstructions,
+    sourceFiles: contextChunks.map((c) => c.filePath),
+    repoUrl: manifest.projectMeta.repository
+  });
+  let prose = await provider.generate(prompt, {
     maxTokens: 2048,
     temperature: 0.3,
-    systemPrompt: "You are a technical documentation writer. Write clear, precise, developer-focused documentation."
+    systemPrompt: buildPageSystemPrompt()
   });
-  const citations = extractCitations(prose);
+  prose = ensureProvenanceBlock(prose, contextChunks, manifest.projectMeta.name, "Overview", manifest.projectMeta.repository);
+  prose = validateNarrativeProse(prose, "overview").prose;
+  const rawCitations = extractCitations(prose);
+  const validated = validateCitations(prose, rawCitations, manifest);
+  prose = validated.prose;
   const suggestedDiagrams = extractDiagramSuggestions(prose);
-  return { prose, citations, suggestedDiagrams };
+  return { prose, citations: validated.citations, suggestedDiagrams };
 }
 async function generateGettingStartedNarrative(options) {
   const { provider, manifest, readFile: readFile5, contextBudget = 6e3 } = options;
+  const relevantPatterns = [
+    "index.",
+    "main.",
+    "app.",
+    "readme",
+    "README",
+    "Dockerfile",
+    "docker-compose",
+    "package.json",
+    "pyproject.toml",
+    "go.mod",
+    "Cargo.toml",
+    "Makefile",
+    "setup.py",
+    "setup.cfg"
+  ];
   const entryModules = manifest.modules.filter(
-    (m) => m.filePath.includes("index.") || m.filePath.includes("main.") || m.filePath.includes("app.")
+    (m) => relevantPatterns.some((pattern) => m.filePath.toLowerCase().includes(pattern.toLowerCase()))
   );
   const contextChunks = [];
   let usedTokens = 0;
-  for (const mod of entryModules.slice(0, 5)) {
+  for (const mod of entryModules.slice(0, 8)) {
     try {
       const content = await readFile5(mod.filePath);
       const tokens = estimateTokens(content);
@@ -1745,16 +2498,18 @@ async function generateGettingStartedNarrative(options) {
     } catch {
     }
   }
-  const contextText = formatContextChunks(contextChunks);
-  const prompt = `You are writing a Getting Started guide for developers.
-
-PROJECT: ${manifest.projectMeta.name}
-LANGUAGES: ${manifest.projectMeta.languages.map((l) => l.name).join(", ")}
-PACKAGE MANAGER: ${manifest.projectMeta.packageManager || "unknown"}
-ENTRY POINTS: ${manifest.projectMeta.entryPoints.join(", ")}
-
-SOURCE CODE CONTEXT:
-${contextText}
+  const projectMeta = manifest.projectMeta;
+  const projectContext = [
+    `PROJECT: ${projectMeta.name}`,
+    `LANGUAGES: ${projectMeta.languages.map((l) => l.name).join(", ")}`,
+    `PACKAGE MANAGER: ${projectMeta.packageManager || "unknown"}`,
+    `ENTRY POINTS: ${projectMeta.entryPoints.join(", ")}`,
+    projectMeta.projectType ? `PROJECT TYPE: ${projectMeta.projectType}` : null,
+    projectMeta.framework ? `FRAMEWORK: ${projectMeta.framework}` : null,
+    projectMeta.description ? `DESCRIPTION: ${projectMeta.description}` : null,
+    projectMeta.readmeDescription ? `README SUMMARY: ${projectMeta.readmeDescription}` : null
+  ].filter(Boolean).join("\n");
+  const pageInstructions = `${projectContext}
 
 Write a practical getting-started guide following this structure:
 
@@ -1773,19 +2528,27 @@ Brief orientation: what the main directories contain and where to look first.
 ## Next Steps
 Point to specific modules or features to explore after the basics.
 
-RULES:
-- Every section must help the reader DO something concrete
-- Use code blocks with the correct language tag for all commands and code
-- Cite sources with [file:line] notation
-- Reference actual file paths, function names, and config options from the code
-- Keep it concise \u2014 developers want to get started, not read an essay`;
-  const prose = await provider.generate(prompt, {
+Every section must help the reader DO something concrete.
+Keep it concise \u2014 developers want to get started, not read an essay.`;
+  const prompt = buildPagePrompt({
+    title: "Getting Started",
+    projectName: projectMeta.name,
+    contextChunks,
+    pageInstructions,
+    sourceFiles: contextChunks.map((c) => c.filePath),
+    repoUrl: projectMeta.repository
+  });
+  let prose = await provider.generate(prompt, {
     maxTokens: 2048,
     temperature: 0.3,
-    systemPrompt: "You are a technical documentation writer. Write clear, practical, step-by-step guides."
+    systemPrompt: buildPageSystemPrompt()
   });
-  const citations = extractCitations(prose);
-  return { prose, citations, suggestedDiagrams: [] };
+  prose = ensureProvenanceBlock(prose, contextChunks, projectMeta.name, "Getting Started", projectMeta.repository);
+  prose = validateNarrativeProse(prose, "getting-started").prose;
+  const rawCitations = extractCitations(prose);
+  const validated = validateCitations(prose, rawCitations, manifest);
+  prose = validated.prose;
+  return { prose, citations: validated.citations, suggestedDiagrams: [] };
 }
 async function generateModuleNarrative(module2, options) {
   const { provider, manifest, readFile: readFile5, contextBudget = 6e3 } = options;
@@ -1795,46 +2558,56 @@ async function generateModuleNarrative(module2, options) {
     manifest,
     readFile: readFile5
   });
-  const contextText = formatContextChunks(contextChunks);
   const symbolList = module2.symbols.filter((s) => s.exported).map((s) => `- ${s.kind} ${s.name}${s.signature ? `: ${s.signature}` : ""}`).join("\n");
   const depCount = manifest.dependencyGraph.edges.filter((e) => e.to === module2.filePath).length;
   const usedBy = manifest.dependencyGraph.edges.filter((e) => e.to === module2.filePath).map((e) => e.from).slice(0, 5);
-  const prompt = `You are an expert technical writer documenting a specific module.
-
-FILE: ${module2.filePath}
+  const imports = module2.imports.map((imp) => imp.source).slice(0, 10);
+  const hasManyDeps = imports.length >= 3 || depCount >= 3;
+  const pageInstructions = `FILE: ${module2.filePath}
 LANGUAGE: ${module2.language}
+IMPORTS: ${imports.join(", ") || "(none)"}
 IMPORTED BY: ${depCount} modules${usedBy.length > 0 ? ` (${usedBy.join(", ")})` : ""}
 
 EXPORTED SYMBOLS:
 ${symbolList || "(none)"}
 
-RELATED SOURCE CODE:
-${contextText}
-
 Write a clear, developer-focused module description following this structure:
 
-1. **Purpose** (1-2 sentences): What this module does and why it exists.
+1. **Architectural framing** (first sentence): Start by stating this module's role in the system architecture \u2014 e.g., "Acts as the bridge between X and Y" or "Serves as the single entry point for Z".
 
 2. **How it works**: Explain the key logic, algorithms, or patterns. If there are multiple exported symbols, describe how they relate to each other. Reference specific function/class names.
 
-3. **Usage context**: How other modules use this one. What calls into it and why.
+3. **Usage context**: How other modules use this one. What calls into it and why. Include a brief code example showing typical usage (2-3 lines, using actual exported functions/classes).
 
 4. **Key implementation details**: Important trade-offs, error handling strategies, or performance considerations that a developer modifying this code should know.
+${hasManyDeps ? `
+5. **Dependency diagram**: Include a small Mermaid diagram showing this module's key relationships.
+Keep to 5-8 nodes max.` : ""}
 
-RULES:
-- Cite sources with [file:line] notation (e.g., [${module2.filePath}:42])
-- Be specific \u2014 use actual function/class/type names from the code
-- Do NOT include Markdown headings (## or #) \u2014 this is inserted into an existing page
-- Keep it concise: 2-4 focused paragraphs, not a wall of text
-- Write for developers who need to understand or modify this code`;
-  const prose = await provider.generate(prompt, {
-    maxTokens: 1024,
-    temperature: 0.3,
-    systemPrompt: "You are a technical documentation writer. Be precise and reference specific code."
+Do NOT include Markdown headings (## or #) \u2014 this is inserted into an existing page.
+NEVER say "This module provides..." or "This file contains..." \u2014 state the architectural role directly.
+Write 3-5 focused paragraphs with code examples and citations.
+Write for developers who need to understand or modify this code.`;
+  const prompt = buildPagePrompt({
+    title: module2.filePath,
+    projectName: manifest.projectMeta.name,
+    contextChunks,
+    pageInstructions,
+    sourceFiles: contextChunks.map((c) => c.filePath),
+    repoUrl: manifest.projectMeta.repository
   });
-  const citations = extractCitations(prose);
+  let prose = await provider.generate(prompt, {
+    maxTokens: 1536,
+    temperature: 0.3,
+    systemPrompt: buildPageSystemPrompt()
+  });
+  prose = ensureProvenanceBlock(prose, contextChunks, manifest.projectMeta.name, module2.filePath, manifest.projectMeta.repository);
+  prose = validateNarrativeProse(prose, "module", { expectNoH1: true }).prose;
+  const rawCitations = extractCitations(prose);
+  const validated = validateCitations(prose, rawCitations, manifest);
+  prose = validated.prose;
   const suggestedDiagrams = extractDiagramSuggestions(prose);
-  return { prose, citations, suggestedDiagrams };
+  return { prose, citations: validated.citations, suggestedDiagrams };
 }
 async function generateArchitectureNarrative(options) {
   const { provider, manifest, readFile: readFile5, contextBudget = 8e3 } = options;
@@ -1844,7 +2617,6 @@ async function generateArchitectureNarrative(options) {
     manifest,
     readFile: readFile5
   });
-  const contextText = formatContextChunks(contextChunks);
   const { dependencyGraph } = manifest;
   const connectionCounts = /* @__PURE__ */ new Map();
   for (const edge of dependencyGraph.edges) {
@@ -1852,44 +2624,25 @@ async function generateArchitectureNarrative(options) {
     connectionCounts.set(edge.to, (connectionCounts.get(edge.to) ?? 0) + 1);
   }
   const topModules = [...connectionCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([file, count]) => `- ${file} (${count} connections)`).join("\n");
-  const prompt = `You are an expert software architect writing architecture documentation.
-
-PROJECT: ${manifest.projectMeta.name}
+  const pageInstructions = `PROJECT: ${manifest.projectMeta.name}
 MODULES: ${dependencyGraph.nodes.length}
 DEPENDENCY EDGES: ${dependencyGraph.edges.length}
 
 MOST CONNECTED MODULES:
 ${topModules}
 
-SOURCE CODE CONTEXT:
-${contextText}
-
 Write detailed architecture documentation following this structure:
 
 1. **System Overview** (1-2 paragraphs): High-level description of the system's purpose and architectural style (layered, microservice, pipeline, etc.).
 
-2. **Component Architecture**: Include a Mermaid diagram showing the major components and their relationships:
-\`\`\`mermaid
-flowchart TD
-    subgraph Layer["Layer Name"]
-        A[Component] --> B[Component]
-    end
-\`\`\`
-Use \`flowchart TD\` (top-down), group related components in subgraphs, max 15 nodes. Keep node labels to 3-4 words.
+2. **Component Architecture**: Include a Mermaid diagram showing the major components and their relationships. Group related components in subgraphs.
 
 3. **Component Deep Dive**: For each major component, describe:
    - Its responsibility and public interface
    - Key classes/functions it exposes
    - How it communicates with other components
 
-4. **Data Flow**: How a typical request/operation flows through the system. Include a sequence diagram:
-\`\`\`mermaid
-sequenceDiagram
-    participant A as Component
-    A->>B: method()
-    B-->>A: result
-\`\`\`
-Use solid arrows (->>)  for calls, dashed arrows (-->>)  for returns. Max 6 participants, 15 messages.
+4. **Data Flow**: How a typical request/operation flows through the system. Include a sequence diagram.
 
 5. **Key Patterns**: Architectural patterns used (dependency injection, plugin registry, event bus, etc.) and why they were chosen.
 
@@ -1897,26 +2650,65 @@ Use solid arrows (->>)  for calls, dashed arrows (-->>)  for returns. Max 6 part
 | Module | Connections | Role |
 |--------|:-----------:|------|
 
-RULES:
-- Cite sources with [file:line] notation for every claim
-- Reference actual code: class names, function names, file paths
-- All Mermaid diagrams must use top-down orientation (\`flowchart TD\`, never LR)
-- Do NOT include a title heading \u2014 it will be added by the template`;
-  const prose = await provider.generate(prompt, {
+Do NOT include a title heading \u2014 it will be added by the template.`;
+  const prompt = buildPagePrompt({
+    title: "Architecture",
+    projectName: manifest.projectMeta.name,
+    contextChunks,
+    pageInstructions,
+    sourceFiles: contextChunks.map((c) => c.filePath),
+    repoUrl: manifest.projectMeta.repository
+  });
+  let prose = await provider.generate(prompt, {
     maxTokens: 2048,
     temperature: 0.3,
-    systemPrompt: "You are a software architect documenting a system. Be thorough and precise."
+    systemPrompt: buildPageSystemPrompt()
   });
-  const citations = extractCitations(prose);
+  prose = ensureProvenanceBlock(prose, contextChunks, manifest.projectMeta.name, "Architecture", manifest.projectMeta.repository);
+  prose = validateNarrativeProse(prose, "architecture").prose;
+  const rawCitations = extractCitations(prose);
+  const validated = validateCitations(prose, rawCitations, manifest);
+  prose = validated.prose;
   const suggestedDiagrams = extractDiagramSuggestions(prose);
-  return { prose, citations, suggestedDiagrams };
+  return { prose, citations: validated.citations, suggestedDiagrams };
 }
-function formatContextChunks(chunks) {
-  return chunks.map((c) => {
-    const header2 = `--- ${c.filePath} (lines ${c.startLine}-${c.endLine}, relevance: ${c.relevanceScore.toFixed(1)}) ---`;
-    return `${header2}
-${c.content}`;
-  }).join("\n\n");
+function validateCitations(prose, citations, manifest) {
+  const modulePaths = new Set(manifest.modules.map((m) => m.filePath));
+  const moduleLineCount = new Map(manifest.modules.map((m) => [m.filePath, m.lineCount]));
+  const valid = [];
+  let cleaned = prose;
+  let droppedCount = 0;
+  for (const citation of citations) {
+    const lineCount = moduleLineCount.get(citation.filePath);
+    if (modulePaths.has(citation.filePath) && lineCount !== void 0 && citation.line >= 1 && citation.line <= lineCount) {
+      valid.push(citation);
+    } else {
+      cleaned = cleaned.replaceAll(citation.text, `\`${citation.filePath}\``);
+      droppedCount++;
+    }
+  }
+  return { prose: cleaned, citations: valid };
+}
+function ensureProvenanceBlock(prose, contextChunks, projectName, title, repoUrl, branch = "main") {
+  if (prose.includes("<details>")) return prose;
+  const sourceFiles = contextChunks.map((c) => c.filePath);
+  const fileList = sourceFiles.map((f) => {
+    if (repoUrl) {
+      const cleanUrl = repoUrl.replace(/\/$/, "");
+      return `- [\`${f}\`](${cleanUrl}/blob/${branch}/${f})`;
+    }
+    return `- \`${f}\``;
+  }).join("\n");
+  const block = [
+    "<details>",
+    `<summary>Sources for "${title}" in ${projectName}</summary>`,
+    "",
+    fileList,
+    "",
+    "</details>",
+    ""
+  ].join("\n");
+  return block + prose;
 }
 function extractCitations(prose) {
   const citations = [];
@@ -1945,26 +2737,54 @@ function extractDiagramSuggestions(prose) {
     };
   });
 }
-function renderCitations(prose, citations, repoUrl, branch) {
+function renderCitations(prose, citations, repoUrl, branch, currentPagePath, validPagePaths) {
   let result = prose;
   const seen = /* @__PURE__ */ new Set();
   for (const citation of citations) {
     if (seen.has(citation.text)) continue;
     seen.add(citation.text);
-    const linkTarget = repoUrl ? `https://github.com/${repoUrl}/blob/${branch || "main"}/${citation.filePath}#L${citation.line}` : `api/${citation.filePath.replace(/\.[^.]+$/, "")}.md`;
-    result = result.replaceAll(
-      citation.text,
-      `[${citation.filePath}:${citation.line}](${linkTarget})`
-    );
+    if (repoUrl) {
+      const linkTarget = `https://github.com/${repoUrl}/blob/${branch || "main"}/${citation.filePath}#L${citation.line}`;
+      result = result.replaceAll(
+        citation.text,
+        `[${citation.filePath}:${citation.line}](${linkTarget})`
+      );
+    } else {
+      const targetPage = `api/${citation.filePath.replace(/\.[^.]+$/, "")}.md`;
+      if (validPagePaths && !validPagePaths.has(targetPage)) {
+        result = result.replaceAll(
+          citation.text,
+          `\`${citation.filePath}:${citation.line}\``
+        );
+      } else {
+        let linkTarget;
+        if (currentPagePath) {
+          linkTarget = import_path7.default.posix.relative(
+            import_path7.default.posix.dirname(currentPagePath),
+            targetPage
+          );
+        } else {
+          linkTarget = targetPage;
+        }
+        result = result.replaceAll(
+          citation.text,
+          `[${citation.filePath}:${citation.line}](${linkTarget})`
+        );
+      }
+    }
   }
   return result;
 }
+var import_path7;
 var init_narrative_engine = __esm({
   "src/generators/narrative-engine.ts"() {
     "use strict";
+    import_path7 = __toESM(require("path"), 1);
     init_context_builder();
     init_utils();
     init_diagrams();
+    init_prompt_builder();
+    init_validators();
   }
 });
 
@@ -2061,11 +2881,16 @@ function generateOverviewPage(manifest, config) {
   gettingStartedCards += `
 </div>`;
   const sectionCards = Object.entries(modulesByGroup).sort(([, a], [, b]) => b.length - a.length).map(([section, modules]) => {
-    const topModule = modules[0];
-    const slug = topModule.filePath.replace(/\.[^.]+$/, "");
-    const keyFiles = modules.map((m) => `\`${import_path7.default.basename(m.filePath)}\``).slice(0, 4).join(", ");
+    const linkableModule = modules.find((m) => shouldGenerateModulePage(m));
+    const meaningfulFiles = modules.filter((m) => {
+      const base = import_path8.default.basename(m.filePath);
+      return base !== "__init__.py" && base !== "index.ts" && base !== "index.js" && base !== "index.d.ts";
+    });
+    const displayFiles = meaningfulFiles.length > 0 ? meaningfulFiles : modules;
+    const keyFiles = displayFiles.map((m) => `\`${import_path8.default.basename(m.filePath)}\``).slice(0, 4).join(", ");
     const extra = modules.length > 4 ? ` +${modules.length - 4} more` : "";
-    return `-   :material-folder-outline:{ .lg .middle } **[${section}](api/${slug}.md)**
+    const title = linkableModule ? `[${section}](api/${linkableModule.filePath.replace(/\.[^.]+$/, "")}.md)` : section;
+    return `-   :material-folder-outline:{ .lg .middle } **${title}**
 
     ---
 
@@ -2078,7 +2903,7 @@ function generateOverviewPage(manifest, config) {
       const slug = file.replace(/\.[^.]+$/, "");
       const mod = manifest.modules.find((m) => m.filePath === file);
       const desc = mod?.moduleDoc?.summary || `${count} connections`;
-      return `-   :material-star:{ .lg .middle } **[\`${import_path7.default.basename(file)}\`](api/${slug}.md)**
+      return `-   :material-star:{ .lg .middle } **[\`${import_path8.default.basename(file)}\`](api/${slug}.md)**
 
     ---
 
@@ -2103,6 +2928,8 @@ description: Technical documentation for ${projectName}
 # ${projectName}
 
 ${projectDescription}
+
+<!-- NARRATIVE_INSERT_POINT -->
 
 ---
 
@@ -2157,7 +2984,7 @@ ${meta.entryPoints.map((e) => {
     audience: "developer"
   };
 }
-async function generateOverviewPageNarrative(manifest, config, provider, readFile5) {
+async function generateOverviewPageNarrative(manifest, config, provider, readFile5, validPagePaths) {
   const basePage = generateOverviewPage(manifest, config);
   try {
     const narrative = await generateOverviewNarrative({
@@ -2166,33 +2993,34 @@ async function generateOverviewPageNarrative(manifest, config, provider, readFil
       readFile: readFile5
     });
     const repoUrl = config.source.repo.includes("/") ? config.source.repo : void 0;
-    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, config.source.branch);
+    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, config.source.branch, void 0, validPagePaths);
     const projectName = resolveProjectName(manifest);
-    const narrativeContent = `---
-title: ${projectName} Documentation
-description: Technical documentation for ${projectName}
----
-
-# ${projectName}
+    const baseContent = basePage.content;
+    const marker = "<!-- NARRATIVE_INSERT_POINT -->";
+    const markerIndex = baseContent.indexOf(marker);
+    if (markerIndex !== -1) {
+      const titleMatch = baseContent.indexOf(`# ${projectName}`);
+      const beforeTitle = baseContent.substring(0, titleMatch);
+      const afterMarker = baseContent.substring(markerIndex + marker.length);
+      return { ...basePage, content: `${beforeTitle}# ${projectName}
 
 ${prose}
 
----
+${afterMarker}` };
+    } else {
+      return { ...basePage, content: basePage.content.replace(`# ${projectName}`, `# ${projectName}
 
-${basePage.content.split("---\n").slice(2).join("---\n")}`;
-    return {
-      ...basePage,
-      content: narrativeContent
-    };
+${prose}`) };
+    }
   } catch {
     return basePage;
   }
 }
-var import_path7;
+var import_path8;
 var init_overview = __esm({
   "src/generators/pages/overview.ts"() {
     "use strict";
-    import_path7 = __toESM(require("path"), 1);
+    import_path8 = __toESM(require("path"), 1);
     init_language_detect();
     init_utils();
     init_narrative_engine();
@@ -2209,7 +3037,7 @@ function generateGettingStartedPage(manifest, config) {
   const altInstalls = getAlternativeInstallCommands(pkgManager);
   const modulesByGroup = groupModulesLogically(manifest.modules);
   const structureOverview = Object.entries(modulesByGroup).sort(([, a], [, b]) => b.length - a.length).map(([section, modules]) => {
-    const files = modules.map((m) => `\`${import_path8.default.basename(m.filePath)}\``).slice(0, 5).join(", ");
+    const files = modules.map((m) => `\`${import_path9.default.basename(m.filePath)}\``).slice(0, 5).join(", ");
     return `| **${section}** | ${modules.length} | ${files}${modules.length > 5 ? " ..." : ""} |`;
   }).join("\n");
   const repoUrl = meta.repository?.includes("/") ? `https://github.com/${meta.repository}` : "<repository-url>";
@@ -2327,7 +3155,7 @@ ${meta.entryPoints.map((e) => {
     audience: "developer"
   };
 }
-async function generateGettingStartedPageNarrative(manifest, config, provider, readFile5) {
+async function generateGettingStartedPageNarrative(manifest, config, provider, readFile5, validPagePaths) {
   const basePage = generateGettingStartedPage(manifest, config);
   try {
     const narrative = await generateGettingStartedNarrative({
@@ -2336,7 +3164,7 @@ async function generateGettingStartedPageNarrative(manifest, config, provider, r
       readFile: readFile5
     });
     const repoUrl = config.source.repo.includes("/") ? config.source.repo : void 0;
-    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, config.source.branch);
+    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, config.source.branch, void 0, validPagePaths);
     const projectName = resolveProjectName(manifest);
     const narrativeContent = `---
 title: Getting Started
@@ -2359,11 +3187,11 @@ ${prose}
     return basePage;
   }
 }
-var import_path8;
+var import_path9;
 var init_getting_started = __esm({
   "src/generators/pages/getting-started.ts"() {
     "use strict";
-    import_path8 = __toESM(require("path"), 1);
+    import_path9 = __toESM(require("path"), 1);
     init_language_detect();
     init_utils();
     init_narrative_engine();
@@ -2436,7 +3264,7 @@ description: System architecture and dependency graph
     mermaidContent += `  subgraph ${sanitizeMermaidId(dir)}["${dir}"]
 `;
     for (const node of filteredNodes) {
-      mermaidContent += `    ${sanitizeMermaidId(node)}["${import_path9.default.basename(node)}"]
+      mermaidContent += `    ${sanitizeMermaidId(node)}["${import_path10.default.basename(node)}"]
 `;
     }
     mermaidContent += "  end\n";
@@ -2449,10 +3277,11 @@ description: System architecture and dependency graph
     mermaidContent += `  ${sanitizeMermaidId(edge.from)} ${style} ${sanitizeMermaidId(edge.to)}
 `;
   }
+  const codeModuleSet = new Set(manifest.modules.filter(shouldGenerateModulePage).map((m) => m.filePath));
   const moduleRows = manifest.modules.map((m) => {
     const outgoing = dependencyGraph.edges.filter((e) => e.from === m.filePath).length;
     const incoming = dependencyGraph.edges.filter((e) => e.to === m.filePath).length;
-    return { filePath: m.filePath, deps: outgoing, dependents: incoming, total: outgoing + incoming };
+    return { filePath: m.filePath, deps: outgoing, dependents: incoming, total: outgoing + incoming, hasPage: codeModuleSet.has(m.filePath) };
   }).sort((a, b) => b.total - a.total).slice(0, 30);
   const content = `---
 title: Architecture
@@ -2481,7 +3310,8 @@ ${dependencyGraph.nodes.length > 30 ? `
 |--------|:-----------:|:----------:|:-----:|
 ${moduleRows.map((r) => {
     const slug = r.filePath.replace(/\.[^.]+$/, "");
-    return `| [\`${r.filePath}\`](api/${slug}.md) | ${r.deps} | ${r.dependents} | **${r.total}** |`;
+    const label = r.hasPage ? `[\`${r.filePath}\`](api/${slug}.md)` : `\`${r.filePath}\``;
+    return `| ${label} | ${r.deps} | ${r.dependents} | **${r.total}** |`;
   }).join("\n")}
 
 ## Statistics
@@ -2636,7 +3466,7 @@ graph ${nodes.length > 15 ? "TD" : "LR"}
     for (const node of nodes) {
       const nodeId = sanitizeMermaidId(node);
       const isEntry = node.includes("index.") || node.includes("main.");
-      t2Content += `  ${nodeId}["${import_path9.default.basename(node)}"]${isEntry ? "\n  style " + nodeId + " fill:#5de4c7,color:#000" : ""}
+      t2Content += `  ${nodeId}["${import_path10.default.basename(node)}"]${isEntry ? "\n  style " + nodeId + " fill:#5de4c7,color:#000" : ""}
 `;
     }
     const nodesSet = new Set(nodes);
@@ -2659,7 +3489,8 @@ graph ${nodes.length > 15 ? "TD" : "LR"}
       const dependents = dependencyGraph.edges.filter((e) => e.to === mod.filePath).length;
       const exports2 = mod.symbols.filter((s) => s.exported).length;
       const modSlug = mod.filePath.replace(/\.[^.]+$/, "");
-      t2Content += `| [\`${import_path9.default.basename(mod.filePath)}\`](../api/${modSlug}.md) | ${deps} | ${dependents} | ${exports2} |
+      const label = shouldGenerateModulePage(mod) ? `[\`${import_path10.default.basename(mod.filePath)}\`](../api/${modSlug}.md)` : `\`${import_path10.default.basename(mod.filePath)}\``;
+      t2Content += `| ${label} | ${deps} | ${dependents} | ${exports2} |
 `;
     }
     t2Content += `
@@ -2678,7 +3509,7 @@ graph ${nodes.length > 15 ? "TD" : "LR"}
   }
   return pages;
 }
-async function generateArchitecturePageNarrative(manifest, provider, readFile5, repoUrl, branch) {
+async function generateArchitecturePageNarrative(manifest, provider, readFile5, repoUrl, branch, validPagePaths) {
   const basePage = generateArchitecturePage(manifest);
   try {
     const narrative = await generateArchitectureNarrative({
@@ -2686,7 +3517,7 @@ async function generateArchitecturePageNarrative(manifest, provider, readFile5, 
       manifest,
       readFile: readFile5
     });
-    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, branch);
+    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, branch, void 0, validPagePaths);
     const diagramSections = narrative.suggestedDiagrams.map((d) => `### ${d.title}
 
 \`\`\`mermaid
@@ -2711,11 +3542,11 @@ ${diagramSections}` : ""}`;
     return basePage;
   }
 }
-var import_path9;
+var import_path10;
 var init_architecture = __esm({
   "src/generators/pages/architecture.ts"() {
     "use strict";
-    import_path9 = __toESM(require("path"), 1);
+    import_path10 = __toESM(require("path"), 1);
     init_utils();
     init_narrative_engine();
   }
@@ -2735,18 +3566,20 @@ function generateModulePage(mod, group, ctx) {
   const repoUrl = isGitHubRepo ? config.source.repo : void 0;
   const branch = config?.source.branch ?? "main";
   const sourceLinksEnabled = config?.analysis.source_links !== false && isGitHubRepo;
+  const currentPagePath = `api/${slug}.md`;
   const renderOpts = {
     repoUrl,
     branch,
     sourceLinks: sourceLinksEnabled,
-    symbolPageMap: ctx?.symbolPageMap
+    symbolPageMap: ctx?.symbolPageMap,
+    currentPagePath
   };
   let content = `---
-title: "${import_path10.default.basename(mod.filePath)}"
+title: "${import_path11.default.basename(mod.filePath)}"
 description: "${mod.moduleDoc?.summary || `API reference for ${mod.filePath}`}"
 ---
 
-# ${import_path10.default.basename(mod.filePath)}
+# ${import_path11.default.basename(mod.filePath)}
 
 ${summary}
 
@@ -2787,7 +3620,12 @@ ${description}
 `;
       } else {
         const rfSlug = rf.replace(/\.[^.]+$/, "");
-        content += `- [\`${rf}\`](${rfSlug}.md)
+        const currentSlug = mod.filePath.replace(/\.[^.]+$/, "");
+        const relPath = import_path11.default.posix.relative(
+          import_path11.default.posix.dirname(currentSlug),
+          rfSlug
+        ) + ".md";
+        content += `- [\`${rf}\`](${relPath})
 `;
       }
     }
@@ -2886,7 +3724,7 @@ ${description}
 flowchart TD
 `;
       const thisId = sanitizeMermaidId(mod.filePath);
-      content += `  ${thisId}["${import_path10.default.basename(mod.filePath)}"]
+      content += `  ${thisId}["${import_path11.default.basename(mod.filePath)}"]
 `;
       content += `  style ${thisId} fill:#5de4c7,color:#000
 `;
@@ -2895,7 +3733,7 @@ flowchart TD
 `;
         for (const up of upstream.slice(0, 8)) {
           const upId = sanitizeMermaidId(up);
-          content += `    ${upId}["${import_path10.default.basename(up)}"]
+          content += `    ${upId}["${import_path11.default.basename(up)}"]
 `;
         }
         content += `  end
@@ -2911,7 +3749,7 @@ flowchart TD
 `;
         for (const down of downstream.slice(0, 8)) {
           const downId = sanitizeMermaidId(down);
-          content += `    ${downId}["${import_path10.default.basename(down)}"]
+          content += `    ${downId}["${import_path11.default.basename(down)}"]
 `;
         }
         content += `  end
@@ -2940,7 +3778,12 @@ flowchart TD
 `;
       for (const ref of referencedBy.sort()) {
         const refSlug = ref.replace(/\.[^.]+$/, "");
-        content += `- [\`${ref}\`](/api/${refSlug}.md)
+        const currentSlug = mod.filePath.replace(/\.[^.]+$/, "");
+        const relativePath = import_path11.default.posix.relative(
+          import_path11.default.posix.dirname(currentSlug),
+          refSlug
+        ) + ".md";
+        content += `- [\`${ref}\`](${relativePath})
 `;
       }
       content += "\n";
@@ -2996,14 +3839,14 @@ flowchart TD
 `;
   return {
     path: `api/${slug}.md`,
-    title: import_path10.default.basename(mod.filePath),
+    title: import_path11.default.basename(mod.filePath),
     content,
     navGroup: group || "API Reference",
     navOrder: 10,
     audience: "developer"
   };
 }
-async function generateModulePageNarrative(mod, group, ctx, provider, readFile5) {
+async function generateModulePageNarrative(mod, group, ctx, provider, readFile5, validPagePaths) {
   const basePage = generateModulePage(mod, group, ctx);
   try {
     const narrative = await generateModuleNarrative(mod, {
@@ -3012,7 +3855,8 @@ async function generateModulePageNarrative(mod, group, ctx, provider, readFile5)
       readFile: readFile5
     });
     const repoUrl = ctx.config.source.repo.includes("/") ? ctx.config.source.repo : void 0;
-    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, ctx.config.source.branch);
+    const currentPagePath = `api/${mod.filePath.replace(/\.[^.]+$/, "")}.md`;
+    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, ctx.config.source.branch, currentPagePath, validPagePaths);
     const insertPoint = basePage.content.indexOf("---\n\n## Exports");
     if (insertPoint > 0) {
       const content = basePage.content.slice(0, insertPoint) + `
@@ -3028,11 +3872,11 @@ ${prose}
     return basePage;
   }
 }
-var import_path10;
+var import_path11;
 var init_module = __esm({
   "src/generators/pages/module.ts"() {
     "use strict";
-    import_path10 = __toESM(require("path"), 1);
+    import_path11 = __toESM(require("path"), 1);
     init_language_detect();
     init_utils();
     init_narrative_engine();
@@ -3044,7 +3888,7 @@ function generateConfigurationPage(manifest, config) {
   const meta = manifest.projectMeta;
   const projectName = resolveProjectName(manifest);
   const configModules = manifest.modules.filter((mod) => {
-    const basename = import_path11.default.basename(mod.filePath).toLowerCase();
+    const basename = import_path12.default.basename(mod.filePath).toLowerCase();
     return basename.includes("config") || basename.includes("settings") || basename.includes("schema") || /\.(config|rc)\.[^.]+$/.test(basename);
   });
   let configFilesSection = "";
@@ -3068,7 +3912,7 @@ function generateConfigurationPage(manifest, config) {
       const publicSymbols = mod.symbols.filter((s) => s.exported);
       if (publicSymbols.length === 0) continue;
       const langTag = getLanguageTag(mod.language);
-      configFilesSection += `### ${import_path11.default.basename(mod.filePath)}
+      configFilesSection += `### ${import_path12.default.basename(mod.filePath)}
 
 `;
       configFilesSection += `Source: \`${mod.filePath}\`
@@ -3127,11 +3971,11 @@ ${configFilesSection}
     audience: "developer"
   };
 }
-var import_path11;
+var import_path12;
 var init_configuration = __esm({
   "src/generators/pages/configuration.ts"() {
     "use strict";
-    import_path11 = __toESM(require("path"), 1);
+    import_path12 = __toESM(require("path"), 1);
     init_language_detect();
     init_utils();
   }
@@ -3152,18 +3996,40 @@ function generateTypesPage(manifest) {
   }
   let masterTable = "";
   if (typeSymbols.length > 0) {
-    masterTable += `| Name | Kind | Module | Description |
+    const described = typeSymbols.filter(({ symbol: sym }) => sym.docs?.summary || sym.aiSummary);
+    const undescribed = typeSymbols.filter(({ symbol: sym }) => !sym.docs?.summary && !sym.aiSummary);
+    if (described.length > 0) {
+      masterTable += `| Name | Kind | Module | Description |
 `;
-    masterTable += `|------|------|--------|-------------|
+      masterTable += `|------|------|--------|-------------|
 `;
-    for (const { symbol: sym, module: mod } of typeSymbols) {
-      const kindBadge = getKindBadge(sym.kind);
-      const desc = sym.docs?.summary || sym.aiSummary || "";
-      const symAnchor = sym.name.toLowerCase().replace(/[^a-z0-9-_]/g, "");
-      masterTable += `| [\`${sym.name}\`](#${symAnchor}) | ${kindBadge} | \`${import_path12.default.basename(mod.filePath)}\` | ${desc} |
+      for (const { symbol: sym, module: mod } of described) {
+        const kindBadge = getKindBadge(sym.kind);
+        const desc = sym.docs?.summary || sym.aiSummary || "";
+        const symAnchor = sym.name.toLowerCase().replace(/[^a-z0-9-_]/g, "");
+        masterTable += `| [\`${sym.name}\`](#${symAnchor}) | ${kindBadge} | \`${import_path13.default.basename(mod.filePath)}\` | ${desc} |
 `;
+      }
+      masterTable += "\n";
     }
-    masterTable += "\n";
+    if (undescribed.length > 0) {
+      if (described.length > 0) {
+        masterTable += `### Other Types
+
+`;
+      }
+      masterTable += `| Name | Kind | Module |
+`;
+      masterTable += `|------|------|--------|
+`;
+      for (const { symbol: sym, module: mod } of undescribed) {
+        const kindBadge = getKindBadge(sym.kind);
+        const symAnchor = sym.name.toLowerCase().replace(/[^a-z0-9-_]/g, "");
+        masterTable += `| [\`${sym.name}\`](#${symAnchor}) | ${kindBadge} | \`${import_path13.default.basename(mod.filePath)}\` |
+`;
+      }
+      masterTable += "\n";
+    }
   }
   let detailedSections = "";
   const groupedTypes = /* @__PURE__ */ new Map();
@@ -3213,11 +4079,11 @@ ${masterTable}---
     audience: "developer"
   };
 }
-var import_path12;
+var import_path13;
 var init_types = __esm({
   "src/generators/pages/types.ts"() {
     "use strict";
-    import_path12 = __toESM(require("path"), 1);
+    import_path13 = __toESM(require("path"), 1);
     init_utils();
   }
 });
@@ -3532,13 +4398,13 @@ function resolveRepoRoot(source) {
   if (repo.includes("/") && !repo.startsWith(".") && !repo.startsWith("/")) {
     return process.cwd();
   }
-  return import_path13.default.resolve(repo);
+  return import_path14.default.resolve(repo);
 }
-var import_path13;
+var import_path14;
 var init_utils2 = __esm({
   "src/utils/index.ts"() {
     "use strict";
-    import_path13 = __toESM(require("path"), 1);
+    import_path14 = __toESM(require("path"), 1);
     init_hash();
     init_logger();
   }
@@ -3704,7 +4570,7 @@ async function generateChangelogPage(config) {
       const { readFile: readFs } = await import("fs/promises");
       for (const notesFile of ["CHANGELOG.md", "RELEASE_NOTES.md"]) {
         try {
-          const notesPath = import_path14.default.join(repoRoot, notesFile);
+          const notesPath = import_path15.default.join(repoRoot, notesFile);
           const notesContent = await readFs(notesPath, "utf-8");
           if (notesContent.trim()) {
             changelogContent += `---
@@ -3754,11 +4620,11 @@ ${changelogContent}
     audience: "developer"
   };
 }
-var import_path14, import_simple_git2;
+var import_path15, import_simple_git2;
 var init_changelog = __esm({
   "src/generators/pages/changelog.ts"() {
     "use strict";
-    import_path14 = __toESM(require("path"), 1);
+    import_path15 = __toESM(require("path"), 1);
     import_simple_git2 = __toESM(require("simple-git"), 1);
     init_utils2();
     init_utils();
@@ -4414,23 +5280,37 @@ A comprehensive guide to everything ${projectName} can do.
     }
   }
   if (signals.components.length > 0) {
+    const described = signals.components.filter((c) => c.description);
+    const undescribed = signals.components.filter((c) => !c.description);
     content += `---
 
 ## Components
 
 `;
-    for (const comp of signals.components.slice(0, 20)) {
+    for (const comp of described.slice(0, 20)) {
       content += `### ${comp.name}
 
 `;
-      content += `${comp.description || `The ${comp.name} component.`}
+      content += `${comp.description}
 
 `;
-      if (comp.props && comp.props.length > 0) {
+      if (comp.props?.length) {
         content += `**Props:** ${comp.props.map((p) => `\`${p}\``).join(", ")}
 
 `;
       }
+    }
+    if (undescribed.length > 0) {
+      content += `| Component | Props |
+|-----------|-------|
+`;
+      for (const comp of undescribed.slice(0, 30)) {
+        const props = comp.props?.length ? `\`${comp.props.join(", ")}\`` : "\u2014";
+        content += `| **${comp.name}** | ${props} |
+`;
+      }
+      content += `
+`;
     }
   }
   const usefulConfigOpts = signals.configOptions.filter((o) => o.type || o.description);
@@ -4570,23 +5450,38 @@ Having trouble? Check the common issues below or see the error reference.
 ## Common Issues
 
 `;
-  content += `### Installation Problems
+  if (signals.errorTypes.length > 0) {
+    content += `### Known Error Types
 
 `;
-  content += `If you're having trouble installing ${projectName}:
-
+    content += `| Error | Source | Description |
 `;
-  content += `1. Make sure you have the required runtime installed
+    content += `|-------|--------|-------------|
 `;
-  content += `2. Check that your version meets the minimum requirements
+    for (const err of signals.errorTypes.slice(0, 15)) {
+      const desc = err.description || (err.extends ? `Extends \`${err.extends}\`` : "\u2014");
+      content += `| **${err.name}** | \`${err.filePath}\` | ${desc} |
 `;
-  content += `3. Try clearing your package manager cache and reinstalling
-
+    }
+    content += `
 `;
+  }
   if (signals.configOptions.length > 0) {
+    const requiredOpts = signals.configOptions.filter((o) => !o.defaultValue);
     content += `### Configuration Issues
 
 `;
+    if (requiredOpts.length > 0) {
+      content += `**Required options** (no defaults \u2014 must be set explicitly):
+
+`;
+      for (const opt of requiredOpts.slice(0, 10)) {
+        content += `- \`${opt.name}\`${opt.type ? ` (${opt.type})` : ""}${opt.description ? ` \u2014 ${opt.description}` : ""}
+`;
+      }
+      content += `
+`;
+    }
     content += `If ${projectName} isn't behaving as expected:
 
 `;
@@ -4595,6 +5490,21 @@ Having trouble? Check the common issues below or see the error reference.
     content += `2. Verify all required options are set
 `;
     content += `3. Check environment variables are properly set
+
+`;
+  }
+  if (signals.errorTypes.length === 0 && signals.configOptions.length === 0) {
+    content += `### Installation Problems
+
+`;
+    content += `If you're having trouble installing ${projectName}:
+
+`;
+    content += `1. Make sure you have the required runtime installed
+`;
+    content += `2. Check that your version meets the minimum requirements
+`;
+    content += `3. Try clearing your package manager cache and reinstalling
 
 `;
   }
@@ -4877,79 +5787,180 @@ var structure_advisor_exports = {};
 __export(structure_advisor_exports, {
   analyzeStructure: () => analyzeStructure
 });
-async function analyzeStructure(manifest, provider) {
-  if (!provider) {
-    return { conceptPages: [], audienceSplit: false, navGroups: [] };
+function buildFileTree(manifest) {
+  return manifest.modules.map((m) => m.filePath).sort().join("\n");
+}
+function findReadmeContent(manifest) {
+  if (manifest.projectMeta.readmeDescription) {
+    return manifest.projectMeta.readmeDescription;
   }
-  const modulesBySection = {};
-  for (const mod of manifest.modules) {
-    const section = detectLogicalSection(mod.filePath);
-    if (!modulesBySection[section]) modulesBySection[section] = [];
-    modulesBySection[section].push(mod.filePath);
+  const readmeModule = manifest.modules.find(
+    (m) => m.filePath.toLowerCase().includes("readme")
+  );
+  if (!readmeModule) return void 0;
+  return readmeModule.aiSummary || readmeModule.moduleDoc?.summary;
+}
+function buildModuleSummaries(manifest, topN = 20) {
+  const { dependencyGraph, modules } = manifest;
+  const connectionCount = /* @__PURE__ */ new Map();
+  for (const edge of dependencyGraph.edges) {
+    connectionCount.set(edge.from, (connectionCount.get(edge.from) || 0) + 1);
+    connectionCount.set(edge.to, (connectionCount.get(edge.to) || 0) + 1);
   }
-  const sectionSummary = Object.entries(modulesBySection).map(([section, files]) => `${section}: ${files.length} files (${files.slice(0, 3).join(", ")}${files.length > 3 ? `, +${files.length - 3} more` : ""})`).join("\n");
-  const { dependencyGraph } = manifest;
-  const clusters = /* @__PURE__ */ new Map();
-  for (const node of dependencyGraph.nodes) {
-    const parts = node.split("/");
-    const dir = parts.length > 2 ? parts.slice(0, 2).join("/") : parts[0];
-    clusters.set(dir, (clusters.get(dir) || 0) + 1);
-  }
-  const clusterSummary = [...clusters.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([dir, count]) => `${dir}: ${count} files`).join("\n");
-  const prompt = `Analyze this codebase and suggest additional conceptual documentation pages beyond the standard set (Overview, Getting Started, Architecture, API Reference).
+  const ranked = modules.map((m) => ({ module: m, connections: connectionCount.get(m.filePath) || 0 })).sort((a, b) => b.connections - a.connections).slice(0, topN);
+  return ranked.map((r) => {
+    const summary = r.module.aiSummary || r.module.moduleDoc?.summary || "(no summary)";
+    return `- ${r.module.filePath} (${r.connections} connections): ${summary}`;
+  }).join("\n");
+}
+function buildStructurePrompt(manifest, fileTree, readmeContent, moduleSummaries, comprehensive) {
+  const languages = manifest.projectMeta.languages.map((l) => `${l.name} (${l.percentage}%)`).join(", ");
+  const pageRange = comprehensive ? "8-12" : "4-6";
+  return `Analyze this repository and create a wiki structure.
+
+FILE TREE:
+${fileTree}
+
+README:
+${readmeContent || "No README found"}
 
 PROJECT: ${manifest.projectMeta.name}
-LANGUAGES: ${manifest.projectMeta.languages.map((l) => `${l.name} (${l.percentage}%)`).join(", ")}
-TOTAL FILES: ${manifest.stats.totalFiles}
-TOTAL SYMBOLS: ${manifest.stats.totalSymbols}
+LANGUAGES: ${languages}
+FILES: ${manifest.stats.totalFiles}
 
-LOGICAL SECTIONS:
-${sectionSummary}
+MODULE SUMMARIES (most connected):
+${moduleSummaries}
 
-DEPENDENCY CLUSTERS:
-${clusterSummary}
+Create a structured wiki with ${pageRange} pages.
+Each page should focus on a specific aspect that would benefit from detailed documentation:
+- Architecture overviews
+- Data flow descriptions
+- Component relationships
+- Process workflows
+- Key subsystems
 
-Return a JSON array of page suggestions. Each item should have:
-- "id": lowercase-kebab-case identifier
-- "title": human-readable page title
-- "description": what this page should cover (1 sentence)
-- "navGroup": which navigation group this belongs to
-- "relatedModules": array of file paths this page relates to (max 10)
+Return ONLY valid XML with no markdown code blocks:
 
-Suggest 2-6 conceptual pages based on patterns you see (e.g., "Authentication Flow", "Data Pipeline", "Event System", "Plugin Architecture"). Only suggest pages where there's enough code to warrant a dedicated page.
+<wiki_structure>
+  <pages>
+    <page id="page-1">
+      <title>Page Title</title>
+      <description>What this page covers</description>
+      <importance>high|medium|low</importance>
+      <relevant_files>
+        <file_path>src/path/to/file.ts</file_path>
+      </relevant_files>
+      <related_pages>
+        <related>page-2</related>
+      </related_pages>
+    </page>
+  </pages>
+</wiki_structure>
 
-Return ONLY valid JSON, no explanation.`;
-  try {
-    const response = await provider.generate(prompt, {
-      maxTokens: 1024,
-      temperature: 0.2,
-      systemPrompt: "You are a documentation architect. Return only valid JSON."
+RULES:
+1. Each page must have at least 3 relevant_files from the file tree
+2. Pages should cover distinct aspects \u2014 no overlap
+3. Include at least one architecture/overview page
+4. Every important file should be assigned to at least one page
+5. Order pages from most important to least`;
+}
+function parseStructureXml(xml) {
+  const structureMatch = xml.match(/<wiki_structure>([\s\S]*?)<\/wiki_structure>/);
+  if (!structureMatch) return [];
+  const structureBody = structureMatch[1];
+  const pageRegex = /<page\s+id="([^"]*)">([\s\S]*?)<\/page>/g;
+  const pages = [];
+  let pageMatch;
+  let index = 0;
+  while ((pageMatch = pageRegex.exec(structureBody)) !== null) {
+    const id = pageMatch[1];
+    const body = pageMatch[2];
+    const title = body.match(/<title>([\s\S]*?)<\/title>/)?.[1]?.trim() || id;
+    const description = body.match(/<description>([\s\S]*?)<\/description>/)?.[1]?.trim() || "";
+    const importance = body.match(/<importance>([\s\S]*?)<\/importance>/)?.[1]?.trim();
+    const filePaths = [];
+    const filePathRegex = /<file_path>([\s\S]*?)<\/file_path>/g;
+    let fpMatch;
+    while ((fpMatch = filePathRegex.exec(body)) !== null) {
+      filePaths.push(fpMatch[1].trim());
+    }
+    const relatedPages = [];
+    const relatedRegex = /<related>([\s\S]*?)<\/related>/g;
+    let relMatch;
+    while ((relMatch = relatedRegex.exec(body)) !== null) {
+      relatedPages.push(relMatch[1].trim());
+    }
+    pages.push({
+      id,
+      title,
+      description,
+      navGroup: "Concepts",
+      navOrder: 20 + index,
+      relatedModules: filePaths,
+      importance: importance && ["high", "medium", "low"].includes(importance) ? importance : "medium",
+      relatedPages
     });
-    const cleaned = response.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
-    const suggestions = JSON.parse(cleaned);
-    const conceptPages = suggestions.map((s, i) => ({
-      id: s.id,
-      title: s.title,
-      description: s.description,
-      navGroup: s.navGroup || "Concepts",
-      navOrder: 20 + i,
-      relatedModules: s.relatedModules || []
+    index++;
+  }
+  return pages;
+}
+function buildStaticPlan(manifest) {
+  return {
+    conceptPages: [],
+    sections: [],
+    audienceSplit: false,
+    navGroups: [],
+    isComprehensive: false
+  };
+}
+async function analyzeStructure(manifest, provider, comprehensive) {
+  if (!provider) {
+    return buildStaticPlan(manifest);
+  }
+  try {
+    const fileTree = buildFileTree(manifest);
+    const readmeContent = findReadmeContent(manifest);
+    const moduleSummaries = buildModuleSummaries(manifest, 20);
+    const isComprehensive = comprehensive ?? false;
+    const prompt = buildStructurePrompt(
+      manifest,
+      fileTree,
+      readmeContent,
+      moduleSummaries,
+      isComprehensive
+    );
+    const response = await provider.generate(prompt, {
+      maxTokens: 2048,
+      temperature: 0.3,
+      systemPrompt: "You are a documentation architect. Analyze codebases and return wiki structures as valid XML. Return ONLY XML \u2014 no explanation, no markdown code blocks."
+    });
+    const conceptPages = parseStructureXml(response);
+    if (conceptPages.length === 0) {
+      return buildStaticPlan(manifest);
+    }
+    const audienceSplit = manifest.modules.some(
+      (m) => m.filePath.includes("cli/") || m.filePath.includes("commands/")
+    );
+    const navGroups = [...new Set(conceptPages.map((p) => p.navGroup))];
+    const sections = navGroups.map((group, i) => ({
+      id: `section-${i + 1}`,
+      title: group,
+      pages: conceptPages.filter((p) => p.navGroup === group).map((p) => p.id)
     }));
     return {
       conceptPages,
-      audienceSplit: manifest.modules.some(
-        (m) => m.filePath.includes("cli/") || m.filePath.includes("commands/")
-      ),
-      navGroups: [...new Set(conceptPages.map((p) => p.navGroup))]
+      sections,
+      audienceSplit,
+      navGroups,
+      isComprehensive
     };
   } catch {
-    return { conceptPages: [], audienceSplit: false, navGroups: [] };
+    return buildStaticPlan(manifest);
   }
 }
 var init_structure_advisor = __esm({
   "src/analysis/structure-advisor.ts"() {
     "use strict";
-    init_utils();
   }
 });
 
@@ -4958,7 +5969,7 @@ var concept_exports = {};
 __export(concept_exports, {
   generateConceptPage: () => generateConceptPage
 });
-async function generateConceptPage(suggestion, manifest, provider, readFile5, repoUrl, branch) {
+async function generateConceptPage(suggestion, manifest, provider, readFile5, repoUrl, branch, validPagePaths) {
   const targetModule = suggestion.relatedModules.length > 0 ? manifest.modules.find((m) => m.filePath === suggestion.relatedModules[0]) : void 0;
   const contextChunks = await buildContext({
     targetModule,
@@ -4967,28 +5978,44 @@ async function generateConceptPage(suggestion, manifest, provider, readFile5, re
     manifest,
     readFile: readFile5
   });
-  const contextText = contextChunks.map((c) => `--- ${c.filePath} ---
-${c.content}`).join("\n\n");
-  const prompt = `Write a documentation page about "${suggestion.title}" for the ${manifest.projectMeta.name} project.
-
+  const relatedFileList = suggestion.relatedModules.map((f) => `- \`${f}\``).join("\n");
+  const pageInstructions = `CONCEPT: ${suggestion.title}
 DESCRIPTION: ${suggestion.description}
 
-RELATED FILES: ${suggestion.relatedModules.join(", ")}
+RELATED FILES:
+${relatedFileList}
 
-SOURCE CODE CONTEXT:
-${contextText}
+Write a comprehensive documentation page about this concept following this structure:
 
-INSTRUCTIONS:
-1. Write a comprehensive page explaining this concept/feature
-2. Reference specific code using [file:line] notation
-3. Include code examples where helpful
-4. Explain how this fits into the overall architecture
-5. Write 4-8 paragraphs in Markdown format with proper headings`;
+1. **Overview** (1-2 paragraphs): What this concept/feature is and why it matters in the project. State the problem it solves.
+
+2. **How It Works**: Explain the key mechanisms, algorithms, or patterns. Reference specific functions, classes, and types from the source code. Include a Mermaid diagram if the concept involves multiple interacting components.
+
+3. **Key Components**: For each major piece involved, describe its role:
+| Component | File | Purpose |
+|-----------|------|---------|
+
+4. **Usage Examples**: Show concrete code examples demonstrating how developers interact with this feature. Use actual exported APIs from the source.
+
+5. **Integration Points**: How this concept connects to other parts of the system. What depends on it, and what it depends on.
+
+Do NOT include a title heading (# heading) \u2014 it will be added by the template.
+NEVER say "This module provides..." or "This file contains..." \u2014 describe the concept directly.
+Write for developers who need to understand or modify this feature.`;
   try {
+    const prompt = buildPagePrompt({
+      title: suggestion.title,
+      projectName: manifest.projectMeta.name,
+      contextChunks,
+      pageInstructions,
+      sourceFiles: contextChunks.map((c) => c.filePath),
+      repoUrl,
+      branch
+    });
     let prose = await provider.generate(prompt, {
       maxTokens: 2048,
       temperature: 0.3,
-      systemPrompt: "You are a technical documentation writer. Be thorough and reference specific code."
+      systemPrompt: buildPageSystemPrompt()
     });
     const citationRegex = /\[([^\]]+?):(\d+)\]/g;
     const citations = [];
@@ -4996,7 +6023,8 @@ INSTRUCTIONS:
     while ((match = citationRegex.exec(prose)) !== null) {
       citations.push({ text: match[0], filePath: match[1], line: parseInt(match[2], 10) });
     }
-    prose = renderCitations(prose, citations, repoUrl, branch);
+    const currentPagePath = `concepts/${suggestion.id}.md`;
+    prose = renderCitations(prose, citations, repoUrl, branch, currentPagePath, validPagePaths);
     const content = `---
 title: "${suggestion.title}"
 description: "${suggestion.description}"
@@ -5047,11 +6075,14 @@ var init_concept = __esm({
     "use strict";
     init_context_builder();
     init_narrative_engine();
+    init_prompt_builder();
   }
 });
 
 // src/qa/chunker.ts
-function chunkPage(pagePath, pageTitle, content) {
+function chunkPage(pagePath, pageTitle, content, options) {
+  const targetChunkTokens = options?.targetSize ?? DEFAULT_TARGET_CHUNK_TOKENS;
+  const overlapTokens = options?.overlapTokens ?? 0;
   const chunks = [];
   let chunkIndex = 0;
   const stripped = content.replace(/^---[\s\S]*?---\n*/m, "");
@@ -5076,43 +6107,56 @@ function chunkPage(pagePath, pageTitle, content) {
       const paragraphs = sectionContent.split(/\n\n+/);
       let currentChunk = "";
       let currentTokens = 0;
+      let previousTail = "";
       for (const para of paragraphs) {
         const paraTokens = estimateTokens(para);
         if (currentTokens + paraTokens > MAX_CHUNK_TOKENS && currentChunk) {
+          const finalContent = currentChunk.trim();
           chunks.push({
             id: `${pagePath}:${chunkIndex++}`,
             pagePath,
             pageTitle,
             heading,
-            content: currentChunk.trim(),
-            tokenCount: currentTokens
+            content: finalContent,
+            tokenCount: estimateTokens(finalContent)
           });
-          currentChunk = "";
-          currentTokens = 0;
+          if (overlapTokens > 0) {
+            const words = finalContent.split(/\s+/);
+            const overlapWords = Math.min(overlapTokens, words.length);
+            previousTail = words.slice(-overlapWords).join(" ") + "\n\n";
+          }
+          currentChunk = previousTail;
+          currentTokens = estimateTokens(previousTail);
         }
         currentChunk += para + "\n\n";
         currentTokens += paraTokens;
-        if (currentTokens >= TARGET_CHUNK_TOKENS) {
+        if (currentTokens >= targetChunkTokens) {
+          const finalContent = currentChunk.trim();
           chunks.push({
             id: `${pagePath}:${chunkIndex++}`,
             pagePath,
             pageTitle,
             heading,
-            content: currentChunk.trim(),
-            tokenCount: currentTokens
+            content: finalContent,
+            tokenCount: estimateTokens(finalContent)
           });
-          currentChunk = "";
-          currentTokens = 0;
+          if (overlapTokens > 0) {
+            const words = finalContent.split(/\s+/);
+            const overlapWords = Math.min(overlapTokens, words.length);
+            previousTail = words.slice(-overlapWords).join(" ") + "\n\n";
+          }
+          currentChunk = previousTail;
+          currentTokens = estimateTokens(previousTail);
         }
       }
-      if (currentChunk.trim() && currentTokens >= MIN_CHUNK_TOKENS) {
+      if (currentChunk.trim() && estimateTokens(currentChunk.trim()) >= MIN_CHUNK_TOKENS) {
         chunks.push({
           id: `${pagePath}:${chunkIndex++}`,
           pagePath,
           pageTitle,
           heading,
           content: currentChunk.trim(),
-          tokenCount: currentTokens
+          tokenCount: estimateTokens(currentChunk.trim())
         });
       }
     }
@@ -5147,20 +6191,20 @@ function splitByHeadings(markdown) {
   }
   return sections;
 }
-function chunkPages(pages) {
+function chunkPages(pages, options) {
   const allChunks = [];
   for (const page of pages) {
-    allChunks.push(...chunkPage(page.path, page.title, page.content));
+    allChunks.push(...chunkPage(page.path, page.title, page.content, options));
   }
   return allChunks;
 }
-var MIN_CHUNK_TOKENS, TARGET_CHUNK_TOKENS, MAX_CHUNK_TOKENS;
+var MIN_CHUNK_TOKENS, DEFAULT_TARGET_CHUNK_TOKENS, MAX_CHUNK_TOKENS;
 var init_chunker = __esm({
   "src/qa/chunker.ts"() {
     "use strict";
     init_utils();
     MIN_CHUNK_TOKENS = 50;
-    TARGET_CHUNK_TOKENS = 300;
+    DEFAULT_TARGET_CHUNK_TOKENS = 300;
     MAX_CHUNK_TOKENS = 500;
   }
 });
@@ -5367,19 +6411,177 @@ var init_vector_store = __esm({
   }
 });
 
+// src/qa/text-search.ts
+function tokenize(text) {
+  return text.toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length > 1 && !STOPWORDS.has(t));
+}
+function buildTextIndex(chunks) {
+  const storedChunks = [];
+  const terms = /* @__PURE__ */ Object.create(null);
+  let totalTokens = 0;
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    const tokens = tokenize(chunk.content);
+    const tokenCount = tokens.length;
+    totalTokens += tokenCount;
+    storedChunks.push({
+      id: chunk.id,
+      pagePath: chunk.pagePath,
+      pageTitle: chunk.pageTitle,
+      heading: chunk.heading,
+      content: chunk.content,
+      tokenCount
+    });
+    const tfMap = /* @__PURE__ */ new Map();
+    for (const token of tokens) {
+      tfMap.set(token, (tfMap.get(token) ?? 0) + 1);
+    }
+    for (const [term, tf] of tfMap) {
+      if (!terms[term]) {
+        terms[term] = { df: 0, postings: [] };
+      }
+      terms[term].df++;
+      terms[term].postings.push({ chunkIdx: i, tf });
+    }
+  }
+  return {
+    version: 1,
+    chunks: storedChunks,
+    terms,
+    avgDl: chunks.length > 0 ? totalTokens / chunks.length : 0
+  };
+}
+function searchText(index, query, topK = 5) {
+  const queryTokens = tokenize(query);
+  if (queryTokens.length === 0) return [];
+  const N = index.chunks.length;
+  if (N === 0) return [];
+  const scores = new Float64Array(N);
+  for (const token of queryTokens) {
+    const entry = index.terms[token];
+    if (!entry || !entry.postings) continue;
+    const idf = Math.log((N - entry.df + 0.5) / (entry.df + 0.5) + 1);
+    for (const posting of entry.postings) {
+      const dl = index.chunks[posting.chunkIdx].tokenCount;
+      const tfNorm = posting.tf * (K1 + 1) / (posting.tf + K1 * (1 - B + B * (dl / index.avgDl)));
+      scores[posting.chunkIdx] += idf * tfNorm;
+    }
+  }
+  const results = [];
+  for (let i = 0; i < N; i++) {
+    if (scores[i] > 0) {
+      const stored = index.chunks[i];
+      results.push({
+        chunk: {
+          id: stored.id,
+          pagePath: stored.pagePath,
+          pageTitle: stored.pageTitle,
+          heading: stored.heading,
+          content: stored.content,
+          tokenCount: stored.tokenCount
+        },
+        score: scores[i]
+      });
+    }
+  }
+  results.sort((a, b) => b.score - a.score);
+  return results.slice(0, topK);
+}
+function serializeTextIndex(index) {
+  return JSON.stringify(index);
+}
+function deserializeTextIndex(data) {
+  const parsed = JSON.parse(data);
+  if (parsed.version !== 1) {
+    throw new Error(`Unsupported text search index version: ${parsed.version}`);
+  }
+  return parsed;
+}
+var K1, B, STOPWORDS;
+var init_text_search = __esm({
+  "src/qa/text-search.ts"() {
+    "use strict";
+    K1 = 1.2;
+    B = 0.75;
+    STOPWORDS = /* @__PURE__ */ new Set([
+      "a",
+      "an",
+      "the",
+      "and",
+      "or",
+      "but",
+      "in",
+      "on",
+      "at",
+      "to",
+      "for",
+      "of",
+      "with",
+      "by",
+      "from",
+      "is",
+      "are",
+      "was",
+      "were",
+      "be",
+      "been",
+      "being",
+      "have",
+      "has",
+      "had",
+      "do",
+      "does",
+      "did",
+      "will",
+      "would",
+      "could",
+      "should",
+      "may",
+      "might",
+      "shall",
+      "can",
+      "this",
+      "that",
+      "these",
+      "those",
+      "it",
+      "its",
+      "not",
+      "no",
+      "so",
+      "if",
+      "as",
+      "up",
+      "out",
+      "about",
+      "into",
+      "over",
+      "after",
+      "then",
+      "than",
+      "also"
+    ]);
+  }
+});
+
 // src/qa/index.ts
 var qa_exports = {};
 __export(qa_exports, {
   VectorStore: () => VectorStore,
   buildQAIndex: () => buildQAIndex,
+  buildTextIndex: () => buildTextIndex,
   chunkPages: () => chunkPages,
-  generateEmbeddings: () => generateEmbeddings
+  deserializeTextIndex: () => deserializeTextIndex,
+  generateEmbeddings: () => generateEmbeddings,
+  searchText: () => searchText,
+  serializeTextIndex: () => serializeTextIndex
 });
 async function buildQAIndex(options) {
-  const { pages, embedder, onProgress } = options;
+  const { pages, embedder, onProgress, chunkOverlap, chunkTargetSize } = options;
   onProgress?.("Chunking pages for Q&A index...");
   const chunks = chunkPages(
-    pages.map((p) => ({ path: p.path, title: p.title, content: p.content }))
+    pages.map((p) => ({ path: p.path, title: p.title, content: p.content })),
+    { overlapTokens: chunkOverlap ?? 50, targetSize: chunkTargetSize ?? 300 }
   );
   onProgress?.(`Created ${chunks.length} chunks from ${pages.length} pages`);
   onProgress?.("Generating embeddings...");
@@ -5391,8 +6593,13 @@ async function buildQAIndex(options) {
   onProgress?.(`Generated ${embeddings.length} embeddings`);
   const store = new VectorStore();
   store.addEntries(chunks, embeddings);
+  onProgress?.("Building text search index...");
+  const textIdx = buildTextIndex(chunks);
+  const textIndexJson = serializeTextIndex(textIdx);
+  onProgress?.(`Text search index: ${Object.keys(textIdx.terms).length} terms`);
   return {
     serialized: store.serialize(),
+    textIndex: textIndexJson,
     chunkCount: chunks.length,
     pageCount: pages.length
   };
@@ -5403,9 +6610,11 @@ var init_qa = __esm({
     init_chunker();
     init_embedder();
     init_vector_store();
+    init_text_search();
     init_chunker();
     init_embedder();
     init_vector_store();
+    init_text_search();
   }
 });
 
@@ -5416,11 +6625,22 @@ function generateWidgetJS(config) {
   'use strict';
 
   var ENDPOINT = ${JSON.stringify(config.apiEndpoint)};
+  var SEARCH_INDEX_URL = ${JSON.stringify(config.searchIndexUrl)};
   var POSITION = ${JSON.stringify(config.position)};
   var GREETING = ${JSON.stringify(config.greeting)};
   var DAILY_LIMIT = ${config.dailyLimit};
+  var MODE = ${JSON.stringify(config.mode)};
   var STORAGE_KEY = 'docwalk-qa-count';
+  var MAX_HISTORY = 6;
+  var TOP_K = 5;
 
+  // \u2500\u2500 State \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  var searchIndex = null;
+  var indexLoading = false;
+  var conversationHistory = [];
+  var isStreaming = false;
+
+  // \u2500\u2500 Daily Limit \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   function getQuestionsToday() {
     try {
       var stored = localStorage.getItem(STORAGE_KEY);
@@ -5435,109 +6655,440 @@ function generateWidgetJS(config) {
     var today = new Date().toISOString().slice(0, 10);
     var count = getQuestionsToday() + 1;
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ date: today, count: count }));
-    return count;
   }
 
+  // \u2500\u2500 HTML Sanitization \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // Allowlist-based sanitizer for rendered markdown.
+  // Only allows safe tags/attributes \u2014 strips everything else.
+  var SAFE_TAGS = new Set(['strong','em','code','pre','a','br','ul','ol','li','p','span']);
+  var SAFE_ATTRS = { a: new Set(['href','target','rel','class']), pre: new Set(['class']), code: new Set(['class']), span: new Set(['class']), div: new Set(['class']) };
+
+  function sanitizeHtml(html) {
+    var doc = new DOMParser().parseFromString('<div>' + html + '</div>', 'text/html');
+    var root = doc.body.firstChild;
+    if (!root) return '';
+    sanitizeNode(root);
+    return root.innerHTML;
+  }
+
+  function sanitizeNode(node) {
+    var children = Array.from(node.childNodes);
+    for (var i = 0; i < children.length; i++) {
+      var child = children[i];
+      if (child.nodeType === 3) continue; // text node \u2014 safe
+      if (child.nodeType !== 1) { child.remove(); continue; }
+      var tag = child.tagName.toLowerCase();
+      if (!SAFE_TAGS.has(tag)) {
+        // Replace unsafe element with its text content
+        var text = document.createTextNode(child.textContent || '');
+        child.parentNode.replaceChild(text, child);
+        continue;
+      }
+      // Strip unsafe attributes
+      var allowed = SAFE_ATTRS[tag] || new Set();
+      var attrs = Array.from(child.attributes);
+      for (var a = 0; a < attrs.length; a++) {
+        if (!allowed.has(attrs[a].name)) child.removeAttribute(attrs[a].name);
+      }
+      // For links, enforce safe href (no javascript:)
+      if (tag === 'a') {
+        var href = child.getAttribute('href') || '';
+        if (href.toLowerCase().trim().startsWith('javascript')) {
+          child.removeAttribute('href');
+        }
+        child.setAttribute('rel', 'noopener noreferrer');
+      }
+      sanitizeNode(child);
+    }
+  }
+
+  // \u2500\u2500 BM25 Client-Side Search \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  var STOP = new Set(["a","an","the","and","or","but","in","on","at","to","for","of","with","by","from","is","are","was","were","be","been","being","have","has","had","do","does","did","will","would","could","should","may","might","shall","can","this","that","these","those","it","its","not","no","so","if","as","up","out","about","into","over","after","then","than","also"]);
+
+  function tokenize(text) {
+    return text.toLowerCase().split(/[^a-z0-9]+/).filter(function(t) { return t.length > 1 && !STOP.has(t); });
+  }
+
+  function bm25Search(index, query) {
+    var tokens = tokenize(query);
+    if (!tokens.length || !index.chunks.length) return [];
+
+    var N = index.chunks.length;
+    var k1 = 1.2, b = 0.75;
+    var scores = new Array(N).fill(0);
+
+    for (var t = 0; t < tokens.length; t++) {
+      var entry = index.terms[tokens[t]];
+      if (!entry || !entry.postings) continue;
+      var idf = Math.log((N - entry.df + 0.5) / (entry.df + 0.5) + 1);
+      for (var p = 0; p < entry.postings.length; p++) {
+        var post = entry.postings[p];
+        var dl = index.chunks[post.chunkIdx].tokenCount;
+        var tfNorm = (post.tf * (k1 + 1)) / (post.tf + k1 * (1 - b + b * dl / index.avgDl));
+        scores[post.chunkIdx] += idf * tfNorm;
+      }
+    }
+
+    var results = [];
+    for (var i = 0; i < N; i++) {
+      if (scores[i] > 0) results.push({ idx: i, score: scores[i] });
+    }
+    results.sort(function(a, b) { return b.score - a.score; });
+    return results.slice(0, TOP_K).map(function(r) { return index.chunks[r.idx]; });
+  }
+
+  async function loadSearchIndex() {
+    if (searchIndex || indexLoading) return searchIndex;
+    indexLoading = true;
+    try {
+      var res = await fetch(SEARCH_INDEX_URL);
+      if (!res.ok) throw new Error('Failed to load search index');
+      searchIndex = await res.json();
+      return searchIndex;
+    } catch(e) {
+      console.warn('DocWalk Q&A: Could not load search index', e);
+      return null;
+    } finally {
+      indexLoading = false;
+    }
+  }
+
+  // \u2500\u2500 Simple Markdown Rendering (output is sanitized) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  function renderMarkdown(text) {
+    var html = escapeHtml(text)
+      // Code blocks (must be before inline code)
+      .replace(/\`\`\`([\\s\\S]*?)\`\`\`/g, function(m, code) {
+        return '<pre class="dw-qa-code">' + code + '</pre>';
+      })
+      // Inline code
+      .replace(/\`([^\`]+)\`/g, '<code class="dw-qa-inline-code">$1</code>')
+      // Bold
+      .replace(/\\*\\*([^*]+)\\*\\*/g, '<strong>$1</strong>')
+      // Italic
+      .replace(/\\*([^*]+)\\*/g, '<em>$1</em>')
+      // Line breaks (double newline = paragraph break)
+      .replace(/\\n\\n/g, '<br><br>')
+      .replace(/\\n/g, '<br>');
+    return sanitizeHtml(html);
+  }
+
+  function escapeHtml(text) {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // \u2500\u2500 SSE Streaming \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  async function streamAnswer(question, chunks, onToken, onDone, onError) {
+    var body = {
+      question: question,
+      chunks: chunks.map(function(c) {
+        return { content: c.content, pagePath: c.pagePath, pageTitle: c.pageTitle, heading: c.heading };
+      }),
+      history: conversationHistory.slice(-MAX_HISTORY)
+    };
+
+    try {
+      var res = await fetch(ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if (!res.ok) {
+        var errData = await res.json().catch(function() { return { error: 'Request failed' }; });
+        onError(errData.error || 'Request failed (' + res.status + ')');
+        return;
+      }
+
+      var reader = res.body.getReader();
+      var decoder = new TextDecoder();
+      var buffer = '';
+      var fullText = '';
+
+      while (true) {
+        var result = await reader.read();
+        if (result.done) break;
+
+        buffer += decoder.decode(result.value, { stream: true });
+        var lines = buffer.split('\\n');
+        buffer = lines.pop() || '';
+
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i].trim();
+          if (!line.startsWith('data: ')) continue;
+          var data = line.slice(6);
+          try {
+            var parsed = JSON.parse(data);
+            if (parsed.done) {
+              onDone(fullText, parsed.citations || []);
+              return;
+            }
+            if (parsed.token) {
+              fullText += parsed.token;
+              onToken(parsed.token, fullText);
+            }
+          } catch(e) {}
+        }
+      }
+
+      if (fullText) onDone(fullText, []);
+    } catch(e) {
+      onError(e.message || 'Network error');
+    }
+  }
+
+  // \u2500\u2500 Widget DOM \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   function createWidget() {
     var container = document.createElement('div');
     container.id = 'docwalk-qa-widget';
-    container.innerHTML = \`
-      <button id="dw-qa-toggle" aria-label="Ask a question">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-        </svg>
-      </button>
-      <div id="dw-qa-panel" style="display:none">
-        <div id="dw-qa-header">
-          <span>Ask about this project</span>
-          <button id="dw-qa-close" aria-label="Close">&times;</button>
-        </div>
-        <div id="dw-qa-messages">
-          <div class="dw-qa-msg dw-qa-bot">\${GREETING}</div>
-        </div>
-        <div id="dw-qa-input-area">
-          <input id="dw-qa-input" type="text" placeholder="Type your question..." />
-          <button id="dw-qa-send" aria-label="Send">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M2 21l21-9L2 3v7l15 2-15 2z"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-    \`;
+
+    var toggle = document.createElement('button');
+    toggle.id = 'dw-qa-toggle';
+    toggle.setAttribute('aria-label', 'Ask a question');
+    toggle.title = 'Ask about this project';
+    toggle.textContent = '';
+    var svgNS = 'http://www.w3.org/2000/svg';
+    var svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('width', '24');
+    svg.setAttribute('height', '24');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    var path = document.createElementNS(svgNS, 'path');
+    path.setAttribute('d', 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z');
+    svg.appendChild(path);
+    toggle.appendChild(svg);
+    container.appendChild(toggle);
+
+    var panel = document.createElement('div');
+    panel.id = 'dw-qa-panel';
+    panel.style.display = 'none';
+
+    // Header
+    var header = document.createElement('div');
+    header.id = 'dw-qa-header';
+    var titleSpan = document.createElement('span');
+    titleSpan.className = 'dw-qa-title';
+    titleSpan.textContent = 'Ask about this project';
+    header.appendChild(titleSpan);
+
+    var actions = document.createElement('div');
+    actions.className = 'dw-qa-header-actions';
+    var newBtn = document.createElement('button');
+    newBtn.id = 'dw-qa-new';
+    newBtn.setAttribute('aria-label', 'New conversation');
+    newBtn.title = 'New conversation';
+    newBtn.textContent = '+';
+    var closeBtn = document.createElement('button');
+    closeBtn.id = 'dw-qa-close';
+    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.textContent = '\\u00d7';
+    actions.appendChild(newBtn);
+    actions.appendChild(closeBtn);
+    header.appendChild(actions);
+    panel.appendChild(header);
+
+    // Messages
+    var messagesDiv = document.createElement('div');
+    messagesDiv.id = 'dw-qa-messages';
+    var greetingDiv = document.createElement('div');
+    greetingDiv.className = 'dw-qa-msg dw-qa-bot';
+    greetingDiv.textContent = GREETING;
+    messagesDiv.appendChild(greetingDiv);
+    panel.appendChild(messagesDiv);
+
+    // Input area
+    var inputArea = document.createElement('div');
+    inputArea.id = 'dw-qa-input-area';
+    var input = document.createElement('input');
+    input.id = 'dw-qa-input';
+    input.type = 'text';
+    input.placeholder = 'Type your question...';
+    input.autocomplete = 'off';
+    inputArea.appendChild(input);
+    var sendBtn = document.createElement('button');
+    sendBtn.id = 'dw-qa-send';
+    sendBtn.setAttribute('aria-label', 'Send');
+    var sendSvg = document.createElementNS(svgNS, 'svg');
+    sendSvg.setAttribute('width', '18');
+    sendSvg.setAttribute('height', '18');
+    sendSvg.setAttribute('viewBox', '0 0 24 24');
+    sendSvg.setAttribute('fill', 'currentColor');
+    var sendPath = document.createElementNS(svgNS, 'path');
+    sendPath.setAttribute('d', 'M2 21l21-9L2 3v7l15 2-15 2z');
+    sendSvg.appendChild(sendPath);
+    sendBtn.appendChild(sendSvg);
+    inputArea.appendChild(sendBtn);
+    panel.appendChild(inputArea);
+    container.appendChild(panel);
 
     document.body.appendChild(container);
 
-    var toggle = document.getElementById('dw-qa-toggle');
-    var panel = document.getElementById('dw-qa-panel');
-    var close = document.getElementById('dw-qa-close');
-    var input = document.getElementById('dw-qa-input');
-    var send = document.getElementById('dw-qa-send');
-    var messages = document.getElementById('dw-qa-messages');
-
+    // Toggle panel
     toggle.addEventListener('click', function() {
-      panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
-      toggle.style.display = panel.style.display === 'none' ? 'flex' : 'none';
-      if (panel.style.display !== 'none') input.focus();
+      panel.style.display = 'flex';
+      toggle.style.display = 'none';
+      input.focus();
+      if (MODE === 'client' && !searchIndex) loadSearchIndex();
     });
 
-    close.addEventListener('click', function() {
+    closeBtn.addEventListener('click', function() {
       panel.style.display = 'none';
       toggle.style.display = 'flex';
     });
 
-    function addMessage(text, isUser) {
+    newBtn.addEventListener('click', function() {
+      conversationHistory = [];
+      messagesDiv.textContent = '';
+      var g = document.createElement('div');
+      g.className = 'dw-qa-msg dw-qa-bot';
+      g.textContent = GREETING;
+      messagesDiv.appendChild(g);
+      input.focus();
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && panel.style.display !== 'none') {
+        panel.style.display = 'none';
+        toggle.style.display = 'flex';
+      }
+    });
+
+    function addMessage(content, isUser, className) {
       var div = document.createElement('div');
-      div.className = 'dw-qa-msg ' + (isUser ? 'dw-qa-user' : 'dw-qa-bot');
-      div.textContent = text;
-      messages.appendChild(div);
-      messages.scrollTop = messages.scrollHeight;
+      div.className = 'dw-qa-msg ' + (isUser ? 'dw-qa-user' : 'dw-qa-bot') + (className ? ' ' + className : '');
+      if (isUser) {
+        div.textContent = content;
+      } else {
+        // Bot messages use sanitized HTML rendering
+        var sanitized = sanitizeHtml(content);
+        var temp = document.createElement('div');
+        temp.innerHTML = sanitized;
+        while (temp.firstChild) div.appendChild(temp.firstChild);
+      }
+      messagesDiv.appendChild(div);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      return div;
     }
 
-    function askQuestion() {
+    function addCitations(citations) {
+      if (!citations || !citations.length) return;
+      var wrapper = document.createElement('div');
+      wrapper.className = 'dw-qa-citations';
+      var label = document.createElement('span');
+      label.className = 'dw-qa-citations-label';
+      label.textContent = 'Sources: ';
+      wrapper.appendChild(label);
+      for (var i = 0; i < citations.length; i++) {
+        var a = document.createElement('a');
+        a.className = 'dw-qa-citation-link';
+        a.href = citations[i].pagePath;
+        a.textContent = citations[i].pageTitle;
+        a.setAttribute('rel', 'noopener');
+        wrapper.appendChild(a);
+        if (i < citations.length - 1) {
+          var sep = document.createTextNode(' \\u00b7 ');
+          wrapper.appendChild(sep);
+        }
+      }
+      messagesDiv.appendChild(wrapper);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    function setInputEnabled(enabled) {
+      input.disabled = !enabled;
+      sendBtn.disabled = !enabled;
+      if (enabled) input.focus();
+    }
+
+    async function askQuestion() {
       var question = input.value.trim();
-      if (!question) return;
+      if (!question || isStreaming) return;
 
       if (getQuestionsToday() >= DAILY_LIMIT) {
-        addMessage('Daily question limit reached. Upgrade to Team for unlimited Q&A.', false);
+        addMessage('Daily question limit reached (' + DAILY_LIMIT + '/day). Run DocWalk locally for unlimited Q&A.', false);
         return;
       }
 
       addMessage(question, true);
       input.value = '';
-      input.disabled = true;
-      send.disabled = true;
+      setInputEnabled(false);
+      isStreaming = true;
 
-      addMessage('Thinking...', false);
-
-      fetch(ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: question, page: window.location.pathname })
-      })
-      .then(function(res) { return res.json(); })
-      .then(function(data) {
-        messages.removeChild(messages.lastChild); // Remove "Thinking..."
-        addMessage(data.answer || 'Sorry, I could not find an answer.', false);
-        if (data.citations && data.citations.length > 0) {
-          addMessage('Sources: ' + data.citations.join(', '), false);
+      var chunks = [];
+      if (MODE === 'client') {
+        var index = searchIndex || await loadSearchIndex();
+        if (index) {
+          chunks = bm25Search(index, question);
         }
-        incrementQuestions();
-      })
-      .catch(function() {
-        messages.removeChild(messages.lastChild);
-        addMessage('Sorry, something went wrong. Please try again.', false);
-      })
-      .finally(function() {
-        input.disabled = false;
-        send.disabled = false;
-        input.focus();
-      });
+      }
+
+      if (chunks.length === 0 && MODE === 'client') {
+        addMessage('I could not find relevant documentation to answer your question. Try rephrasing or check the docs navigation.', false);
+        setInputEnabled(true);
+        isStreaming = false;
+        return;
+      }
+
+      // Create streaming message element
+      var streamDiv = document.createElement('div');
+      streamDiv.className = 'dw-qa-msg dw-qa-bot dw-qa-streaming';
+      var textSpan = document.createElement('span');
+      var cursor = document.createElement('span');
+      cursor.className = 'dw-qa-cursor';
+      streamDiv.appendChild(textSpan);
+      streamDiv.appendChild(cursor);
+      messagesDiv.appendChild(streamDiv);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+      conversationHistory.push({ role: 'user', content: question });
+
+      await streamAnswer(
+        question,
+        chunks,
+        function(token, fullText) {
+          // Render incrementally with sanitization
+          var rendered = renderMarkdown(fullText);
+          var temp = document.createElement('div');
+          temp.innerHTML = rendered;
+          textSpan.textContent = '';
+          while (temp.firstChild) textSpan.appendChild(temp.firstChild);
+          messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        },
+        function(fullText, citations) {
+          streamDiv.classList.remove('dw-qa-streaming');
+          if (cursor.parentNode) cursor.remove();
+          var rendered = renderMarkdown(fullText);
+          var temp = document.createElement('div');
+          temp.innerHTML = rendered;
+          textSpan.textContent = '';
+          while (temp.firstChild) textSpan.appendChild(temp.firstChild);
+          addCitations(citations);
+          conversationHistory.push({ role: 'assistant', content: fullText });
+          if (conversationHistory.length > MAX_HISTORY) {
+            conversationHistory = conversationHistory.slice(-MAX_HISTORY);
+          }
+          incrementQuestions();
+          setInputEnabled(true);
+          isStreaming = false;
+        },
+        function(error) {
+          streamDiv.classList.remove('dw-qa-streaming');
+          if (cursor.parentNode) cursor.remove();
+          textSpan.textContent = 'Sorry, something went wrong: ' + error;
+          streamDiv.classList.add('dw-qa-error');
+          setInputEnabled(true);
+          isStreaming = false;
+        }
+      );
     }
 
-    send.addEventListener('click', askQuestion);
-    input.addEventListener('keypress', function(e) {
-      if (e.key === 'Enter') askQuestion();
+    sendBtn.addEventListener('click', askQuestion);
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        askQuestion();
+      }
     });
   }
 
@@ -5561,19 +7112,21 @@ __export(inject_exports, {
   injectQAWidget: () => injectQAWidget
 });
 async function injectQAWidget(outputDir, config, qaApiEndpoint) {
-  const assetsDir = import_path15.default.join(outputDir, "docs", "_docwalk");
+  const assetsDir = import_path16.default.join(outputDir, "docs", "_docwalk");
   await (0, import_promises4.mkdir)(assetsDir, { recursive: true });
   const widgetJS = generateWidgetJS({
-    apiEndpoint: qaApiEndpoint,
+    apiEndpoint: qaApiEndpoint || DEFAULT_QA_ENDPOINT,
+    searchIndexUrl: "_docwalk/qa-search.json",
     position: config.position || "bottom-right",
     greeting: config.greeting || "Ask me anything about this project.",
-    dailyLimit: config.daily_limit || 50
+    dailyLimit: config.daily_limit || 50,
+    mode: "client"
   });
-  await (0, import_promises4.writeFile)(import_path15.default.join(assetsDir, "qa-widget.js"), widgetJS);
+  await (0, import_promises4.writeFile)(import_path16.default.join(assetsDir, "qa-widget.js"), widgetJS);
   let css;
   try {
-    const cssPath = import_path15.default.resolve(
-      import_path15.default.dirname((0, import_url.fileURLToPath)(import_meta2.url)),
+    const cssPath = import_path16.default.resolve(
+      import_path16.default.dirname((0, import_url.fileURLToPath)(import_meta2.url)),
       "widget.css"
     );
     css = await (0, import_promises5.readFile)(cssPath, "utf-8");
@@ -5581,25 +7134,26 @@ async function injectQAWidget(outputDir, config, qaApiEndpoint) {
     css = `
 #docwalk-qa-widget { position: fixed; bottom: 20px; right: 20px; z-index: 9999; }
 #dw-qa-toggle { width: 56px; height: 56px; border-radius: 50%; background: #5de4c7; color: #0a0a0c; border: none; cursor: pointer; }
-#dw-qa-panel { width: 380px; height: 500px; background: #16161a; border: 1px solid #2a2a32; border-radius: 12px; }
+#dw-qa-panel { width: 400px; height: 520px; background: #16161a; border: 1px solid #2a2a32; border-radius: 12px; }
 `;
   }
-  await (0, import_promises4.writeFile)(import_path15.default.join(assetsDir, "qa-widget.css"), css);
+  await (0, import_promises4.writeFile)(import_path16.default.join(assetsDir, "qa-widget.css"), css);
   return {
     extraCss: ["_docwalk/qa-widget.css"],
     extraJs: ["_docwalk/qa-widget.js"]
   };
 }
-var import_promises4, import_path15, import_promises5, import_url, import_meta2;
+var import_promises4, import_path16, import_promises5, import_url, import_meta2, DEFAULT_QA_ENDPOINT;
 var init_inject = __esm({
   "src/generators/qa-widget/inject.ts"() {
     "use strict";
     import_promises4 = require("fs/promises");
-    import_path15 = __toESM(require("path"), 1);
+    import_path16 = __toESM(require("path"), 1);
     init_widget();
     import_promises5 = require("fs/promises");
     import_url = require("url");
     import_meta2 = {};
+    DEFAULT_QA_ENDPOINT = "https://docwalk-ai-proxy.jonathanrannabargar.workers.dev/v1/qa/stream";
   }
 });
 
@@ -5706,6 +7260,14 @@ var SourceSchema = import_zod.z.object({
     "coverage/**",
     ".docwalk/**",
     "docwalk-output/**",
+    "docwalk.config.yml",
+    "docwalk.config.yaml",
+    "docwalk.config.js",
+    "docwalk.config.ts",
+    ".docwalkrc",
+    ".docwalkrc.yml",
+    ".docwalkrc.yaml",
+    ".docwalkrc.json",
     "site/**",
     "**/*.d.ts",
     "**/*.min.js",
@@ -5761,14 +7323,18 @@ var AnalysisSchema = import_zod.z.object({
   source_links: import_zod.z.boolean().default(true),
   /** Generate code insights page (static analyzers) */
   insights: import_zod.z.boolean().default(true),
-  /** Enable AI-powered insights (requires license + API key) */
-  insights_ai: import_zod.z.boolean().default(false),
+  /** Enable AI-powered insights (requires AI provider) */
+  insights_ai: import_zod.z.boolean().default(true),
   /** Enable AI-generated narrative prose on pages (requires AI provider) */
-  ai_narrative: import_zod.z.boolean().default(false),
+  ai_narrative: import_zod.z.boolean().default(true),
+  /** Max number of modules to generate full narrative descriptions for (most-connected first) */
+  ai_narrative_top_n: import_zod.z.number().int().positive().default(10),
   /** Enable AI-generated diagrams (sequence, flowcharts) */
-  ai_diagrams: import_zod.z.boolean().default(false),
+  ai_diagrams: import_zod.z.boolean().default(true),
   /** Enable AI-driven dynamic page structure suggestions */
   ai_structure: import_zod.z.boolean().default(false),
+  /** Documentation depth: comprehensive (8-12 topic pages) or concise (4-6 essential pages) */
+  doc_depth: import_zod.z.enum(["comprehensive", "concise"]).default("comprehensive"),
   /** Enable monorepo workspace package resolution for dependency graphs */
   monorepo: import_zod.z.boolean().default(true),
   /** Generate end-user documentation (user guides, troubleshooting, FAQ) */
@@ -5794,7 +7360,9 @@ var AnalysisSchema = import_zod.z.object({
     greeting: import_zod.z.string().default("Ask me anything about this project."),
     daily_limit: import_zod.z.number().default(50),
     api_key_env: import_zod.z.string().optional().describe("Environment variable name for Q&A API key (overrides ai_provider key)"),
-    base_url: import_zod.z.string().optional().describe("Custom base URL for Q&A embedding provider")
+    base_url: import_zod.z.string().optional().describe("Custom base URL for Q&A embedding provider"),
+    chunk_overlap: import_zod.z.number().default(50).describe("Overlap tokens between adjacent QA chunks"),
+    chunk_target_size: import_zod.z.number().default(300).describe("Target token count for QA chunks")
   }).optional()
 });
 var SyncSchema = import_zod.z.object({
@@ -5971,8 +7539,8 @@ async function loadConfig(searchFrom) {
   const parsed = DocWalkConfigSchema.safeParse(result.config);
   if (!parsed.success) {
     const errors = parsed.error.issues.map((issue) => {
-      const path19 = issue.path.join(".");
-      return `  ${import_chalk.default.red("\u2717")} ${import_chalk.default.dim(path19)}: ${issue.message}`;
+      const path20 = issue.path.join(".");
+      return `  ${import_chalk.default.red("\u2717")} ${import_chalk.default.dim(path20)}: ${issue.message}`;
     }).join("\n");
     throw new ConfigValidationError(
       `Invalid configuration in ${import_chalk.default.dim(result.filepath)}:
@@ -5994,8 +7562,8 @@ async function loadConfigFile(filepath) {
   const parsed = DocWalkConfigSchema.safeParse(result.config);
   if (!parsed.success) {
     const errors = parsed.error.issues.map((issue) => {
-      const path19 = issue.path.join(".");
-      return `  ${import_chalk.default.red("\u2717")} ${import_chalk.default.dim(path19)}: ${issue.message}`;
+      const path20 = issue.path.join(".");
+      return `  ${import_chalk.default.red("\u2717")} ${import_chalk.default.dim(path20)}: ${issue.message}`;
     }).join("\n");
     throw new ConfigValidationError(
       `Invalid configuration in ${import_chalk.default.dim(filepath)}:
@@ -9827,7 +11395,12 @@ var MarkdownParser = class {
       const stripped = trimmed.replace(/<[^>]+>/g, "").trim();
       if (!stripped) continue;
       if (stripped.length < 20 && !stripped.includes(".")) continue;
-      summary = stripped.slice(0, 200);
+      if (stripped.length <= 300) {
+        summary = stripped;
+      } else {
+        const cut = stripped.lastIndexOf(" ", 300);
+        summary = stripped.slice(0, cut > 200 ? cut : 300) + "...";
+      }
       break;
     }
     if (!summary) {
@@ -10002,7 +11575,8 @@ async function analyzeCodebase(options) {
     onProgress,
     previousSummaryCache,
     onAIProgress,
-    hooks
+    hooks,
+    maxAiModules
   } = options;
   await executeHooks("pre_analyze", hooks, { cwd: repoRoot });
   const files = targetFiles ?? await discoverFiles(repoRoot, source);
@@ -10102,7 +11676,10 @@ async function analyzeCodebase(options) {
         return (0, import_promises2.readFile)(absolutePath, "utf-8");
       },
       previousCache: previousSummaryCache,
-      onProgress: onAIProgress
+      onProgress: onAIProgress,
+      concurrency: analysis.ai_provider.name === "docwalk-proxy" ? 6 : analysis.concurrency,
+      delayMs: analysis.ai_provider.name === "docwalk-proxy" ? 1e3 : analysis.concurrency && analysis.concurrency <= 4 ? 3e3 : 0,
+      maxModules: maxAiModules
     });
     finalModules = result.modules;
     summaryCache = result.cache;
@@ -10634,7 +12211,7 @@ async function saveManifest(manifestPath, manifest) {
 
 // src/generators/mkdocs.ts
 var import_promises6 = require("fs/promises");
-var import_path16 = __toESM(require("path"), 1);
+var import_path17 = __toESM(require("path"), 1);
 
 // src/generators/theme-presets.ts
 var THEME_PRESETS = {
@@ -11364,203 +12941,8 @@ var THEME_PRESETS = {
 [data-md-color-scheme="default"] .md-footer::before {
   background: var(--dw-gradient-accent);
 }
-`,
-    customJs: `/* DocWalk Developer Preset \u2014 Custom JS */
-
-/* Mermaid rendering + click-to-zoom.
-   Zensical empties .mermaid containers without rendering SVGs.
-   We save the source text immediately (before Zensical clears it),
-   load Mermaid from CDN if needed, and render ourselves. */
-(function() {
-  /* 1. Save sources immediately and prevent Zensical from touching them */
-  var diagrams = [];
-  document.querySelectorAll("pre.mermaid").forEach(function(pre) {
-    var code = pre.querySelector("code");
-    var src = (code || pre).textContent || "";
-    if (src.trim()) {
-      diagrams.push({ el: pre, src: src.trim() });
-      pre.className = "dw-mermaid-loading";
-    }
-  });
-  if (!diagrams.length) return;
-
-  /* 2. Pan + zoom overlay */
-  function openZoom(svg) {
-    var isDark = document.body.getAttribute("data-md-color-scheme") === "slate";
-    var bg = isDark ? "#171921" : "#f9fafb";
-    var fg = isDark ? "#d6d6da" : "#1f2937";
-    var accent = isDark ? "#5de4c7" : "#0f766e";
-
-    var overlay = document.createElement("div");
-    overlay.style.cssText = "position:fixed;inset:0;z-index:9999;background:" + bg + ";display:flex;flex-direction:column;";
-
-    /* Toolbar */
-    var toolbar = document.createElement("div");
-    toolbar.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:0.75rem 1.25rem;border-bottom:1px solid " + (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)") + ";flex-shrink:0;user-select:none;";
-    var hint = document.createElement("span");
-    hint.textContent = "Scroll to zoom \\u00b7 Drag to pan \\u00b7 Double-click to reset";
-    hint.style.cssText = "font:12px Inter,sans-serif;color:" + fg + ";opacity:0.5;";
-    var controls = document.createElement("span");
-    controls.style.cssText = "display:flex;gap:0.5rem;align-items:center;";
-    function makeBtn(label, title) {
-      var b = document.createElement("button");
-      b.textContent = label;
-      b.title = title;
-      b.style.cssText = "background:none;border:1px solid " + (isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)") + ";color:" + fg + ";border-radius:6px;width:32px;height:32px;font:16px Inter,sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;";
-      return b;
-    }
-    var btnZoomIn = makeBtn("+", "Zoom in");
-    var btnZoomOut = makeBtn("\\u2212", "Zoom out");
-    var btnReset = makeBtn("\\u21ba", "Reset view");
-    var btnClose = makeBtn("\\u2715", "Close");
-    btnClose.style.borderColor = accent;
-    btnClose.style.color = accent;
-    controls.appendChild(btnZoomIn);
-    controls.appendChild(btnZoomOut);
-    controls.appendChild(btnReset);
-    controls.appendChild(btnClose);
-    toolbar.appendChild(hint);
-    toolbar.appendChild(controls);
-    overlay.appendChild(toolbar);
-
-    /* Viewport */
-    var viewport = document.createElement("div");
-    viewport.style.cssText = "flex:1;overflow:hidden;position:relative;cursor:grab;";
-    var wrapper = document.createElement("div");
-    wrapper.style.cssText = "position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transform-origin:0 0;";
-    var clone = svg.cloneNode(true);
-    clone.style.cssText = "max-width:90vw;max-height:85vh;width:auto;height:auto;";
-    clone.removeAttribute("max-width");
-    wrapper.appendChild(clone);
-    viewport.appendChild(wrapper);
-    overlay.appendChild(viewport);
-    document.body.appendChild(overlay);
-
-    /* Pan + zoom state */
-    var scale = 1, tx = 0, ty = 0;
-    var dragging = false, startX = 0, startY = 0, startTx = 0, startTy = 0;
-
-    function applyTransform() {
-      wrapper.style.transform = "translate(" + tx + "px," + ty + "px) scale(" + scale + ")";
-    }
-
-    function zoom(delta, cx, cy) {
-      var prev = scale;
-      scale = Math.min(10, Math.max(0.1, scale * delta));
-      var rect = viewport.getBoundingClientRect();
-      var ox = (cx || rect.width / 2) - rect.left;
-      var oy = (cy || rect.height / 2) - rect.top;
-      tx = ox - (ox - tx) * (scale / prev);
-      ty = oy - (oy - ty) * (scale / prev);
-      applyTransform();
-    }
-
-    function resetView() { scale = 1; tx = 0; ty = 0; applyTransform(); }
-
-    viewport.addEventListener("wheel", function(e) {
-      e.preventDefault();
-      zoom(e.deltaY < 0 ? 1.15 : 0.87, e.clientX, e.clientY);
-    }, { passive: false });
-
-    viewport.addEventListener("mousedown", function(e) {
-      if (e.button !== 0) return;
-      dragging = true; startX = e.clientX; startY = e.clientY;
-      startTx = tx; startTy = ty;
-      viewport.style.cursor = "grabbing";
-    });
-    document.addEventListener("mousemove", function move(e) {
-      if (!dragging) return;
-      tx = startTx + (e.clientX - startX);
-      ty = startTy + (e.clientY - startY);
-      applyTransform();
-    });
-    document.addEventListener("mouseup", function up() {
-      dragging = false;
-      viewport.style.cursor = "grab";
-    });
-
-    viewport.addEventListener("dblclick", resetView);
-    btnZoomIn.addEventListener("click", function() { zoom(1.3); });
-    btnZoomOut.addEventListener("click", function() { zoom(0.77); });
-    btnReset.addEventListener("click", resetView);
-
-    function close() {
-      overlay.remove();
-    }
-    btnClose.addEventListener("click", close);
-    document.addEventListener("keydown", function esc(ev) {
-      if (ev.key === "Escape") { close(); document.removeEventListener("keydown", esc); }
-    });
-  }
-
-  /* 3. Render one diagram at a time (mermaid.render is async in v10+) */
-  function renderQueue(m, queue) {
-    if (!queue.length) return;
-    var d = queue.shift();
-    var id = "dw-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4);
-    try {
-      var result = m.render(id, d.src);
-      if (result && typeof result.then === "function") {
-        result.then(function(r) {
-          d.el.innerHTML = r.svg;
-          d.el.className = "mermaid";
-          renderQueue(m, queue);
-        }).catch(function() {
-          d.el.textContent = d.src;
-          d.el.className = "mermaid";
-          renderQueue(m, queue);
-        });
-      } else {
-        d.el.innerHTML = typeof result === "string" ? result : "";
-        d.el.className = "mermaid";
-        renderQueue(m, queue);
-      }
-    } catch(e) {
-      d.el.textContent = d.src;
-      d.el.className = "mermaid";
-      renderQueue(m, queue);
-    }
-  }
-
-  function doRender(m) {
-    var isDark = document.body.getAttribute("data-md-color-scheme") === "slate";
-    m.initialize({ startOnLoad: false, theme: isDark ? "dark" : "default", fontFamily: "Inter, sans-serif" });
-    renderQueue(m, diagrams.slice());
-  }
-
-  /* 4. Use global mermaid if available, otherwise load from CDN */
-  function boot() {
-    if (typeof mermaid !== "undefined" && mermaid.initialize) {
-      doRender(mermaid);
-      return;
-    }
-    var s = document.createElement("script");
-    s.src = "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js";
-    s.onload = function() {
-      if (typeof mermaid !== "undefined") doRender(mermaid);
-    };
-    s.onerror = function() {
-      diagrams.forEach(function(d) { d.el.textContent = d.src; d.el.className = "mermaid"; });
-    };
-    document.head.appendChild(s);
-  }
-
-  /* Small delay so Zensical's synchronous setup finishes first */
-  setTimeout(boot, 0);
-
-  /* 5. Capture-phase click-to-zoom */
-  document.addEventListener("click", function(e) {
-    if (!e.target.closest) return;
-    var container = e.target.closest(".mermaid, .dw-mermaid-loading");
-    if (!container) return;
-    var svg = container.querySelector("svg");
-    if (!svg) return;
-    e.preventDefault();
-    e.stopPropagation();
-    openZoom(svg);
-  }, true);
-})();
 `
+    // Mermaid rendering + zoom is now in core mermaid-zoom.js (all presets)
   },
   minimal: {
     id: "minimal",
@@ -11702,6 +13084,121 @@ init_overview();
 init_getting_started();
 init_architecture();
 init_providers();
+var MERMAID_ZOOM_JS = `/* DocWalk \u2014 Mermaid rendering + click-to-zoom */
+(function() {
+  var diagrams = [];
+  document.querySelectorAll("pre.mermaid, div.mermaid").forEach(function(el) {
+    var code = el.querySelector("code");
+    var src = (code || el).textContent || "";
+    if (src.trim()) {
+      diagrams.push({ el: el, src: src.trim() });
+      el.className = "dw-mermaid-loading";
+    }
+  });
+  if (!diagrams.length) return;
+
+  function openZoom(svg) {
+    var isDark = document.body.getAttribute("data-md-color-scheme") === "slate";
+    var bg = isDark ? "#171921" : "#f9fafb";
+    var fg = isDark ? "#d6d6da" : "#1f2937";
+    var accent = isDark ? "#5de4c7" : "#0f766e";
+    var overlay = document.createElement("div");
+    overlay.style.cssText = "position:fixed;inset:0;z-index:9999;background:" + bg + ";display:flex;flex-direction:column;";
+    var toolbar = document.createElement("div");
+    toolbar.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:0.75rem 1.25rem;border-bottom:1px solid " + (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)") + ";flex-shrink:0;user-select:none;";
+    var hint = document.createElement("span");
+    hint.textContent = "Scroll to zoom \\u00b7 Drag to pan \\u00b7 Double-click to reset";
+    hint.style.cssText = "font:12px Inter,sans-serif;color:" + fg + ";opacity:0.5;";
+    var controls = document.createElement("span");
+    controls.style.cssText = "display:flex;gap:0.5rem;align-items:center;";
+    function makeBtn(label, title) {
+      var b = document.createElement("button");
+      b.textContent = label; b.title = title;
+      b.style.cssText = "background:none;border:1px solid " + (isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)") + ";color:" + fg + ";border-radius:6px;width:32px;height:32px;font:16px Inter,sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;";
+      return b;
+    }
+    var btnZoomIn = makeBtn("+", "Zoom in");
+    var btnZoomOut = makeBtn("\\u2212", "Zoom out");
+    var btnReset = makeBtn("\\u21ba", "Reset view");
+    var btnClose = makeBtn("\\u2715", "Close");
+    btnClose.style.borderColor = accent; btnClose.style.color = accent;
+    controls.appendChild(btnZoomIn); controls.appendChild(btnZoomOut);
+    controls.appendChild(btnReset); controls.appendChild(btnClose);
+    toolbar.appendChild(hint); toolbar.appendChild(controls);
+    overlay.appendChild(toolbar);
+    var viewport = document.createElement("div");
+    viewport.style.cssText = "flex:1;overflow:hidden;position:relative;cursor:grab;";
+    var wrapper = document.createElement("div");
+    wrapper.style.cssText = "position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transform-origin:0 0;";
+    var clone = svg.cloneNode(true);
+    clone.style.cssText = "max-width:90vw;max-height:85vh;width:auto;height:auto;";
+    clone.removeAttribute("max-width");
+    wrapper.appendChild(clone); viewport.appendChild(wrapper); overlay.appendChild(viewport);
+    document.body.appendChild(overlay);
+    var scale = 1, tx = 0, ty = 0, dragging = false, startX = 0, startY = 0, startTx = 0, startTy = 0;
+    function applyTransform() { wrapper.style.transform = "translate(" + tx + "px," + ty + "px) scale(" + scale + ")"; }
+    function zoom(delta, cx, cy) {
+      var prev = scale; scale = Math.min(10, Math.max(0.1, scale * delta));
+      var rect = viewport.getBoundingClientRect();
+      var ox = (cx || rect.width / 2) - rect.left; var oy = (cy || rect.height / 2) - rect.top;
+      tx = ox - (ox - tx) * (scale / prev); ty = oy - (oy - ty) * (scale / prev); applyTransform();
+    }
+    function resetView() { scale = 1; tx = 0; ty = 0; applyTransform(); }
+    viewport.addEventListener("wheel", function(e) { e.preventDefault(); zoom(e.deltaY < 0 ? 1.15 : 0.87, e.clientX, e.clientY); }, { passive: false });
+    viewport.addEventListener("mousedown", function(e) { if (e.button !== 0) return; dragging = true; startX = e.clientX; startY = e.clientY; startTx = tx; startTy = ty; viewport.style.cursor = "grabbing"; });
+    document.addEventListener("mousemove", function(e) { if (!dragging) return; tx = startTx + (e.clientX - startX); ty = startTy + (e.clientY - startY); applyTransform(); });
+    document.addEventListener("mouseup", function() { dragging = false; viewport.style.cursor = "grab"; });
+    viewport.addEventListener("dblclick", resetView);
+    btnZoomIn.addEventListener("click", function() { zoom(1.3); });
+    btnZoomOut.addEventListener("click", function() { zoom(0.77); });
+    btnReset.addEventListener("click", resetView);
+    function close() { overlay.remove(); }
+    btnClose.addEventListener("click", close);
+    document.addEventListener("keydown", function esc(ev) { if (ev.key === "Escape") { close(); document.removeEventListener("keydown", esc); } });
+  }
+
+  function renderQueue(m, queue) {
+    if (!queue.length) return;
+    var d = queue.shift();
+    var id = "dw-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4);
+    try {
+      var result = m.render(id, d.src);
+      if (result && typeof result.then === "function") {
+        result.then(function(r) { d.el.setAttribute("data-processed", ""); d.el.replaceChildren(); d.el.insertAdjacentHTML("afterbegin", r.svg); d.el.className = "mermaid"; renderQueue(m, queue); })
+              .catch(function() { d.el.textContent = d.src; d.el.className = "mermaid"; renderQueue(m, queue); });
+      } else {
+        d.el.setAttribute("data-processed", ""); d.el.replaceChildren(); if (typeof result === "string") d.el.insertAdjacentHTML("afterbegin", result); d.el.className = "mermaid"; renderQueue(m, queue);
+      }
+    } catch(e) { d.el.textContent = d.src; d.el.className = "mermaid"; renderQueue(m, queue); }
+  }
+
+  function doRender(m) {
+    var isDark = document.body.getAttribute("data-md-color-scheme") === "slate";
+    m.initialize({ startOnLoad: false, theme: isDark ? "dark" : "default", fontFamily: "Inter, sans-serif" });
+    renderQueue(m, diagrams.slice());
+  }
+
+  function boot() {
+    if (typeof mermaid !== "undefined" && mermaid.initialize) { doRender(mermaid); return; }
+    var s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js";
+    s.onload = function() { if (typeof mermaid !== "undefined") doRender(mermaid); };
+    s.onerror = function() { diagrams.forEach(function(d) { d.el.textContent = d.src; d.el.className = "mermaid"; }); };
+    document.head.appendChild(s);
+  }
+
+  setTimeout(boot, 0);
+
+  document.addEventListener("click", function(e) {
+    if (!e.target.closest) return;
+    var container = e.target.closest(".mermaid, .dw-mermaid-loading");
+    if (!container) return;
+    var svg = container.querySelector("svg");
+    if (!svg) return;
+    e.preventDefault(); e.stopPropagation(); openZoom(svg);
+  }, true);
+})();
+`;
 function safeGenerate(name, fn, onProgress) {
   try {
     return fn();
@@ -11751,7 +13248,7 @@ title: ${name}
 async function generateDocs(options) {
   const { manifest, config, outputDir, onProgress, hooks, readFile: readFile5, tryMode } = options;
   await executeHooks("pre_build", hooks, { cwd: outputDir });
-  const docsDir = import_path16.default.join(outputDir, "docs");
+  const docsDir = import_path17.default.join(outputDir, "docs");
   await (0, import_promises6.mkdir)(docsDir, { recursive: true });
   let aiProvider;
   if (config.analysis.ai_summaries && config.analysis.ai_provider) {
@@ -11763,25 +13260,30 @@ async function generateDocs(options) {
     try {
       onProgress?.("Analyzing codebase structure...");
       const { analyzeStructure: analyzeStructure2 } = await Promise.resolve().then(() => (init_structure_advisor(), structure_advisor_exports));
-      structurePlan = await analyzeStructure2(manifest, aiProvider);
+      const isComprehensive = config.analysis.doc_depth !== "concise";
+      structurePlan = await analyzeStructure2(manifest, aiProvider, isComprehensive);
     } catch {
     }
   }
   const pages = [];
+  const codeModules = manifest.modules.filter(shouldGenerateModulePage);
+  const validPagePaths = new Set(
+    codeModules.map((m) => `api/${m.filePath.replace(/\.[^.]+$/, "")}.md`)
+  );
   if (useNarrative) {
     onProgress?.("Generating narrative pages (overview, getting started, architecture)...");
     const narrativePromises = [];
     narrativePromises.push(
       safeGenerateAsync(
         "Overview",
-        () => generateOverviewPageNarrative(manifest, config, aiProvider, readFile5),
+        () => generateOverviewPageNarrative(manifest, config, aiProvider, readFile5, validPagePaths),
         onProgress
       )
     );
     narrativePromises.push(
       safeGenerateAsync(
         "Getting Started",
-        () => generateGettingStartedPageNarrative(manifest, config, aiProvider, readFile5),
+        () => generateGettingStartedPageNarrative(manifest, config, aiProvider, readFile5, validPagePaths),
         onProgress
       )
     );
@@ -11790,7 +13292,7 @@ async function generateDocs(options) {
       narrativePromises.push(
         safeGenerateAsync(
           "Architecture",
-          () => generateArchitecturePageNarrative(manifest, aiProvider, readFile5, repoUrl, config.source.branch),
+          () => generateArchitecturePageNarrative(manifest, aiProvider, readFile5, repoUrl, config.source.branch, validPagePaths),
           onProgress
         )
       );
@@ -11820,10 +13322,36 @@ async function generateDocs(options) {
   const symbolPageMap = buildSymbolPageMap(manifest.modules);
   const modulePageCtx = { config, manifest, symbolPageMap };
   onProgress?.("Generating API reference pages...");
-  const modulesByGroup = groupModulesLogically(manifest.modules);
+  const modulesByGroup = groupModulesLogically(codeModules);
+  const narrativeModulePaths = /* @__PURE__ */ new Set();
+  if (useNarrative && aiProvider) {
+    const isConcise = config.analysis.doc_depth === "concise";
+    const maxNarrative = isConcise ? 5 : config.analysis.ai_narrative_top_n ?? 10;
+    const connectionCounts = /* @__PURE__ */ new Map();
+    for (const edge of manifest.dependencyGraph.edges) {
+      connectionCounts.set(edge.from, (connectionCounts.get(edge.from) ?? 0) + 1);
+      connectionCounts.set(edge.to, (connectionCounts.get(edge.to) ?? 0) + 1);
+    }
+    const ranked = codeModules.map((m) => ({ path: m.filePath, count: connectionCounts.get(m.filePath) ?? 0 })).sort((a, b) => b.count - a.count).slice(0, maxNarrative);
+    for (const r of ranked) {
+      narrativeModulePaths.add(r.path);
+    }
+    if (narrativeModulePaths.size > 0) {
+      onProgress?.(`Generating AI narratives for top ${narrativeModulePaths.size} modules...`);
+    }
+  }
   for (const [group, modules] of Object.entries(modulesByGroup)) {
     for (const mod of modules) {
-      pages.push(generateModulePage(mod, group, modulePageCtx));
+      if (narrativeModulePaths.has(mod.filePath)) {
+        const page = await safeGenerateAsync(
+          `Module narrative: ${mod.filePath}`,
+          () => generateModulePageNarrative(mod, group, modulePageCtx, aiProvider, readFile5, validPagePaths),
+          onProgress
+        );
+        pages.push(page);
+      } else {
+        pages.push(generateModulePage(mod, group, modulePageCtx));
+      }
     }
   }
   if (config.analysis.config_docs) {
@@ -11856,7 +13384,7 @@ async function generateDocs(options) {
     const changelogPage = await safeGenerateAsync("Changelog", () => generateChangelogPage(config), onProgress);
     pages.push(changelogPage);
   }
-  if (config.analysis.user_docs !== false && !tryMode) {
+  if (config.analysis.user_docs !== false && config.analysis.doc_depth !== "concise") {
     onProgress?.("Generating end-user documentation...");
     const userDocsConfig = config.analysis.user_docs_config;
     const {
@@ -11945,7 +13473,7 @@ async function generateDocs(options) {
     for (const suggestion of structurePlan.conceptPages) {
       const page = await safeGenerateAsync(
         suggestion.title,
-        () => generateConceptPage2(suggestion, manifest, aiProvider, readFile5, repoUrl, config.source.branch),
+        () => generateConceptPage2(suggestion, manifest, aiProvider, readFile5, repoUrl, config.source.branch, validPagePaths),
         onProgress
       );
       pages.push(page);
@@ -11957,17 +13485,29 @@ async function generateDocs(options) {
       page.content += `
 
 !!! tip "Unlock Full Documentation"
-    This is a preview. DocWalk Pro includes complete API reference for all ${totalModules} modules, AI-powered narratives, end-user guides, and more.
+    This is a preview. Run DocWalk on your own repo for complete API reference across all ${totalModules} modules, deeper AI analysis, and more.
 `;
     }
   }
   for (const page of pages) {
-    const pagePath = import_path16.default.join(docsDir, page.path);
-    await (0, import_promises6.mkdir)(import_path16.default.dirname(pagePath), { recursive: true });
+    const pagePath = import_path17.default.join(docsDir, page.path);
+    await (0, import_promises6.mkdir)(import_path17.default.dirname(pagePath), { recursive: true });
     await (0, import_promises6.writeFile)(pagePath, page.content);
     onProgress?.(`Written: ${page.path}`);
   }
-  if (config.analysis.qa_widget && config.analysis.qa_config) {
+  if (config.analysis.qa_widget) {
+    if (!config.analysis.qa_config) {
+      config.analysis.qa_config = {
+        provider: config.analysis.ai_provider?.name || "local",
+        embedding_model: "text-embedding-3-small",
+        context_window: 4e3,
+        position: "bottom-right",
+        greeting: "Ask me anything about this project.",
+        daily_limit: 50,
+        chunk_overlap: 50,
+        chunk_target_size: 300
+      };
+    }
     onProgress?.("Building Q&A index...");
     try {
       const { buildQAIndex: buildQAIndex2 } = await Promise.resolve().then(() => (init_qa(), qa_exports));
@@ -11982,17 +13522,23 @@ async function generateDocs(options) {
           apiKey: qaApiKey,
           base_url: config.analysis.qa_config.base_url
         },
-        onProgress
+        onProgress,
+        chunkOverlap: config.analysis.qa_config.chunk_overlap,
+        chunkTargetSize: config.analysis.qa_config.chunk_target_size
       });
-      const qaDir = import_path16.default.join(docsDir, "_docwalk");
+      const qaDir = import_path17.default.join(docsDir, "_docwalk");
       await (0, import_promises6.mkdir)(qaDir, { recursive: true });
       await (0, import_promises6.writeFile)(
-        import_path16.default.join(qaDir, "qa-index.json"),
+        import_path17.default.join(qaDir, "qa-index.json"),
         JSON.stringify(qaIndex.serialized)
+      );
+      await (0, import_promises6.writeFile)(
+        import_path17.default.join(qaDir, "qa-search.json"),
+        qaIndex.textIndex
       );
       onProgress?.(`Q&A index built: ${qaIndex.chunkCount} chunks from ${qaIndex.pageCount} pages`);
       const { injectQAWidget: injectQAWidget2 } = await Promise.resolve().then(() => (init_inject(), inject_exports));
-      await injectQAWidget2(outputDir, config.analysis.qa_config, "https://qa.docwalk.dev/api/ask");
+      await injectQAWidget2(outputDir, config.analysis.qa_config);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       onProgress?.(`Warning: Q&A index build failed: ${msg}`);
@@ -12000,22 +13546,28 @@ async function generateDocs(options) {
   }
   const preset = resolvePreset(config.theme.preset ?? "developer");
   if (preset) {
-    const stylesDir = import_path16.default.join(docsDir, "stylesheets");
+    const stylesDir = import_path17.default.join(docsDir, "stylesheets");
     await (0, import_promises6.mkdir)(stylesDir, { recursive: true });
-    await (0, import_promises6.writeFile)(import_path16.default.join(stylesDir, "preset.css"), preset.customCss);
+    await (0, import_promises6.writeFile)(import_path17.default.join(stylesDir, "preset.css"), preset.customCss);
     onProgress?.("Written: stylesheets/preset.css");
     if (preset.customJs) {
-      const jsDir = import_path16.default.join(docsDir, "javascripts");
+      const jsDir = import_path17.default.join(docsDir, "javascripts");
       await (0, import_promises6.mkdir)(jsDir, { recursive: true });
-      await (0, import_promises6.writeFile)(import_path16.default.join(jsDir, "preset.js"), preset.customJs);
+      await (0, import_promises6.writeFile)(import_path17.default.join(jsDir, "preset.js"), preset.customJs);
       onProgress?.("Written: javascripts/preset.js");
     }
+  }
+  {
+    const jsDir = import_path17.default.join(docsDir, "javascripts");
+    await (0, import_promises6.mkdir)(jsDir, { recursive: true });
+    await (0, import_promises6.writeFile)(import_path17.default.join(jsDir, "mermaid-zoom.js"), MERMAID_ZOOM_JS);
+    onProgress?.("Written: javascripts/mermaid-zoom.js");
   }
   onProgress?.("Generating mkdocs.yml...");
   const audienceSeparation = resolveAudienceSeparation(config, manifest);
   const navigation = buildNavigation(pages, audienceSeparation);
   const mkdocsYml = generateMkdocsConfig(manifest, config, navigation);
-  await (0, import_promises6.writeFile)(import_path16.default.join(outputDir, "mkdocs.yml"), mkdocsYml);
+  await (0, import_promises6.writeFile)(import_path17.default.join(outputDir, "mkdocs.yml"), mkdocsYml);
   await executeHooks("post_build", hooks, { cwd: outputDir });
   onProgress?.(`Documentation generated: ${pages.length} pages`);
 }
@@ -12053,6 +13605,10 @@ function buildNavigation(pages, audienceSeparation) {
     for (const [section, sectionPages] of Object.entries(sections)) {
       if (Object.keys(sections).length === 1) {
         apiNav.children = sectionPages.sort((a, b) => a.title.localeCompare(b.title)).map((p) => ({ title: p.title, path: p.path }));
+      } else if (section === "API Reference") {
+        for (const p of sectionPages.sort((a, b) => a.title.localeCompare(b.title))) {
+          apiNav.children.push({ title: p.title, path: p.path });
+        }
       } else {
         apiNav.children.push({
           title: section,
@@ -12113,6 +13669,10 @@ function buildTabbedNavigation(pages) {
     for (const [section, sectionPages] of Object.entries(sections)) {
       if (Object.keys(sections).length === 1) {
         apiNav.children = sectionPages.sort((a, b) => a.title.localeCompare(b.title)).map((p) => ({ title: p.title, path: p.path }));
+      } else if (section === "API Reference") {
+        for (const p of sectionPages.sort((a, b) => a.title.localeCompare(b.title))) {
+          apiNav.children.push({ title: p.title, path: p.path });
+        }
       } else {
         apiNav.children.push({
           title: section,
@@ -12207,7 +13767,7 @@ function generateMkdocsConfig(manifest, config, navigation) {
 extra_css:
 ${extraCss.map((c) => `  - ${c}`).join("\n")}
 ` : "";
-  const extraJs = [];
+  const extraJs = ["javascripts/mermaid-zoom.js"];
   if (preset?.customJs) {
     extraJs.push("javascripts/preset.js");
   }
@@ -12221,15 +13781,6 @@ ${extraJs.map((j) => `  - ${j}`).join("\n")}
   let pluginsYaml = `plugins:
   - search:
       lang: en
-  - glightbox:
-      touchNavigation: true
-      loop: false
-      effect: zoom
-      slide_effect: slide
-      width: 100%
-      height: auto
-      zoomable: true
-      draggable: true
   - minify:
       minify_html: true`;
   if (config.versioning.enabled) {
@@ -12273,7 +13824,7 @@ markdown_extensions:
       custom_fences:
         - name: mermaid
           class: mermaid
-          format: !!python/name:pymdownx.superfences.fence_code_format
+          format: !!python/name:pymdownx.superfences.fence_div_format
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.tabbed:
@@ -12416,7 +13967,7 @@ async function runTool(command, args, options) {
 
 // src/deploy/providers/github-pages.ts
 var import_promises7 = require("fs/promises");
-var import_path17 = __toESM(require("path"), 1);
+var import_path18 = __toESM(require("path"), 1);
 var GitHubPagesProvider = class {
   id = "gh-pages";
   name = "GitHub Pages";
@@ -12440,7 +13991,7 @@ var GitHubPagesProvider = class {
   }
   async deploy(buildDir, deploy, domain) {
     if (domain.custom) {
-      const cnamePath = import_path17.default.join(buildDir, "CNAME");
+      const cnamePath = import_path18.default.join(buildDir, "CNAME");
       await (0, import_promises7.writeFile)(cnamePath, domain.custom);
     }
     return {
@@ -12893,7 +14444,7 @@ jobs:
 
 // src/deploy/providers/vercel.ts
 var import_promises8 = require("fs/promises");
-var import_path18 = __toESM(require("path"), 1);
+var import_path19 = __toESM(require("path"), 1);
 var VercelProvider = class {
   id = "vercel";
   name = "Vercel";
@@ -12930,7 +14481,7 @@ var VercelProvider = class {
       ]
     };
     await (0, import_promises8.writeFile)(
-      import_path18.default.join(buildDir, "vercel.json"),
+      import_path19.default.join(buildDir, "vercel.json"),
       JSON.stringify(vercelConfig, null, 2)
     );
     const args = ["vercel", "--prod", "--yes", buildDir];

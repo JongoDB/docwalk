@@ -84,6 +84,9 @@ function detectOversizedModules(manifest, maxLines = 500, maxSymbols = 30) {
   const insights = [];
   const oversized = [];
   for (const mod of manifest.modules) {
+    const lowerPath = mod.filePath.toLowerCase();
+    const isConfigFile = lowerPath.includes("config") || lowerPath.includes("schema") || lowerPath.endsWith(".json") || lowerPath.endsWith(".yaml") || lowerPath.endsWith(".yml") || lowerPath.endsWith(".toml") || lowerPath.endsWith(".lock");
+    if (isConfigFile) continue;
     if (mod.lineCount > maxLines || mod.symbols.length > maxSymbols) {
       oversized.push({
         file: mod.filePath,
@@ -138,9 +141,14 @@ function detectOrphanModules(manifest) {
     connectedNodes.add(edge.to);
   }
   const orphans = nodes.filter((n) => !connectedNodes.has(n));
-  const nonEntryOrphans = orphans.filter(
-    (o) => !o.includes("index.") && !o.includes("main.") && !o.includes("app.")
-  );
+  const nonEntryOrphans = orphans.filter((o) => {
+    const lower = o.toLowerCase();
+    if (lower.includes("index.") || lower.includes("main.") || lower.includes("app.")) return false;
+    if (lower.includes("utils") || lower.includes("helpers") || lower.includes("lib/")) return false;
+    if (lower.includes("config") || lower.includes("schema")) return false;
+    if (lower.endsWith(".json") || lower.endsWith(".yaml") || lower.endsWith(".yml") || lower.endsWith(".toml")) return false;
+    return true;
+  });
   if (nonEntryOrphans.length > 0) {
     insights.push({
       id: "orphan-modules",

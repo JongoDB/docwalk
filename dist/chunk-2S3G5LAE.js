@@ -4,7 +4,7 @@ import {
 import {
   createProvider,
   resolveApiKey
-} from "./chunk-AOVQF4UT.js";
+} from "./chunk-5FUP7YMS.js";
 import {
   generateArchitecturePage,
   generateArchitecturePageNarrative,
@@ -15,20 +15,22 @@ import {
   generateGettingStartedPageNarrative,
   generateInsightsPage,
   generateModulePage,
+  generateModulePageNarrative,
   generateOverviewPage,
   generateOverviewPageNarrative,
   generateSBOMPage,
   generateTieredArchitecturePages,
   generateTypesPage,
   generateUsageGuidePage
-} from "./chunk-ECGUKQHA.js";
+} from "./chunk-DTCCTM3X.js";
 import {
   buildSymbolPageMap,
   groupByLogicalSection,
   groupModulesLogically,
   renderNavYaml,
-  resolveProjectName
-} from "./chunk-D4RNNKFF.js";
+  resolveProjectName,
+  shouldGenerateModulePage
+} from "./chunk-VTREF62W.js";
 
 // src/generators/theme-presets.ts
 var THEME_PRESETS = {
@@ -758,203 +760,8 @@ var THEME_PRESETS = {
 [data-md-color-scheme="default"] .md-footer::before {
   background: var(--dw-gradient-accent);
 }
-`,
-    customJs: `/* DocWalk Developer Preset \u2014 Custom JS */
-
-/* Mermaid rendering + click-to-zoom.
-   Zensical empties .mermaid containers without rendering SVGs.
-   We save the source text immediately (before Zensical clears it),
-   load Mermaid from CDN if needed, and render ourselves. */
-(function() {
-  /* 1. Save sources immediately and prevent Zensical from touching them */
-  var diagrams = [];
-  document.querySelectorAll("pre.mermaid").forEach(function(pre) {
-    var code = pre.querySelector("code");
-    var src = (code || pre).textContent || "";
-    if (src.trim()) {
-      diagrams.push({ el: pre, src: src.trim() });
-      pre.className = "dw-mermaid-loading";
-    }
-  });
-  if (!diagrams.length) return;
-
-  /* 2. Pan + zoom overlay */
-  function openZoom(svg) {
-    var isDark = document.body.getAttribute("data-md-color-scheme") === "slate";
-    var bg = isDark ? "#171921" : "#f9fafb";
-    var fg = isDark ? "#d6d6da" : "#1f2937";
-    var accent = isDark ? "#5de4c7" : "#0f766e";
-
-    var overlay = document.createElement("div");
-    overlay.style.cssText = "position:fixed;inset:0;z-index:9999;background:" + bg + ";display:flex;flex-direction:column;";
-
-    /* Toolbar */
-    var toolbar = document.createElement("div");
-    toolbar.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:0.75rem 1.25rem;border-bottom:1px solid " + (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)") + ";flex-shrink:0;user-select:none;";
-    var hint = document.createElement("span");
-    hint.textContent = "Scroll to zoom \\u00b7 Drag to pan \\u00b7 Double-click to reset";
-    hint.style.cssText = "font:12px Inter,sans-serif;color:" + fg + ";opacity:0.5;";
-    var controls = document.createElement("span");
-    controls.style.cssText = "display:flex;gap:0.5rem;align-items:center;";
-    function makeBtn(label, title) {
-      var b = document.createElement("button");
-      b.textContent = label;
-      b.title = title;
-      b.style.cssText = "background:none;border:1px solid " + (isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)") + ";color:" + fg + ";border-radius:6px;width:32px;height:32px;font:16px Inter,sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;";
-      return b;
-    }
-    var btnZoomIn = makeBtn("+", "Zoom in");
-    var btnZoomOut = makeBtn("\\u2212", "Zoom out");
-    var btnReset = makeBtn("\\u21ba", "Reset view");
-    var btnClose = makeBtn("\\u2715", "Close");
-    btnClose.style.borderColor = accent;
-    btnClose.style.color = accent;
-    controls.appendChild(btnZoomIn);
-    controls.appendChild(btnZoomOut);
-    controls.appendChild(btnReset);
-    controls.appendChild(btnClose);
-    toolbar.appendChild(hint);
-    toolbar.appendChild(controls);
-    overlay.appendChild(toolbar);
-
-    /* Viewport */
-    var viewport = document.createElement("div");
-    viewport.style.cssText = "flex:1;overflow:hidden;position:relative;cursor:grab;";
-    var wrapper = document.createElement("div");
-    wrapper.style.cssText = "position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transform-origin:0 0;";
-    var clone = svg.cloneNode(true);
-    clone.style.cssText = "max-width:90vw;max-height:85vh;width:auto;height:auto;";
-    clone.removeAttribute("max-width");
-    wrapper.appendChild(clone);
-    viewport.appendChild(wrapper);
-    overlay.appendChild(viewport);
-    document.body.appendChild(overlay);
-
-    /* Pan + zoom state */
-    var scale = 1, tx = 0, ty = 0;
-    var dragging = false, startX = 0, startY = 0, startTx = 0, startTy = 0;
-
-    function applyTransform() {
-      wrapper.style.transform = "translate(" + tx + "px," + ty + "px) scale(" + scale + ")";
-    }
-
-    function zoom(delta, cx, cy) {
-      var prev = scale;
-      scale = Math.min(10, Math.max(0.1, scale * delta));
-      var rect = viewport.getBoundingClientRect();
-      var ox = (cx || rect.width / 2) - rect.left;
-      var oy = (cy || rect.height / 2) - rect.top;
-      tx = ox - (ox - tx) * (scale / prev);
-      ty = oy - (oy - ty) * (scale / prev);
-      applyTransform();
-    }
-
-    function resetView() { scale = 1; tx = 0; ty = 0; applyTransform(); }
-
-    viewport.addEventListener("wheel", function(e) {
-      e.preventDefault();
-      zoom(e.deltaY < 0 ? 1.15 : 0.87, e.clientX, e.clientY);
-    }, { passive: false });
-
-    viewport.addEventListener("mousedown", function(e) {
-      if (e.button !== 0) return;
-      dragging = true; startX = e.clientX; startY = e.clientY;
-      startTx = tx; startTy = ty;
-      viewport.style.cursor = "grabbing";
-    });
-    document.addEventListener("mousemove", function move(e) {
-      if (!dragging) return;
-      tx = startTx + (e.clientX - startX);
-      ty = startTy + (e.clientY - startY);
-      applyTransform();
-    });
-    document.addEventListener("mouseup", function up() {
-      dragging = false;
-      viewport.style.cursor = "grab";
-    });
-
-    viewport.addEventListener("dblclick", resetView);
-    btnZoomIn.addEventListener("click", function() { zoom(1.3); });
-    btnZoomOut.addEventListener("click", function() { zoom(0.77); });
-    btnReset.addEventListener("click", resetView);
-
-    function close() {
-      overlay.remove();
-    }
-    btnClose.addEventListener("click", close);
-    document.addEventListener("keydown", function esc(ev) {
-      if (ev.key === "Escape") { close(); document.removeEventListener("keydown", esc); }
-    });
-  }
-
-  /* 3. Render one diagram at a time (mermaid.render is async in v10+) */
-  function renderQueue(m, queue) {
-    if (!queue.length) return;
-    var d = queue.shift();
-    var id = "dw-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4);
-    try {
-      var result = m.render(id, d.src);
-      if (result && typeof result.then === "function") {
-        result.then(function(r) {
-          d.el.innerHTML = r.svg;
-          d.el.className = "mermaid";
-          renderQueue(m, queue);
-        }).catch(function() {
-          d.el.textContent = d.src;
-          d.el.className = "mermaid";
-          renderQueue(m, queue);
-        });
-      } else {
-        d.el.innerHTML = typeof result === "string" ? result : "";
-        d.el.className = "mermaid";
-        renderQueue(m, queue);
-      }
-    } catch(e) {
-      d.el.textContent = d.src;
-      d.el.className = "mermaid";
-      renderQueue(m, queue);
-    }
-  }
-
-  function doRender(m) {
-    var isDark = document.body.getAttribute("data-md-color-scheme") === "slate";
-    m.initialize({ startOnLoad: false, theme: isDark ? "dark" : "default", fontFamily: "Inter, sans-serif" });
-    renderQueue(m, diagrams.slice());
-  }
-
-  /* 4. Use global mermaid if available, otherwise load from CDN */
-  function boot() {
-    if (typeof mermaid !== "undefined" && mermaid.initialize) {
-      doRender(mermaid);
-      return;
-    }
-    var s = document.createElement("script");
-    s.src = "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js";
-    s.onload = function() {
-      if (typeof mermaid !== "undefined") doRender(mermaid);
-    };
-    s.onerror = function() {
-      diagrams.forEach(function(d) { d.el.textContent = d.src; d.el.className = "mermaid"; });
-    };
-    document.head.appendChild(s);
-  }
-
-  /* Small delay so Zensical's synchronous setup finishes first */
-  setTimeout(boot, 0);
-
-  /* 5. Capture-phase click-to-zoom */
-  document.addEventListener("click", function(e) {
-    if (!e.target.closest) return;
-    var container = e.target.closest(".mermaid, .dw-mermaid-loading");
-    if (!container) return;
-    var svg = container.querySelector("svg");
-    if (!svg) return;
-    e.preventDefault();
-    e.stopPropagation();
-    openZoom(svg);
-  }, true);
-})();
 `
+    // Mermaid rendering + zoom is now in core mermaid-zoom.js (all presets)
   },
   minimal: {
     id: "minimal",
@@ -1092,6 +899,121 @@ function isPremiumPreset(presetId) {
 // src/generators/mkdocs.ts
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
+var MERMAID_ZOOM_JS = `/* DocWalk \u2014 Mermaid rendering + click-to-zoom */
+(function() {
+  var diagrams = [];
+  document.querySelectorAll("pre.mermaid, div.mermaid").forEach(function(el) {
+    var code = el.querySelector("code");
+    var src = (code || el).textContent || "";
+    if (src.trim()) {
+      diagrams.push({ el: el, src: src.trim() });
+      el.className = "dw-mermaid-loading";
+    }
+  });
+  if (!diagrams.length) return;
+
+  function openZoom(svg) {
+    var isDark = document.body.getAttribute("data-md-color-scheme") === "slate";
+    var bg = isDark ? "#171921" : "#f9fafb";
+    var fg = isDark ? "#d6d6da" : "#1f2937";
+    var accent = isDark ? "#5de4c7" : "#0f766e";
+    var overlay = document.createElement("div");
+    overlay.style.cssText = "position:fixed;inset:0;z-index:9999;background:" + bg + ";display:flex;flex-direction:column;";
+    var toolbar = document.createElement("div");
+    toolbar.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:0.75rem 1.25rem;border-bottom:1px solid " + (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)") + ";flex-shrink:0;user-select:none;";
+    var hint = document.createElement("span");
+    hint.textContent = "Scroll to zoom \\u00b7 Drag to pan \\u00b7 Double-click to reset";
+    hint.style.cssText = "font:12px Inter,sans-serif;color:" + fg + ";opacity:0.5;";
+    var controls = document.createElement("span");
+    controls.style.cssText = "display:flex;gap:0.5rem;align-items:center;";
+    function makeBtn(label, title) {
+      var b = document.createElement("button");
+      b.textContent = label; b.title = title;
+      b.style.cssText = "background:none;border:1px solid " + (isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)") + ";color:" + fg + ";border-radius:6px;width:32px;height:32px;font:16px Inter,sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;";
+      return b;
+    }
+    var btnZoomIn = makeBtn("+", "Zoom in");
+    var btnZoomOut = makeBtn("\\u2212", "Zoom out");
+    var btnReset = makeBtn("\\u21ba", "Reset view");
+    var btnClose = makeBtn("\\u2715", "Close");
+    btnClose.style.borderColor = accent; btnClose.style.color = accent;
+    controls.appendChild(btnZoomIn); controls.appendChild(btnZoomOut);
+    controls.appendChild(btnReset); controls.appendChild(btnClose);
+    toolbar.appendChild(hint); toolbar.appendChild(controls);
+    overlay.appendChild(toolbar);
+    var viewport = document.createElement("div");
+    viewport.style.cssText = "flex:1;overflow:hidden;position:relative;cursor:grab;";
+    var wrapper = document.createElement("div");
+    wrapper.style.cssText = "position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transform-origin:0 0;";
+    var clone = svg.cloneNode(true);
+    clone.style.cssText = "max-width:90vw;max-height:85vh;width:auto;height:auto;";
+    clone.removeAttribute("max-width");
+    wrapper.appendChild(clone); viewport.appendChild(wrapper); overlay.appendChild(viewport);
+    document.body.appendChild(overlay);
+    var scale = 1, tx = 0, ty = 0, dragging = false, startX = 0, startY = 0, startTx = 0, startTy = 0;
+    function applyTransform() { wrapper.style.transform = "translate(" + tx + "px," + ty + "px) scale(" + scale + ")"; }
+    function zoom(delta, cx, cy) {
+      var prev = scale; scale = Math.min(10, Math.max(0.1, scale * delta));
+      var rect = viewport.getBoundingClientRect();
+      var ox = (cx || rect.width / 2) - rect.left; var oy = (cy || rect.height / 2) - rect.top;
+      tx = ox - (ox - tx) * (scale / prev); ty = oy - (oy - ty) * (scale / prev); applyTransform();
+    }
+    function resetView() { scale = 1; tx = 0; ty = 0; applyTransform(); }
+    viewport.addEventListener("wheel", function(e) { e.preventDefault(); zoom(e.deltaY < 0 ? 1.15 : 0.87, e.clientX, e.clientY); }, { passive: false });
+    viewport.addEventListener("mousedown", function(e) { if (e.button !== 0) return; dragging = true; startX = e.clientX; startY = e.clientY; startTx = tx; startTy = ty; viewport.style.cursor = "grabbing"; });
+    document.addEventListener("mousemove", function(e) { if (!dragging) return; tx = startTx + (e.clientX - startX); ty = startTy + (e.clientY - startY); applyTransform(); });
+    document.addEventListener("mouseup", function() { dragging = false; viewport.style.cursor = "grab"; });
+    viewport.addEventListener("dblclick", resetView);
+    btnZoomIn.addEventListener("click", function() { zoom(1.3); });
+    btnZoomOut.addEventListener("click", function() { zoom(0.77); });
+    btnReset.addEventListener("click", resetView);
+    function close() { overlay.remove(); }
+    btnClose.addEventListener("click", close);
+    document.addEventListener("keydown", function esc(ev) { if (ev.key === "Escape") { close(); document.removeEventListener("keydown", esc); } });
+  }
+
+  function renderQueue(m, queue) {
+    if (!queue.length) return;
+    var d = queue.shift();
+    var id = "dw-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4);
+    try {
+      var result = m.render(id, d.src);
+      if (result && typeof result.then === "function") {
+        result.then(function(r) { d.el.setAttribute("data-processed", ""); d.el.replaceChildren(); d.el.insertAdjacentHTML("afterbegin", r.svg); d.el.className = "mermaid"; renderQueue(m, queue); })
+              .catch(function() { d.el.textContent = d.src; d.el.className = "mermaid"; renderQueue(m, queue); });
+      } else {
+        d.el.setAttribute("data-processed", ""); d.el.replaceChildren(); if (typeof result === "string") d.el.insertAdjacentHTML("afterbegin", result); d.el.className = "mermaid"; renderQueue(m, queue);
+      }
+    } catch(e) { d.el.textContent = d.src; d.el.className = "mermaid"; renderQueue(m, queue); }
+  }
+
+  function doRender(m) {
+    var isDark = document.body.getAttribute("data-md-color-scheme") === "slate";
+    m.initialize({ startOnLoad: false, theme: isDark ? "dark" : "default", fontFamily: "Inter, sans-serif" });
+    renderQueue(m, diagrams.slice());
+  }
+
+  function boot() {
+    if (typeof mermaid !== "undefined" && mermaid.initialize) { doRender(mermaid); return; }
+    var s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js";
+    s.onload = function() { if (typeof mermaid !== "undefined") doRender(mermaid); };
+    s.onerror = function() { diagrams.forEach(function(d) { d.el.textContent = d.src; d.el.className = "mermaid"; }); };
+    document.head.appendChild(s);
+  }
+
+  setTimeout(boot, 0);
+
+  document.addEventListener("click", function(e) {
+    if (!e.target.closest) return;
+    var container = e.target.closest(".mermaid, .dw-mermaid-loading");
+    if (!container) return;
+    var svg = container.querySelector("svg");
+    if (!svg) return;
+    e.preventDefault(); e.stopPropagation(); openZoom(svg);
+  }, true);
+})();
+`;
 function safeGenerate(name, fn, onProgress) {
   try {
     return fn();
@@ -1152,26 +1074,31 @@ async function generateDocs(options) {
   if (config.analysis.ai_structure && aiProvider) {
     try {
       onProgress?.("Analyzing codebase structure...");
-      const { analyzeStructure } = await import("./structure-advisor-QBF5AJGZ.js");
-      structurePlan = await analyzeStructure(manifest, aiProvider);
+      const { analyzeStructure } = await import("./structure-advisor-Z72KMYWJ.js");
+      const isComprehensive = config.analysis.doc_depth !== "concise";
+      structurePlan = await analyzeStructure(manifest, aiProvider, isComprehensive);
     } catch {
     }
   }
   const pages = [];
+  const codeModules = manifest.modules.filter(shouldGenerateModulePage);
+  const validPagePaths = new Set(
+    codeModules.map((m) => `api/${m.filePath.replace(/\.[^.]+$/, "")}.md`)
+  );
   if (useNarrative) {
     onProgress?.("Generating narrative pages (overview, getting started, architecture)...");
     const narrativePromises = [];
     narrativePromises.push(
       safeGenerateAsync(
         "Overview",
-        () => generateOverviewPageNarrative(manifest, config, aiProvider, readFile),
+        () => generateOverviewPageNarrative(manifest, config, aiProvider, readFile, validPagePaths),
         onProgress
       )
     );
     narrativePromises.push(
       safeGenerateAsync(
         "Getting Started",
-        () => generateGettingStartedPageNarrative(manifest, config, aiProvider, readFile),
+        () => generateGettingStartedPageNarrative(manifest, config, aiProvider, readFile, validPagePaths),
         onProgress
       )
     );
@@ -1180,7 +1107,7 @@ async function generateDocs(options) {
       narrativePromises.push(
         safeGenerateAsync(
           "Architecture",
-          () => generateArchitecturePageNarrative(manifest, aiProvider, readFile, repoUrl, config.source.branch),
+          () => generateArchitecturePageNarrative(manifest, aiProvider, readFile, repoUrl, config.source.branch, validPagePaths),
           onProgress
         )
       );
@@ -1210,10 +1137,36 @@ async function generateDocs(options) {
   const symbolPageMap = buildSymbolPageMap(manifest.modules);
   const modulePageCtx = { config, manifest, symbolPageMap };
   onProgress?.("Generating API reference pages...");
-  const modulesByGroup = groupModulesLogically(manifest.modules);
+  const modulesByGroup = groupModulesLogically(codeModules);
+  const narrativeModulePaths = /* @__PURE__ */ new Set();
+  if (useNarrative && aiProvider) {
+    const isConcise = config.analysis.doc_depth === "concise";
+    const maxNarrative = isConcise ? 5 : config.analysis.ai_narrative_top_n ?? 10;
+    const connectionCounts = /* @__PURE__ */ new Map();
+    for (const edge of manifest.dependencyGraph.edges) {
+      connectionCounts.set(edge.from, (connectionCounts.get(edge.from) ?? 0) + 1);
+      connectionCounts.set(edge.to, (connectionCounts.get(edge.to) ?? 0) + 1);
+    }
+    const ranked = codeModules.map((m) => ({ path: m.filePath, count: connectionCounts.get(m.filePath) ?? 0 })).sort((a, b) => b.count - a.count).slice(0, maxNarrative);
+    for (const r of ranked) {
+      narrativeModulePaths.add(r.path);
+    }
+    if (narrativeModulePaths.size > 0) {
+      onProgress?.(`Generating AI narratives for top ${narrativeModulePaths.size} modules...`);
+    }
+  }
   for (const [group, modules] of Object.entries(modulesByGroup)) {
     for (const mod of modules) {
-      pages.push(generateModulePage(mod, group, modulePageCtx));
+      if (narrativeModulePaths.has(mod.filePath)) {
+        const page = await safeGenerateAsync(
+          `Module narrative: ${mod.filePath}`,
+          () => generateModulePageNarrative(mod, group, modulePageCtx, aiProvider, readFile, validPagePaths),
+          onProgress
+        );
+        pages.push(page);
+      } else {
+        pages.push(generateModulePage(mod, group, modulePageCtx));
+      }
     }
   }
   if (config.analysis.config_docs) {
@@ -1246,7 +1199,7 @@ async function generateDocs(options) {
     const changelogPage = await safeGenerateAsync("Changelog", () => generateChangelogPage(config), onProgress);
     pages.push(changelogPage);
   }
-  if (config.analysis.user_docs !== false && !tryMode) {
+  if (config.analysis.user_docs !== false && config.analysis.doc_depth !== "concise") {
     onProgress?.("Generating end-user documentation...");
     const userDocsConfig = config.analysis.user_docs_config;
     const {
@@ -1260,7 +1213,7 @@ async function generateDocs(options) {
       generateFeaturesPageNarrative,
       generateTroubleshootingPageNarrative,
       generateFAQPageNarrative
-    } = await import("./pages-LUTJPCRZ.js");
+    } = await import("./pages-Z2R2PQJ6.js");
     if (useNarrative) {
       const userDocPromises = [];
       if (userDocsConfig?.overview !== false) {
@@ -1330,12 +1283,12 @@ async function generateDocs(options) {
   }
   if (structurePlan && structurePlan.conceptPages.length > 0 && aiProvider && readFile) {
     onProgress?.("Generating concept pages...");
-    const { generateConceptPage } = await import("./concept-X4S56TRM.js");
+    const { generateConceptPage } = await import("./concept-VSOUQBG4.js");
     const repoUrl = config.source.repo.includes("/") ? config.source.repo : void 0;
     for (const suggestion of structurePlan.conceptPages) {
       const page = await safeGenerateAsync(
         suggestion.title,
-        () => generateConceptPage(suggestion, manifest, aiProvider, readFile, repoUrl, config.source.branch),
+        () => generateConceptPage(suggestion, manifest, aiProvider, readFile, repoUrl, config.source.branch, validPagePaths),
         onProgress
       );
       pages.push(page);
@@ -1347,7 +1300,7 @@ async function generateDocs(options) {
       page.content += `
 
 !!! tip "Unlock Full Documentation"
-    This is a preview. DocWalk Pro includes complete API reference for all ${totalModules} modules, AI-powered narratives, end-user guides, and more.
+    This is a preview. Run DocWalk on your own repo for complete API reference across all ${totalModules} modules, deeper AI analysis, and more.
 `;
     }
   }
@@ -1357,10 +1310,22 @@ async function generateDocs(options) {
     await writeFile(pagePath, page.content);
     onProgress?.(`Written: ${page.path}`);
   }
-  if (config.analysis.qa_widget && config.analysis.qa_config) {
+  if (config.analysis.qa_widget) {
+    if (!config.analysis.qa_config) {
+      config.analysis.qa_config = {
+        provider: config.analysis.ai_provider?.name || "local",
+        embedding_model: "text-embedding-3-small",
+        context_window: 4e3,
+        position: "bottom-right",
+        greeting: "Ask me anything about this project.",
+        daily_limit: 50,
+        chunk_overlap: 50,
+        chunk_target_size: 300
+      };
+    }
     onProgress?.("Building Q&A index...");
     try {
-      const { buildQAIndex } = await import("./qa-XLP53X3U.js");
+      const { buildQAIndex } = await import("./qa-AR7JFCST.js");
       const qaProviderName = config.analysis.qa_config.provider || "openai";
       const qaKeyEnv = config.analysis.qa_config.api_key_env || config.analysis.ai_provider?.api_key_env || "DOCWALK_AI_KEY";
       const qaApiKey = resolveApiKey(qaProviderName, qaKeyEnv) || "";
@@ -1372,7 +1337,9 @@ async function generateDocs(options) {
           apiKey: qaApiKey,
           base_url: config.analysis.qa_config.base_url
         },
-        onProgress
+        onProgress,
+        chunkOverlap: config.analysis.qa_config.chunk_overlap,
+        chunkTargetSize: config.analysis.qa_config.chunk_target_size
       });
       const qaDir = path.join(docsDir, "_docwalk");
       await mkdir(qaDir, { recursive: true });
@@ -1380,9 +1347,13 @@ async function generateDocs(options) {
         path.join(qaDir, "qa-index.json"),
         JSON.stringify(qaIndex.serialized)
       );
+      await writeFile(
+        path.join(qaDir, "qa-search.json"),
+        qaIndex.textIndex
+      );
       onProgress?.(`Q&A index built: ${qaIndex.chunkCount} chunks from ${qaIndex.pageCount} pages`);
-      const { injectQAWidget } = await import("./inject-E4UVQDJM.js");
-      await injectQAWidget(outputDir, config.analysis.qa_config, "https://qa.docwalk.dev/api/ask");
+      const { injectQAWidget } = await import("./inject-XIL3FHSR.js");
+      await injectQAWidget(outputDir, config.analysis.qa_config);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       onProgress?.(`Warning: Q&A index build failed: ${msg}`);
@@ -1400,6 +1371,12 @@ async function generateDocs(options) {
       await writeFile(path.join(jsDir, "preset.js"), preset.customJs);
       onProgress?.("Written: javascripts/preset.js");
     }
+  }
+  {
+    const jsDir = path.join(docsDir, "javascripts");
+    await mkdir(jsDir, { recursive: true });
+    await writeFile(path.join(jsDir, "mermaid-zoom.js"), MERMAID_ZOOM_JS);
+    onProgress?.("Written: javascripts/mermaid-zoom.js");
   }
   onProgress?.("Generating mkdocs.yml...");
   const audienceSeparation = resolveAudienceSeparation(config, manifest);
@@ -1443,6 +1420,10 @@ function buildNavigation(pages, audienceSeparation) {
     for (const [section, sectionPages] of Object.entries(sections)) {
       if (Object.keys(sections).length === 1) {
         apiNav.children = sectionPages.sort((a, b) => a.title.localeCompare(b.title)).map((p) => ({ title: p.title, path: p.path }));
+      } else if (section === "API Reference") {
+        for (const p of sectionPages.sort((a, b) => a.title.localeCompare(b.title))) {
+          apiNav.children.push({ title: p.title, path: p.path });
+        }
       } else {
         apiNav.children.push({
           title: section,
@@ -1503,6 +1484,10 @@ function buildTabbedNavigation(pages) {
     for (const [section, sectionPages] of Object.entries(sections)) {
       if (Object.keys(sections).length === 1) {
         apiNav.children = sectionPages.sort((a, b) => a.title.localeCompare(b.title)).map((p) => ({ title: p.title, path: p.path }));
+      } else if (section === "API Reference") {
+        for (const p of sectionPages.sort((a, b) => a.title.localeCompare(b.title))) {
+          apiNav.children.push({ title: p.title, path: p.path });
+        }
       } else {
         apiNav.children.push({
           title: section,
@@ -1597,7 +1582,7 @@ function generateMkdocsConfig(manifest, config, navigation) {
 extra_css:
 ${extraCss.map((c) => `  - ${c}`).join("\n")}
 ` : "";
-  const extraJs = [];
+  const extraJs = ["javascripts/mermaid-zoom.js"];
   if (preset?.customJs) {
     extraJs.push("javascripts/preset.js");
   }
@@ -1611,15 +1596,6 @@ ${extraJs.map((j) => `  - ${j}`).join("\n")}
   let pluginsYaml = `plugins:
   - search:
       lang: en
-  - glightbox:
-      touchNavigation: true
-      loop: false
-      effect: zoom
-      slide_effect: slide
-      width: 100%
-      height: auto
-      zoomable: true
-      draggable: true
   - minify:
       minify_html: true`;
   if (config.versioning.enabled) {
@@ -1663,7 +1639,7 @@ markdown_extensions:
       custom_fences:
         - name: mermaid
           class: mermaid
-          format: !!python/name:pymdownx.superfences.fence_code_format
+          format: !!python/name:pymdownx.superfences.fence_div_format
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.tabbed:

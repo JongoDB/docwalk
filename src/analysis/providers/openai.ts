@@ -8,7 +8,7 @@ import { buildModuleSummaryPrompt, buildSymbolSummaryPrompt } from "./base.js";
 
 export class OpenAIProvider implements AIProvider {
   readonly name: string = "OpenAI GPT";
-  private readonly model: string;
+  private model: string;
   private readonly apiKey: string;
   private readonly baseURL?: string;
   private _client?: any;
@@ -17,6 +17,15 @@ export class OpenAIProvider implements AIProvider {
     this.apiKey = apiKey;
     this.model = model || "gpt-4o-mini";
     this.baseURL = baseURL;
+  }
+
+  /** Swap the active model (used for model rotation on rate-limited providers). */
+  setModel(model: string): void {
+    this.model = model;
+  }
+
+  getModel(): string {
+    return this.model;
   }
 
   private async getClient() {

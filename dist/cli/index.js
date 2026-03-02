@@ -16,31 +16,31 @@ program.name("docwalk").description(
   banner();
 });
 program.command("init").description("Initialize DocWalk for a repository").option("-r, --repo <repo>", "Repository (owner/repo or local path)").option("-p, --provider <provider>", "Deploy provider (gh-pages, cloudflare, vercel)").option("-d, --domain <domain>", "Custom domain").option("-t, --theme <theme>", "Theme preset (developer, corporate, startup, minimal, api-reference, knowledge-base)").option("-l, --layout <layout>", "Navigation layout (tabs, sidebar)").option("--no-interactive", "Skip interactive prompts, use defaults").action(async (options) => {
-  const { initCommand } = await import("../init-WEZ34M7D.js");
+  const { initCommand } = await import("../init-DBYAPCEQ.js");
   await initCommand(options);
 });
 program.command("generate").description("Analyze codebase and generate documentation").option("-c, --config <path>", "Config file path").option("-o, --output <dir>", "Output directory", "docwalk-output").option("--full", "Force full re-analysis (ignore cache)").option("--dry-run", "Show what would be generated without writing files").option("--ai", "Enable AI features using DOCWALK_AI_KEY environment variable").option("--try-mode", "Try mode: limit output and append upsell banners").option("-t, --theme <theme>", "Theme preset (developer, corporate, startup, minimal)").option("-l, --layout <layout>", "Navigation layout (tabs, sidebar, tabs-sticky)").option("-v, --verbose", "Verbose output").action(async (options) => {
-  const { generateCommand } = await import("../generate-GC5BPXS5.js");
+  const { generateCommand } = await import("../generate-VIAGYUEZ.js");
   await generateCommand(options);
 });
 program.command("sync").description("Incremental sync \u2014 detect changes and update docs").option("-c, --config <path>", "Config file path").option("--dry-run", "Show diff without applying changes").option("--full", "Force full re-analysis instead of incremental").option("--since <commit>", "Diff from a specific commit SHA instead of last synced").option("-v, --verbose", "Verbose output").action(async (options) => {
-  const { syncCommand } = await import("../sync-HVJRL5FL.js");
+  const { syncCommand } = await import("../sync-HQBRAIHY.js");
   await syncCommand(options);
 });
 program.command("deploy").description("Deploy documentation to hosting provider").option("-c, --config <path>", "Config file path").option("-p, --provider <provider>", "Override deploy provider").option("-d, --domain <domain>", "Override custom domain").option("--skip-build", "Deploy existing build without rebuilding").option("-v, --verbose", "Verbose output").action(async (options) => {
-  const { deployCommand } = await import("../deploy-5JWIFKUS.js");
+  const { deployCommand } = await import("../deploy-YT3GNZMN.js");
   await deployCommand(options);
 });
 program.command("undeploy").description("Remove deployment from hosting provider").option("-c, --config <path>", "Config file path").option("-p, --provider <provider>", "Override deploy provider").option("--force", "Skip confirmation prompt").option("-v, --verbose", "Verbose output").action(async (options) => {
-  const { undeployCommand } = await import("../undeploy-F6KBTDAO.js");
+  const { undeployCommand } = await import("../undeploy-ICRDZHGU.js");
   await undeployCommand(options);
 });
 program.command("dev").description("Start local preview server").option("-c, --config <path>", "Config file path").option("--port <port>", "Port number", "8000").option("--host <host>", "Host to bind to", "127.0.0.1").option("-w, --watch", "Watch source files and auto-regenerate docs").option("-v, --verbose", "Verbose output").action(async (options) => {
-  const { devCommand } = await import("../dev-W736BR2G.js");
+  const { devCommand } = await import("../dev-P7RWHR5P.js");
   await devCommand(options);
 });
 program.command("status").description("Show sync state, project info, and deployment status").option("-c, --config <path>", "Config file path").action(async (options) => {
-  const { statusCommand } = await import("../status-EPU4ML7M.js");
+  const { statusCommand } = await import("../status-D6CIVCLR.js");
   await statusCommand(options);
 });
 program.command("doctor").description("Check Zensical prerequisites and optionally install missing packages").option("--install", "Install missing Python packages").action(async (options) => {
@@ -48,16 +48,16 @@ program.command("doctor").description("Check Zensical prerequisites and optional
   await doctorCommand(options);
 });
 program.command("ci-setup").description("Generate CI/CD pipeline configuration for your provider").option("-c, --config <path>", "Config file path").option("-p, --provider <provider>", "Override deploy provider").option("--preview", "Also generate PR preview deployment workflow").action(async (options) => {
-  const { ciSetupCommand } = await import("../ci-setup-HZRYAELJ.js");
+  const { ciSetupCommand } = await import("../ci-setup-O7QWPAQG.js");
   await ciSetupCommand(options);
 });
 var versionCmd = program.command("version").description("Manage versioned documentation (requires mike)");
 versionCmd.command("list").description("List available documentation versions from git tags").option("-c, --config <path>", "Config file path").option("-v, --verbose", "Verbose output").action(async (options) => {
-  const { versionListCommand } = await import("../version-RGFNFHCN.js");
+  const { versionListCommand } = await import("../version-KCGEKYVJ.js");
   await versionListCommand(options);
 });
 versionCmd.command("deploy <tag>").description("Deploy a specific version tag using mike").option("-c, --config <path>", "Config file path").option("-a, --alias <alias>", "Version alias (e.g., latest, stable)").option("--no-set-default", "Don't set this as the default version").option("-v, --verbose", "Verbose output").action(async (tag, options) => {
-  const { versionDeployCommand } = await import("../version-RGFNFHCN.js");
+  const { versionDeployCommand } = await import("../version-KCGEKYVJ.js");
   await versionDeployCommand(tag, options);
 });
 program.parse();

@@ -1,25 +1,26 @@
 import {
+  runAISetup
+} from "./chunk-WWVZTG7U.js";
+import {
   generateDocs
-} from "./chunk-D22PLWCU.js";
+} from "./chunk-2S3G5LAE.js";
 import {
   analyzeCodebase
-} from "./chunk-YKWC67OC.js";
+} from "./chunk-Y6MOQZGX.js";
 import "./chunk-W5SRVZUR.js";
-import {
-  saveProjectApiKey
-} from "./chunk-LPLYQTRT.js";
+import "./chunk-LPLYQTRT.js";
 import {
   ConfigNotFoundError,
   clearConfigCache,
   loadConfig,
   loadConfigFile
-} from "./chunk-DI75Y54W.js";
+} from "./chunk-4XZ2DBCO.js";
 import {
   resolveApiKey
-} from "./chunk-AOVQF4UT.js";
-import "./chunk-ECGUKQHA.js";
-import "./chunk-WZW77HOO.js";
-import "./chunk-D4RNNKFF.js";
+} from "./chunk-5FUP7YMS.js";
+import "./chunk-DTCCTM3X.js";
+import "./chunk-BWSWMDKU.js";
+import "./chunk-VTREF62W.js";
 import "./chunk-KPWUZIKC.js";
 import {
   resolveRepoRoot
@@ -52,7 +53,7 @@ async function generateCommand(options) {
       blank();
       log("info", "No configuration found \u2014 let's set up DocWalk.");
       blank();
-      const { initCommand } = await import("./init-WEZ34M7D.js");
+      const { initCommand } = await import("./init-DBYAPCEQ.js");
       await initCommand({ _skipGenerate: true });
       clearConfigCache();
       try {
@@ -76,10 +77,15 @@ async function generateCommand(options) {
     config.theme.layout = options.layout;
     log("info", `Layout: ${chalk.bold(options.layout)}`);
   }
+  if (options.depth) {
+    config.analysis.doc_depth = options.depth;
+    log("info", `Documentation depth: ${chalk.bold(options.depth)}`);
+  }
   if (options.ai) {
     config.analysis.ai_summaries = true;
     config.analysis.ai_narrative = true;
     config.analysis.ai_diagrams = true;
+    config.analysis.qa_widget = true;
     if (!config.analysis.ai_provider) {
       config.analysis.ai_provider = {
         name: "gemini",
@@ -91,9 +97,95 @@ async function generateCommand(options) {
     const keyEnv = config.analysis.ai_provider.api_key_env;
     const needsKey = provName !== "ollama" && provName !== "local" && provName !== "docwalk-proxy";
     if (needsKey && !resolveApiKey(provName, keyEnv)) {
-      log("info", "No API key found \u2014 using DocWalk's free AI service (powered by Gemini Flash)");
+      log("info", "No API key found \u2014 using DocWalk's free AI service");
       config.analysis.ai_provider.name = "docwalk-proxy";
+      delete config.analysis.ai_provider.base_url;
     }
+  }
+  const isInteractive = process.stdout.isTTY && !options.tryMode;
+  const hasAnyFlag = !!(options.theme || options.layout || options.ai || options.depth);
+  if (isInteractive && !hasAnyFlag) {
+    blank();
+    log("info", "Customize your documentation (or press Enter for defaults):");
+    blank();
+    const { theme: chosenTheme } = await inquirer.prompt([
+      {
+        type: "list",
+        name: "theme",
+        message: "Theme preset:",
+        default: config.theme.preset || "developer",
+        choices: [
+          { name: "Developer    \u2014 dark-first, code-dense, teal accents", value: "developer" },
+          { name: "Corporate    \u2014 clean, professional, light mode", value: "corporate" },
+          { name: "Startup      \u2014 vibrant gradients, modern feel", value: "startup" },
+          { name: "Minimal      \u2014 reading-focused, no distractions", value: "minimal" }
+        ]
+      }
+    ]);
+    config.theme.preset = chosenTheme;
+    const { layout: chosenLayout } = await inquirer.prompt([
+      {
+        type: "list",
+        name: "layout",
+        message: "Navigation layout:",
+        default: config.theme.layout || "tabs",
+        choices: [
+          { name: "Tabs          \u2014 top navigation bar with section tabs", value: "tabs" },
+          { name: "Tabs (sticky) \u2014 tabs stay visible while scrolling", value: "tabs-sticky" },
+          { name: "Sidebar       \u2014 all navigation in left sidebar", value: "sidebar" }
+        ]
+      }
+    ]);
+    config.theme.layout = chosenLayout;
+    const { depth: chosenDepth } = await inquirer.prompt([
+      {
+        type: "list",
+        name: "depth",
+        message: "Documentation depth:",
+        default: config.analysis.doc_depth || "comprehensive",
+        choices: [
+          { name: "Comprehensive \u2014 detailed wiki with 8-12 topic pages", value: "comprehensive" },
+          { name: "Concise       \u2014 essential pages only (4-6 pages, faster)", value: "concise" }
+        ]
+      }
+    ]);
+    config.analysis.doc_depth = chosenDepth;
+    if (!config.analysis.ai_summaries) {
+      const aiResult = await runAISetup();
+      if (aiResult.enabled) {
+        config.analysis.ai_summaries = true;
+        config.analysis.ai_narrative = true;
+        config.analysis.ai_diagrams = true;
+        config.analysis.ai_provider = {
+          name: aiResult.providerName,
+          model: aiResult.model,
+          api_key_env: "DOCWALK_AI_KEY"
+        };
+      }
+    } else if (config.analysis.ai_provider) {
+      const prov = config.analysis.ai_provider;
+      const needsKey = prov.name !== "ollama" && prov.name !== "local" && prov.name !== "docwalk-proxy";
+      const hasKey = !needsKey || !!resolveApiKey(prov.name, prov.api_key_env);
+      if (hasKey) {
+        log("info", `AI: ${chalk.green("enabled")} (${prov.name})`);
+      } else {
+        log("warn", `AI is enabled but no ${prov.api_key_env || "API key"} found`);
+        const aiResult = await runAISetup();
+        if (aiResult.enabled) {
+          config.analysis.ai_provider = {
+            name: aiResult.providerName,
+            model: aiResult.model,
+            api_key_env: "DOCWALK_AI_KEY"
+          };
+          config.analysis.ai_narrative = true;
+          config.analysis.ai_diagrams = true;
+        } else {
+          config.analysis.ai_summaries = false;
+          config.analysis.ai_narrative = false;
+        }
+      }
+    }
+    blank();
   }
   const aiProvider = config.analysis.ai_provider;
   const aiEnabled = config.analysis.ai_summaries && aiProvider;
@@ -102,37 +194,13 @@ async function generateCommand(options) {
     const keyEnv = aiProvider.api_key_env;
     const needsKey = provName !== "ollama" && provName !== "local" && provName !== "docwalk-proxy";
     if (needsKey && !resolveApiKey(provName, keyEnv)) {
-      blank();
-      const envVarName = keyEnv || provName.toUpperCase() + "_API_KEY";
-      const { action } = await inquirer.prompt([
-        {
-          type: "list",
-          name: "action",
-          message: `AI is enabled but no ${envVarName} found:`,
-          choices: [
-            { name: "Enter API key now", value: "enter" },
-            { name: "Use DocWalk free tier instead", value: "proxy" },
-            { name: "Continue without AI", value: "skip" }
-          ]
-        }
-      ]);
-      if (action === "enter") {
-        const { apiKey } = await inquirer.prompt([
-          {
-            type: "password",
-            name: "apiKey",
-            message: `${envVarName}:`,
-            mask: "*",
-            validate: (input) => input.length > 0 || "API key is required"
-          }
-        ]);
-        process.env[envVarName] = apiKey;
-        await saveProjectApiKey(provName, apiKey);
-        log("success", `API key saved to ${chalk.dim(".docwalk/.env")}`);
-      } else if (action === "proxy") {
+      if (isInteractive) {
+        log("info", "No API key available \u2014 falling back to DocWalk free AI");
         aiProvider.name = "docwalk-proxy";
+        delete aiProvider.base_url;
       } else {
         config.analysis.ai_summaries = false;
+        config.analysis.ai_narrative = false;
       }
     }
   }
@@ -169,6 +237,7 @@ async function generateCommand(options) {
     analysis: config.analysis,
     repoRoot,
     commitSha,
+    maxAiModules: options.tryMode ? 50 : void 0,
     onProgress: (current, total, file) => {
       scanFileCount = current;
       scanSpinner.text = `[${step}/${totalSteps}] Scanning source files... ${current}/${total}`;

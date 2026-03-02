@@ -87,6 +87,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
 
       - name: Install docwalk dependencies
         working-directory: docwalk-src
@@ -102,7 +103,7 @@ jobs:
           THEME: ${{ github.event.inputs.theme || 'developer' }}
           LAYOUT: ${{ github.event.inputs.layout || 'tabs' }}
         run: |
-          npx -y tsx ../docwalk-src/src/cli/index.ts init --no-interactive --repo "$OWNER_REPO" --theme "$THEME" --layout "$LAYOUT"
+          node ../docwalk-src/dist/cli/index.js init --no-interactive --repo "$OWNER_REPO" --theme "$THEME" --layout "$LAYOUT"
 
       - name: Configure AI provider
         working-directory: target-repo
@@ -113,21 +114,25 @@ jobs:
           cfg = cfg.replace('ai_summaries: false', 'ai_summaries: true');
           cfg = cfg.replace(
             /^(analysis:)/m,
-            'analysis:\n  ai_provider:\n    name: openai\n    model: meta-llama/llama-4-scout-17b-16e-instruct\n    api_key_env: GROQ_API_KEY\n    base_url: \"https://api.groq.com/openai/v1\"'
+            'analysis:\n  ai_provider:\n    name: docwalk-proxy'
           );
-          cfg = cfg.replace(/concurrency: \d+/, 'concurrency: 1');
+          cfg = cfg.replace(/concurrency: \d+/, 'concurrency: 6');
           fs.writeFileSync('docwalk.config.yml', cfg);
           "
 
       - name: Generate documentation
         working-directory: target-repo
-        env:
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-        run: npx -y tsx ../docwalk-src/src/cli/index.ts generate -v --ai --try-mode
+        run: node ../docwalk-src/dist/cli/index.js generate -v --ai --try-mode
 
       - name: Build documentation site
         working-directory: target-repo/docwalk-output
         run: zensical build
+
+      - name: Clean docwalk artifacts from site
+        run: |
+          cd target-repo/docwalk-output/site
+          rm -f docwalk.config.yml docwalk.config.yaml .docwalkrc* 2>/dev/null || true
+          rm -rf .docwalk 2>/dev/null || true
 
       - name: Deploy to gh-pages
         env:

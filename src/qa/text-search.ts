@@ -81,7 +81,9 @@ export function tokenize(text: string): string[] {
  */
 export function buildTextIndex(chunks: ContentChunk[]): TextSearchIndex {
   const storedChunks: StoredChunk[] = [];
-  const terms: Record<string, TermEntry> = {};
+  // Use null-prototype object to avoid inherited properties like "constructor"
+  // colliding with tokenized words from documentation content.
+  const terms: Record<string, TermEntry> = Object.create(null);
   let totalTokens = 0;
 
   for (let i = 0; i < chunks.length; i++) {
@@ -145,7 +147,7 @@ export function searchText(
 
   for (const token of queryTokens) {
     const entry = index.terms[token];
-    if (!entry) continue;
+    if (!entry || !entry.postings) continue;
 
     // IDF: log((N - df + 0.5) / (df + 0.5) + 1)
     const idf = Math.log((N - entry.df + 0.5) / (entry.df + 0.5) + 1);

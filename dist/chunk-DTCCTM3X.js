@@ -4,7 +4,7 @@ import {
   generateModuleNarrative,
   generateOverviewNarrative,
   renderCitations
-} from "./chunk-WZW77HOO.js";
+} from "./chunk-BWSWMDKU.js";
 import {
   detectPackageManager,
   generateDirectoryTree,
@@ -16,8 +16,9 @@ import {
   parseConventionalType,
   renderSymbol,
   resolveProjectName,
-  sanitizeMermaidId
-} from "./chunk-D4RNNKFF.js";
+  sanitizeMermaidId,
+  shouldGenerateModulePage
+} from "./chunk-VTREF62W.js";
 import {
   getLanguageDisplayName
 } from "./chunk-KPWUZIKC.js";
@@ -119,11 +120,16 @@ function generateOverviewPage(manifest, config) {
   gettingStartedCards += `
 </div>`;
   const sectionCards = Object.entries(modulesByGroup).sort(([, a], [, b]) => b.length - a.length).map(([section, modules]) => {
-    const topModule = modules[0];
-    const slug = topModule.filePath.replace(/\.[^.]+$/, "");
-    const keyFiles = modules.map((m) => `\`${path.basename(m.filePath)}\``).slice(0, 4).join(", ");
+    const linkableModule = modules.find((m) => shouldGenerateModulePage(m));
+    const meaningfulFiles = modules.filter((m) => {
+      const base = path.basename(m.filePath);
+      return base !== "__init__.py" && base !== "index.ts" && base !== "index.js" && base !== "index.d.ts";
+    });
+    const displayFiles = meaningfulFiles.length > 0 ? meaningfulFiles : modules;
+    const keyFiles = displayFiles.map((m) => `\`${path.basename(m.filePath)}\``).slice(0, 4).join(", ");
     const extra = modules.length > 4 ? ` +${modules.length - 4} more` : "";
-    return `-   :material-folder-outline:{ .lg .middle } **[${section}](api/${slug}.md)**
+    const title = linkableModule ? `[${section}](api/${linkableModule.filePath.replace(/\.[^.]+$/, "")}.md)` : section;
+    return `-   :material-folder-outline:{ .lg .middle } **${title}**
 
     ---
 
@@ -161,6 +167,8 @@ description: Technical documentation for ${projectName}
 # ${projectName}
 
 ${projectDescription}
+
+<!-- NARRATIVE_INSERT_POINT -->
 
 ---
 
@@ -215,7 +223,7 @@ ${meta.entryPoints.map((e) => {
     audience: "developer"
   };
 }
-async function generateOverviewPageNarrative(manifest, config, provider, readFile) {
+async function generateOverviewPageNarrative(manifest, config, provider, readFile, validPagePaths) {
   const basePage = generateOverviewPage(manifest, config);
   try {
     const narrative = await generateOverviewNarrative({
@@ -224,24 +232,25 @@ async function generateOverviewPageNarrative(manifest, config, provider, readFil
       readFile
     });
     const repoUrl = config.source.repo.includes("/") ? config.source.repo : void 0;
-    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, config.source.branch);
+    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, config.source.branch, void 0, validPagePaths);
     const projectName = resolveProjectName(manifest);
-    const narrativeContent = `---
-title: ${projectName} Documentation
-description: Technical documentation for ${projectName}
----
-
-# ${projectName}
+    const baseContent = basePage.content;
+    const marker = "<!-- NARRATIVE_INSERT_POINT -->";
+    const markerIndex = baseContent.indexOf(marker);
+    if (markerIndex !== -1) {
+      const titleMatch = baseContent.indexOf(`# ${projectName}`);
+      const beforeTitle = baseContent.substring(0, titleMatch);
+      const afterMarker = baseContent.substring(markerIndex + marker.length);
+      return { ...basePage, content: `${beforeTitle}# ${projectName}
 
 ${prose}
 
----
+${afterMarker}` };
+    } else {
+      return { ...basePage, content: basePage.content.replace(`# ${projectName}`, `# ${projectName}
 
-${basePage.content.split("---\n").slice(2).join("---\n")}`;
-    return {
-      ...basePage,
-      content: narrativeContent
-    };
+${prose}`) };
+    }
   } catch {
     return basePage;
   }
@@ -376,7 +385,7 @@ ${meta.entryPoints.map((e) => {
     audience: "developer"
   };
 }
-async function generateGettingStartedPageNarrative(manifest, config, provider, readFile) {
+async function generateGettingStartedPageNarrative(manifest, config, provider, readFile, validPagePaths) {
   const basePage = generateGettingStartedPage(manifest, config);
   try {
     const narrative = await generateGettingStartedNarrative({
@@ -385,7 +394,7 @@ async function generateGettingStartedPageNarrative(manifest, config, provider, r
       readFile
     });
     const repoUrl = config.source.repo.includes("/") ? config.source.repo : void 0;
-    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, config.source.branch);
+    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, config.source.branch, void 0, validPagePaths);
     const projectName = resolveProjectName(manifest);
     const narrativeContent = `---
 title: Getting Started
@@ -489,10 +498,11 @@ description: System architecture and dependency graph
     mermaidContent += `  ${sanitizeMermaidId(edge.from)} ${style} ${sanitizeMermaidId(edge.to)}
 `;
   }
+  const codeModuleSet = new Set(manifest.modules.filter(shouldGenerateModulePage).map((m) => m.filePath));
   const moduleRows = manifest.modules.map((m) => {
     const outgoing = dependencyGraph.edges.filter((e) => e.from === m.filePath).length;
     const incoming = dependencyGraph.edges.filter((e) => e.to === m.filePath).length;
-    return { filePath: m.filePath, deps: outgoing, dependents: incoming, total: outgoing + incoming };
+    return { filePath: m.filePath, deps: outgoing, dependents: incoming, total: outgoing + incoming, hasPage: codeModuleSet.has(m.filePath) };
   }).sort((a, b) => b.total - a.total).slice(0, 30);
   const content = `---
 title: Architecture
@@ -521,7 +531,8 @@ ${dependencyGraph.nodes.length > 30 ? `
 |--------|:-----------:|:----------:|:-----:|
 ${moduleRows.map((r) => {
     const slug = r.filePath.replace(/\.[^.]+$/, "");
-    return `| [\`${r.filePath}\`](api/${slug}.md) | ${r.deps} | ${r.dependents} | **${r.total}** |`;
+    const label = r.hasPage ? `[\`${r.filePath}\`](api/${slug}.md)` : `\`${r.filePath}\``;
+    return `| ${label} | ${r.deps} | ${r.dependents} | **${r.total}** |`;
   }).join("\n")}
 
 ## Statistics
@@ -699,7 +710,8 @@ graph ${nodes.length > 15 ? "TD" : "LR"}
       const dependents = dependencyGraph.edges.filter((e) => e.to === mod.filePath).length;
       const exports = mod.symbols.filter((s) => s.exported).length;
       const modSlug = mod.filePath.replace(/\.[^.]+$/, "");
-      t2Content += `| [\`${path3.basename(mod.filePath)}\`](../api/${modSlug}.md) | ${deps} | ${dependents} | ${exports} |
+      const label = shouldGenerateModulePage(mod) ? `[\`${path3.basename(mod.filePath)}\`](../api/${modSlug}.md)` : `\`${path3.basename(mod.filePath)}\``;
+      t2Content += `| ${label} | ${deps} | ${dependents} | ${exports} |
 `;
     }
     t2Content += `
@@ -718,7 +730,7 @@ graph ${nodes.length > 15 ? "TD" : "LR"}
   }
   return pages;
 }
-async function generateArchitecturePageNarrative(manifest, provider, readFile, repoUrl, branch) {
+async function generateArchitecturePageNarrative(manifest, provider, readFile, repoUrl, branch, validPagePaths) {
   const basePage = generateArchitecturePage(manifest);
   try {
     const narrative = await generateArchitectureNarrative({
@@ -726,7 +738,7 @@ async function generateArchitecturePageNarrative(manifest, provider, readFile, r
       manifest,
       readFile
     });
-    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, branch);
+    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, branch, void 0, validPagePaths);
     const diagramSections = narrative.suggestedDiagrams.map((d) => `### ${d.title}
 
 \`\`\`mermaid
@@ -767,11 +779,13 @@ function generateModulePage(mod, group, ctx) {
   const repoUrl = isGitHubRepo ? config.source.repo : void 0;
   const branch = config?.source.branch ?? "main";
   const sourceLinksEnabled = config?.analysis.source_links !== false && isGitHubRepo;
+  const currentPagePath = `api/${slug}.md`;
   const renderOpts = {
     repoUrl,
     branch,
     sourceLinks: sourceLinksEnabled,
-    symbolPageMap: ctx?.symbolPageMap
+    symbolPageMap: ctx?.symbolPageMap,
+    currentPagePath
   };
   let content = `---
 title: "${path4.basename(mod.filePath)}"
@@ -819,7 +833,12 @@ ${description}
 `;
       } else {
         const rfSlug = rf.replace(/\.[^.]+$/, "");
-        content += `- [\`${rf}\`](${rfSlug}.md)
+        const currentSlug = mod.filePath.replace(/\.[^.]+$/, "");
+        const relPath = path4.posix.relative(
+          path4.posix.dirname(currentSlug),
+          rfSlug
+        ) + ".md";
+        content += `- [\`${rf}\`](${relPath})
 `;
       }
     }
@@ -972,7 +991,12 @@ flowchart TD
 `;
       for (const ref of referencedBy.sort()) {
         const refSlug = ref.replace(/\.[^.]+$/, "");
-        content += `- [\`${ref}\`](/api/${refSlug}.md)
+        const currentSlug = mod.filePath.replace(/\.[^.]+$/, "");
+        const relativePath = path4.posix.relative(
+          path4.posix.dirname(currentSlug),
+          refSlug
+        ) + ".md";
+        content += `- [\`${ref}\`](${relativePath})
 `;
       }
       content += "\n";
@@ -1035,7 +1059,7 @@ flowchart TD
     audience: "developer"
   };
 }
-async function generateModulePageNarrative(mod, group, ctx, provider, readFile) {
+async function generateModulePageNarrative(mod, group, ctx, provider, readFile, validPagePaths) {
   const basePage = generateModulePage(mod, group, ctx);
   try {
     const narrative = await generateModuleNarrative(mod, {
@@ -1044,7 +1068,8 @@ async function generateModulePageNarrative(mod, group, ctx, provider, readFile) 
       readFile
     });
     const repoUrl = ctx.config.source.repo.includes("/") ? ctx.config.source.repo : void 0;
-    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, ctx.config.source.branch);
+    const currentPagePath = `api/${mod.filePath.replace(/\.[^.]+$/, "")}.md`;
+    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, ctx.config.source.branch, currentPagePath, validPagePaths);
     const insertPoint = basePage.content.indexOf("---\n\n## Exports");
     if (insertPoint > 0) {
       const content = basePage.content.slice(0, insertPoint) + `
@@ -1167,18 +1192,40 @@ function generateTypesPage(manifest) {
   }
   let masterTable = "";
   if (typeSymbols.length > 0) {
-    masterTable += `| Name | Kind | Module | Description |
+    const described = typeSymbols.filter(({ symbol: sym }) => sym.docs?.summary || sym.aiSummary);
+    const undescribed = typeSymbols.filter(({ symbol: sym }) => !sym.docs?.summary && !sym.aiSummary);
+    if (described.length > 0) {
+      masterTable += `| Name | Kind | Module | Description |
 `;
-    masterTable += `|------|------|--------|-------------|
+      masterTable += `|------|------|--------|-------------|
 `;
-    for (const { symbol: sym, module: mod } of typeSymbols) {
-      const kindBadge = getKindBadge(sym.kind);
-      const desc = sym.docs?.summary || sym.aiSummary || "";
-      const symAnchor = sym.name.toLowerCase().replace(/[^a-z0-9-_]/g, "");
-      masterTable += `| [\`${sym.name}\`](#${symAnchor}) | ${kindBadge} | \`${path6.basename(mod.filePath)}\` | ${desc} |
+      for (const { symbol: sym, module: mod } of described) {
+        const kindBadge = getKindBadge(sym.kind);
+        const desc = sym.docs?.summary || sym.aiSummary || "";
+        const symAnchor = sym.name.toLowerCase().replace(/[^a-z0-9-_]/g, "");
+        masterTable += `| [\`${sym.name}\`](#${symAnchor}) | ${kindBadge} | \`${path6.basename(mod.filePath)}\` | ${desc} |
 `;
+      }
+      masterTable += "\n";
     }
-    masterTable += "\n";
+    if (undescribed.length > 0) {
+      if (described.length > 0) {
+        masterTable += `### Other Types
+
+`;
+      }
+      masterTable += `| Name | Kind | Module |
+`;
+      masterTable += `|------|------|--------|
+`;
+      for (const { symbol: sym, module: mod } of undescribed) {
+        const kindBadge = getKindBadge(sym.kind);
+        const symAnchor = sym.name.toLowerCase().replace(/[^a-z0-9-_]/g, "");
+        masterTable += `| [\`${sym.name}\`](#${symAnchor}) | ${kindBadge} | \`${path6.basename(mod.filePath)}\` |
+`;
+      }
+      masterTable += "\n";
+    }
   }
   let detailedSections = "";
   const groupedTypes = /* @__PURE__ */ new Map();
@@ -2356,23 +2403,37 @@ A comprehensive guide to everything ${projectName} can do.
     }
   }
   if (signals.components.length > 0) {
+    const described = signals.components.filter((c) => c.description);
+    const undescribed = signals.components.filter((c) => !c.description);
     content += `---
 
 ## Components
 
 `;
-    for (const comp of signals.components.slice(0, 20)) {
+    for (const comp of described.slice(0, 20)) {
       content += `### ${comp.name}
 
 `;
-      content += `${comp.description || `The ${comp.name} component.`}
+      content += `${comp.description}
 
 `;
-      if (comp.props && comp.props.length > 0) {
+      if (comp.props?.length) {
         content += `**Props:** ${comp.props.map((p) => `\`${p}\``).join(", ")}
 
 `;
       }
+    }
+    if (undescribed.length > 0) {
+      content += `| Component | Props |
+|-----------|-------|
+`;
+      for (const comp of undescribed.slice(0, 30)) {
+        const props = comp.props?.length ? `\`${comp.props.join(", ")}\`` : "\u2014";
+        content += `| **${comp.name}** | ${props} |
+`;
+      }
+      content += `
+`;
     }
   }
   const usefulConfigOpts = signals.configOptions.filter((o) => o.type || o.description);
@@ -2505,23 +2566,38 @@ Having trouble? Check the common issues below or see the error reference.
 ## Common Issues
 
 `;
-  content += `### Installation Problems
+  if (signals.errorTypes.length > 0) {
+    content += `### Known Error Types
 
 `;
-  content += `If you're having trouble installing ${projectName}:
-
+    content += `| Error | Source | Description |
 `;
-  content += `1. Make sure you have the required runtime installed
+    content += `|-------|--------|-------------|
 `;
-  content += `2. Check that your version meets the minimum requirements
+    for (const err of signals.errorTypes.slice(0, 15)) {
+      const desc = err.description || (err.extends ? `Extends \`${err.extends}\`` : "\u2014");
+      content += `| **${err.name}** | \`${err.filePath}\` | ${desc} |
 `;
-  content += `3. Try clearing your package manager cache and reinstalling
-
+    }
+    content += `
 `;
+  }
   if (signals.configOptions.length > 0) {
+    const requiredOpts = signals.configOptions.filter((o) => !o.defaultValue);
     content += `### Configuration Issues
 
 `;
+    if (requiredOpts.length > 0) {
+      content += `**Required options** (no defaults \u2014 must be set explicitly):
+
+`;
+      for (const opt of requiredOpts.slice(0, 10)) {
+        content += `- \`${opt.name}\`${opt.type ? ` (${opt.type})` : ""}${opt.description ? ` \u2014 ${opt.description}` : ""}
+`;
+      }
+      content += `
+`;
+    }
     content += `If ${projectName} isn't behaving as expected:
 
 `;
@@ -2530,6 +2606,21 @@ Having trouble? Check the common issues below or see the error reference.
     content += `2. Verify all required options are set
 `;
     content += `3. Check environment variables are properly set
+
+`;
+  }
+  if (signals.errorTypes.length === 0 && signals.configOptions.length === 0) {
+    content += `### Installation Problems
+
+`;
+    content += `If you're having trouble installing ${projectName}:
+
+`;
+    content += `1. Make sure you have the required runtime installed
+`;
+    content += `2. Check that your version meets the minimum requirements
+`;
+    content += `3. Try clearing your package manager cache and reinstalling
 
 `;
   }

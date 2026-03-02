@@ -1,9 +1,8 @@
 import {
-  saveProjectApiKey
-} from "./chunk-LPLYQTRT.js";
-import {
-  resolveApiKey
-} from "./chunk-AOVQF4UT.js";
+  runAISetup
+} from "./chunk-WWVZTG7U.js";
+import "./chunk-LPLYQTRT.js";
+import "./chunk-5FUP7YMS.js";
 import {
   blank,
   header,
@@ -11,186 +10,12 @@ import {
 } from "./chunk-YQ34VMHP.js";
 
 // src/cli/commands/init.ts
-import inquirer2 from "inquirer";
-import chalk2 from "chalk";
+import inquirer from "inquirer";
+import chalk from "chalk";
 import { writeFile, mkdir } from "fs/promises";
 import { execSync } from "child_process";
 import path from "path";
 import yaml from "js-yaml";
-
-// src/cli/flows/ai-setup.ts
-import inquirer from "inquirer";
-import chalk from "chalk";
-import ora from "ora";
-var PROVIDER_CHOICES = [
-  { name: "Google Gemini    \u2014 free tier, fast, great for docs", value: "gemini" },
-  { name: "Anthropic Claude \u2014 best quality, requires API key", value: "anthropic" },
-  { name: "OpenAI GPT      \u2014 widely available", value: "openai" },
-  { name: "OpenRouter       \u2014 multi-model gateway", value: "openrouter" },
-  { name: "Local / Ollama   \u2014 no API key, runs locally", value: "ollama" },
-  { name: "Skip             \u2014 use DocWalk free tier (Gemini Flash)", value: "docwalk-proxy" }
-];
-var KEY_URLS = {
-  gemini: "https://aistudio.google.com/app/apikey",
-  anthropic: "https://console.anthropic.com/settings/keys",
-  openai: "https://platform.openai.com/api-keys",
-  openrouter: "https://openrouter.ai/keys"
-};
-var ENV_VAR_NAMES = {
-  gemini: "GEMINI_API_KEY",
-  anthropic: "ANTHROPIC_API_KEY",
-  openai: "OPENAI_API_KEY",
-  openrouter: "OPENROUTER_API_KEY"
-};
-var DEFAULT_MODELS = {
-  gemini: "gemini-2.5-flash",
-  anthropic: "claude-sonnet-4-6",
-  openai: "gpt-4o-mini",
-  openrouter: "google/gemini-2.5-flash",
-  ollama: "llama3.2"
-};
-async function runAISetup() {
-  const { enableAI } = await inquirer.prompt([
-    {
-      type: "confirm",
-      name: "enableAI",
-      message: "Enable AI-powered documentation? (summaries, narratives, diagrams)",
-      default: true
-    }
-  ]);
-  if (!enableAI) {
-    return { enabled: false };
-  }
-  const { provider } = await inquirer.prompt([
-    {
-      type: "list",
-      name: "provider",
-      message: "AI provider:",
-      choices: PROVIDER_CHOICES
-    }
-  ]);
-  if (provider === "ollama" || provider === "docwalk-proxy") {
-    return {
-      enabled: true,
-      providerName: provider,
-      model: DEFAULT_MODELS[provider]
-    };
-  }
-  const envVar = ENV_VAR_NAMES[provider];
-  const existingKey = resolveApiKey(provider, envVar);
-  if (existingKey) {
-    log("success", `Found existing ${chalk.cyan(envVar)} in environment`);
-    return {
-      enabled: true,
-      providerName: provider,
-      model: DEFAULT_MODELS[provider],
-      keyStored: false
-    };
-  }
-  const keyUrl = KEY_URLS[provider];
-  if (keyUrl) {
-    blank();
-    console.log(`  Get your API key: ${chalk.cyan.underline(keyUrl)}`);
-    blank();
-  }
-  const { apiKey } = await inquirer.prompt([
-    {
-      type: "password",
-      name: "apiKey",
-      message: `${envVar}:`,
-      mask: "*",
-      validate: (input) => input.length > 0 || "API key is required"
-    }
-  ]);
-  const spinner = ora("Validating API key...").start();
-  try {
-    await validateApiKey(provider, apiKey);
-    spinner.succeed("API key is valid");
-  } catch (err) {
-    spinner.fail(`API key validation failed: ${err.message || "unknown error"}`);
-    const { fallback } = await inquirer.prompt([
-      {
-        type: "list",
-        name: "fallback",
-        message: "What would you like to do?",
-        choices: [
-          { name: "Try a different key", value: "retry" },
-          { name: "Save anyway (skip validation)", value: "save" },
-          { name: "Use DocWalk free tier instead", value: "proxy" }
-        ]
-      }
-    ]);
-    if (fallback === "retry") {
-      return runAISetup();
-    }
-    if (fallback === "proxy") {
-      return {
-        enabled: true,
-        providerName: "docwalk-proxy",
-        model: DEFAULT_MODELS["docwalk-proxy"]
-      };
-    }
-  }
-  await saveProjectApiKey(provider, apiKey);
-  log("success", `API key saved to ${chalk.dim(".docwalk/.env")}`);
-  return {
-    enabled: true,
-    providerName: provider,
-    model: DEFAULT_MODELS[provider],
-    keyStored: true
-  };
-}
-async function validateApiKey(provider, apiKey) {
-  switch (provider) {
-    case "gemini": {
-      const { GoogleGenerativeAI } = await import("@google/generative-ai");
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({
-        model: "gemini-2.5-flash",
-        generationConfig: { maxOutputTokens: 10 }
-      });
-      await model.generateContent("Say hi");
-      break;
-    }
-    case "anthropic": {
-      const { default: Anthropic } = await import("@anthropic-ai/sdk");
-      const client = new Anthropic({ apiKey });
-      await client.messages.create({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 10,
-        messages: [{ role: "user", content: "Say hi" }]
-      });
-      break;
-    }
-    case "openai": {
-      const { default: OpenAI } = await import("openai");
-      const client = new OpenAI({ apiKey });
-      await client.chat.completions.create({
-        model: "gpt-4o-mini",
-        max_tokens: 10,
-        messages: [{ role: "user", content: "Say hi" }]
-      });
-      break;
-    }
-    case "openrouter": {
-      const { default: OpenAI } = await import("openai");
-      const client = new OpenAI({
-        apiKey,
-        baseURL: "https://openrouter.ai/api/v1"
-      });
-      await client.chat.completions.create({
-        model: "google/gemini-2.5-flash",
-        max_tokens: 10,
-        messages: [{ role: "user", content: "Say hi" }]
-      });
-      break;
-    }
-    default:
-      break;
-  }
-}
-
-// src/cli/commands/init.ts
 var DEFAULT_INCLUDES = [
   "**/*.ts",
   "**/*.tsx",
@@ -269,7 +94,7 @@ async function initCommand(options) {
     await writeDefaultConfig(options);
     return;
   }
-  const { mode } = await inquirer2.prompt([
+  const { mode } = await inquirer.prompt([
     {
       type: "list",
       name: "mode",
@@ -288,7 +113,7 @@ async function initCommand(options) {
 }
 async function quickStartTrack(options) {
   const detectedRepo = options.repo || await detectCurrentRepo();
-  const { repo } = await inquirer2.prompt([
+  const { repo } = await inquirer.prompt([
     {
       type: "input",
       name: "repo",
@@ -306,7 +131,7 @@ async function quickStartTrack(options) {
   blank();
   const aiResult = await runAISetup();
   blank();
-  const { preset } = await inquirer2.prompt([
+  const { preset } = await inquirer.prompt([
     {
       type: "list",
       name: "preset",
@@ -333,12 +158,18 @@ async function quickStartTrack(options) {
     analysis: {
       depth: "full",
       ai_summaries: aiResult.enabled,
+      ...aiResult.enabled && {
+        ai_narrative: true,
+        ai_diagrams: true,
+        insights_ai: true
+      },
       ...aiResult.enabled && aiResult.providerName && {
         ai_provider: {
           name: aiResult.providerName,
           ...aiResult.model && { model: aiResult.model }
         }
       },
+      qa_widget: aiResult.enabled,
       dependency_graph: true,
       changelog: true,
       changelog_depth: 100,
@@ -382,7 +213,7 @@ async function quickStartTrack(options) {
     return;
   }
   blank();
-  const { generateNow } = await inquirer2.prompt([
+  const { generateNow } = await inquirer.prompt([
     {
       type: "confirm",
       name: "generateNow",
@@ -392,20 +223,20 @@ async function quickStartTrack(options) {
   ]);
   if (generateNow) {
     blank();
-    const { clearConfigCache } = await import("./loader-5BOX56KF.js");
+    const { clearConfigCache } = await import("./loader-XGUECGGC.js");
     clearConfigCache();
-    const { generateCommand } = await import("./generate-GC5BPXS5.js");
+    const { generateCommand } = await import("./generate-VIAGYUEZ.js");
     await generateCommand({ output: "docwalk-output" });
   } else {
     blank();
-    console.log(chalk2.dim("  Next steps:"));
-    console.log(`    1. ${chalk2.cyan("docwalk generate")}  \u2014 Analyze and generate docs`);
-    console.log(`    2. ${chalk2.cyan("docwalk dev")}       \u2014 Preview locally`);
+    console.log(chalk.dim("  Next steps:"));
+    console.log(`    1. ${chalk.cyan("docwalk generate")}  \u2014 Analyze and generate docs`);
+    console.log(`    2. ${chalk.cyan("docwalk dev")}       \u2014 Preview locally`);
     blank();
   }
 }
 async function customTrack(options) {
-  const repoAnswers = await inquirer2.prompt([
+  const repoAnswers = await inquirer.prompt([
     {
       type: "input",
       name: "repo",
@@ -430,7 +261,7 @@ async function customTrack(options) {
   const branch = repoAnswers.branch === "Other" ? repoAnswers.branchCustom : repoAnswers.branch;
   blank();
   log("info", "Analysis Configuration");
-  const analysisAnswers = await inquirer2.prompt([
+  const analysisAnswers = await inquirer.prompt([
     {
       type: "list",
       name: "depth",
@@ -459,7 +290,7 @@ async function customTrack(options) {
   const aiResult = await runAISetup();
   blank();
   log("info", "Deployment Configuration");
-  const deployAnswers = await inquirer2.prompt([
+  const deployAnswers = await inquirer.prompt([
     {
       type: "list",
       name: "provider",
@@ -485,7 +316,7 @@ async function customTrack(options) {
   ]);
   blank();
   log("info", "Domain Configuration");
-  const domainAnswers = await inquirer2.prompt([
+  const domainAnswers = await inquirer.prompt([
     {
       type: "confirm",
       name: "useCustomDomain",
@@ -519,7 +350,7 @@ async function customTrack(options) {
   ]);
   blank();
   log("info", "Sync Strategy");
-  const syncAnswers = await inquirer2.prompt([
+  const syncAnswers = await inquirer.prompt([
     {
       type: "list",
       name: "trigger",
@@ -547,7 +378,7 @@ async function customTrack(options) {
   ]);
   blank();
   log("info", "Theme");
-  const themeAnswers = await inquirer2.prompt([
+  const themeAnswers = await inquirer.prompt([
     {
       type: "list",
       name: "preset",
@@ -557,10 +388,10 @@ async function customTrack(options) {
         { name: "Corporate \u2014 Clean, professional, B2B (Roboto)", value: "corporate" },
         { name: "Startup \u2014 Vibrant, modern, energetic (Inter + Fira Code)", value: "startup" },
         { name: "Minimal \u2014 Reading-focused, distraction-free (Source Serif)", value: "minimal" },
-        new inquirer2.Separator("\u2500\u2500 Premium \u2500\u2500"),
+        new inquirer.Separator("\u2500\u2500 Premium \u2500\u2500"),
         { name: "API Reference \u2014 Code-dense, integrated TOC (Team+)", value: "api-reference" },
         { name: "Knowledge Base \u2014 Readable, breadcrumbs, sticky tabs (Team+)", value: "knowledge-base" },
-        new inquirer2.Separator("\u2500\u2500"),
+        new inquirer.Separator("\u2500\u2500"),
         { name: "Custom \u2014 Choose your own palette and accent", value: "custom" }
       ],
       default: "developer"
@@ -610,12 +441,18 @@ async function customTrack(options) {
     analysis: {
       depth: analysisAnswers.depth,
       ai_summaries: aiResult.enabled,
+      ...aiResult.enabled && {
+        ai_narrative: true,
+        ai_diagrams: true,
+        insights_ai: true
+      },
       ...aiResult.enabled && aiResult.providerName && {
         ai_provider: {
           name: aiResult.providerName,
           ...aiResult.model && { model: aiResult.model }
         }
       },
+      qa_widget: aiResult.enabled,
       dependency_graph: analysisAnswers.dependency_graph,
       changelog: analysisAnswers.changelog,
       changelog_depth: 100,
@@ -659,7 +496,7 @@ async function customTrack(options) {
     }
   };
   await writeConfigAndScaffold(config);
-  const { confirm: shouldSetupCI } = await inquirer2.prompt([
+  const { confirm: shouldSetupCI } = await inquirer.prompt([
     {
       type: "confirm",
       name: "confirm",
@@ -671,16 +508,16 @@ async function customTrack(options) {
     log("info", "Generating CI/CD configuration...");
     log(
       "success",
-      `Run ${chalk2.cyan("docwalk ci-setup")} to generate the pipeline config`
+      `Run ${chalk.cyan("docwalk ci-setup")} to generate the pipeline config`
     );
   }
   blank();
   log("success", "DocWalk initialized!");
   blank();
-  console.log(chalk2.dim("  Next steps:"));
-  console.log(`    1. ${chalk2.cyan("docwalk generate")}  \u2014 Analyze and generate docs`);
-  console.log(`    2. ${chalk2.cyan("docwalk dev")}       \u2014 Preview locally`);
-  console.log(`    3. ${chalk2.cyan("docwalk deploy")}    \u2014 Deploy to ${deployAnswers.provider}`);
+  console.log(chalk.dim("  Next steps:"));
+  console.log(`    1. ${chalk.cyan("docwalk generate")}  \u2014 Analyze and generate docs`);
+  console.log(`    2. ${chalk.cyan("docwalk dev")}       \u2014 Preview locally`);
+  console.log(`    3. ${chalk.cyan("docwalk deploy")}    \u2014 Deploy to ${deployAnswers.provider}`);
   blank();
 }
 async function writeConfigAndScaffold(config) {
@@ -697,7 +534,7 @@ async function writeConfigAndScaffold(config) {
 
 ${yamlContent}`);
   blank();
-  log("success", `Configuration written to ${chalk2.cyan("docwalk.config.yml")}`);
+  log("success", `Configuration written to ${chalk.cyan("docwalk.config.yml")}`);
   await mkdir(".docwalk", { recursive: true });
   const gitignorePath = path.resolve(".docwalk/.gitignore");
   await writeFile(gitignorePath, "state.json\nmanifest.json\n.env\nvenv/\n");
@@ -755,7 +592,7 @@ async function writeDefaultConfig(options) {
 ${yamlContent}`);
   await mkdir(".docwalk", { recursive: true });
   await writeFile(path.resolve(".docwalk/.gitignore"), "state.json\nmanifest.json\n.env\nvenv/\n");
-  log("success", `Configuration written to ${chalk2.cyan("docwalk.config.yml")}`);
+  log("success", `Configuration written to ${chalk.cyan("docwalk.config.yml")}`);
 }
 export {
   initCommand

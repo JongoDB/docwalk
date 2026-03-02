@@ -2833,9 +2833,9 @@
       let latestSourceFiles = sourceFiles;
 
       // Estimate total build time based on file count.
-      // Baseline: ~90s for setup + ~1s per source file for AI analysis.
+      // Baseline: ~90s for setup + ~0.15s per source file (12 Groq models in parallel).
       const estimatedTotalSec = sourceFiles > 0
-        ? Math.round(90 + sourceFiles * 1.0)
+        ? Math.round(90 + sourceFiles * 0.15)
         : 0;
 
       function formatEta(elapsedSec, pct) {

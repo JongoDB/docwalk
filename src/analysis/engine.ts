@@ -223,8 +223,12 @@ export async function analyzeCodebase(
       },
       previousCache: previousSummaryCache,
       onProgress: onAIProgress,
-      concurrency: analysis.concurrency,
-      delayMs: analysis.concurrency && analysis.concurrency <= 4 ? 3000 : 0,
+      concurrency: analysis.ai_provider.name === "docwalk-proxy"
+        ? 6   // Proxy worker handles model rotation across 12 models internally
+        : analysis.concurrency,
+      delayMs: analysis.ai_provider.name === "docwalk-proxy"
+        ? 1000  // Worker retries on empty/429, shorter delay OK
+        : (analysis.concurrency && analysis.concurrency <= 4 ? 3000 : 0),
       maxModules: maxAiModules,
     });
 

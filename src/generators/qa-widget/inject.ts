@@ -14,7 +14,7 @@ import { readFile } from "fs/promises";
 import { fileURLToPath } from "url";
 
 /** Default AI proxy Q&A streaming endpoint */
-const DEFAULT_QA_ENDPOINT = "https://docwalk-ai-proxy.jonwfh.workers.dev/v1/qa/stream";
+const DEFAULT_QA_ENDPOINT = "https://docwalk-ai-proxy.jonathanrannabargar.workers.dev/v1/qa/stream";
 
 /**
  * Inject the Q&A widget assets into the docs output.

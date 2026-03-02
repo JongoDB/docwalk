@@ -1,31 +1,9 @@
-/**
- * Q&A Widget — Client-Side JavaScript
- *
- * Generates a self-contained JS widget that embeds into MkDocs Material docs.
- * Features:
- *   - Client-side BM25 text search (no server needed for retrieval)
- *   - SSE streaming answers from AI proxy
- *   - Multi-turn conversation with history
- *   - Simple markdown rendering in responses (sanitized)
- *   - Citation links to source pages
- */
+// src/generators/qa-widget/inject.ts
+import { writeFile, mkdir } from "fs/promises";
+import path from "path";
 
-export interface WidgetConfig {
-  /** AI proxy streaming endpoint */
-  apiEndpoint: string;
-  /** Relative path to the BM25 search index JSON */
-  searchIndexUrl: string;
-  /** Widget position on screen */
-  position: "bottom-right" | "bottom-left";
-  /** Initial greeting message */
-  greeting: string;
-  /** Max questions per day (client-enforced) */
-  dailyLimit: number;
-  /** Search mode: client loads index in-browser, server delegates to worker */
-  mode: "client" | "server";
-}
-
-export function generateWidgetJS(config: WidgetConfig): string {
+// src/generators/qa-widget/widget.ts
+function generateWidgetJS(config) {
   return `
 (function() {
   'use strict';
@@ -40,13 +18,13 @@ export function generateWidgetJS(config: WidgetConfig): string {
   var MAX_HISTORY = 6;
   var TOP_K = 5;
 
-  // ── State ────────────────────────────────────────────────────────────────
+  // \u2500\u2500 State \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   var searchIndex = null;
   var indexLoading = false;
   var conversationHistory = [];
   var isStreaming = false;
 
-  // ── Daily Limit ──────────────────────────────────────────────────────────
+  // \u2500\u2500 Daily Limit \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   function getQuestionsToday() {
     try {
       var stored = localStorage.getItem(STORAGE_KEY);
@@ -63,9 +41,9 @@ export function generateWidgetJS(config: WidgetConfig): string {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ date: today, count: count }));
   }
 
-  // ── HTML Sanitization ────────────────────────────────────────────────────
+  // \u2500\u2500 HTML Sanitization \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   // Allowlist-based sanitizer for rendered markdown.
-  // Only allows safe tags/attributes — strips everything else.
+  // Only allows safe tags/attributes \u2014 strips everything else.
   var SAFE_TAGS = new Set(['strong','em','code','pre','a','br','ul','ol','li','p','span']);
   var SAFE_ATTRS = { a: new Set(['href','target','rel','class']), pre: new Set(['class']), code: new Set(['class']), span: new Set(['class']), div: new Set(['class']) };
 
@@ -81,7 +59,7 @@ export function generateWidgetJS(config: WidgetConfig): string {
     var children = Array.from(node.childNodes);
     for (var i = 0; i < children.length; i++) {
       var child = children[i];
-      if (child.nodeType === 3) continue; // text node — safe
+      if (child.nodeType === 3) continue; // text node \u2014 safe
       if (child.nodeType !== 1) { child.remove(); continue; }
       var tag = child.tagName.toLowerCase();
       if (!SAFE_TAGS.has(tag)) {
@@ -108,7 +86,7 @@ export function generateWidgetJS(config: WidgetConfig): string {
     }
   }
 
-  // ── BM25 Client-Side Search ──────────────────────────────────────────────
+  // \u2500\u2500 BM25 Client-Side Search \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   var STOP = new Set(["a","an","the","and","or","but","in","on","at","to","for","of","with","by","from","is","are","was","were","be","been","being","have","has","had","do","does","did","will","would","could","should","may","might","shall","can","this","that","these","those","it","its","not","no","so","if","as","up","out","about","into","over","after","then","than","also"]);
 
   function tokenize(text) {
@@ -159,7 +137,7 @@ export function generateWidgetJS(config: WidgetConfig): string {
     }
   }
 
-  // ── Simple Markdown Rendering (output is sanitized) ──────────────────────
+  // \u2500\u2500 Simple Markdown Rendering (output is sanitized) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   function renderMarkdown(text) {
     var html = escapeHtml(text)
       // Code blocks (must be before inline code)
@@ -182,7 +160,7 @@ export function generateWidgetJS(config: WidgetConfig): string {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  // ── SSE Streaming ────────────────────────────────────────────────────────
+  // \u2500\u2500 SSE Streaming \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   async function streamAnswer(question, chunks, onToken, onDone, onError) {
     var body = {
       question: question,
@@ -242,7 +220,7 @@ export function generateWidgetJS(config: WidgetConfig): string {
     }
   }
 
-  // ── Widget DOM ───────────────────────────────────────────────────────────
+  // \u2500\u2500 Widget DOM \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   function createWidget() {
     var container = document.createElement('div');
     container.id = 'docwalk-qa-widget';
@@ -506,3 +484,43 @@ export function generateWidgetJS(config: WidgetConfig): string {
 })();
 `;
 }
+
+// src/generators/qa-widget/inject.ts
+import { readFile } from "fs/promises";
+import { fileURLToPath } from "url";
+var DEFAULT_QA_ENDPOINT = "https://docwalk-ai-proxy.jonathanrannabargar.workers.dev/v1/qa/stream";
+async function injectQAWidget(outputDir, config, qaApiEndpoint) {
+  const assetsDir = path.join(outputDir, "docs", "_docwalk");
+  await mkdir(assetsDir, { recursive: true });
+  const widgetJS = generateWidgetJS({
+    apiEndpoint: qaApiEndpoint || DEFAULT_QA_ENDPOINT,
+    searchIndexUrl: "_docwalk/qa-search.json",
+    position: config.position || "bottom-right",
+    greeting: config.greeting || "Ask me anything about this project.",
+    dailyLimit: config.daily_limit || 50,
+    mode: "client"
+  });
+  await writeFile(path.join(assetsDir, "qa-widget.js"), widgetJS);
+  let css;
+  try {
+    const cssPath = path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      "widget.css"
+    );
+    css = await readFile(cssPath, "utf-8");
+  } catch {
+    css = `
+#docwalk-qa-widget { position: fixed; bottom: 20px; right: 20px; z-index: 9999; }
+#dw-qa-toggle { width: 56px; height: 56px; border-radius: 50%; background: #5de4c7; color: #0a0a0c; border: none; cursor: pointer; }
+#dw-qa-panel { width: 400px; height: 520px; background: #16161a; border: 1px solid #2a2a32; border-radius: 12px; }
+`;
+  }
+  await writeFile(path.join(assetsDir, "qa-widget.css"), css);
+  return {
+    extraCss: ["_docwalk/qa-widget.css"],
+    extraJs: ["_docwalk/qa-widget.js"]
+  };
+}
+export {
+  injectQAWidget
+};

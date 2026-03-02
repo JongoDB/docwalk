@@ -70,6 +70,14 @@ var SourceSchema = z.object({
     "coverage/**",
     ".docwalk/**",
     "docwalk-output/**",
+    "docwalk.config.yml",
+    "docwalk.config.yaml",
+    "docwalk.config.js",
+    "docwalk.config.ts",
+    ".docwalkrc",
+    ".docwalkrc.yml",
+    ".docwalkrc.yaml",
+    ".docwalkrc.json",
     "site/**",
     "**/*.d.ts",
     "**/*.min.js",
@@ -125,14 +133,18 @@ var AnalysisSchema = z.object({
   source_links: z.boolean().default(true),
   /** Generate code insights page (static analyzers) */
   insights: z.boolean().default(true),
-  /** Enable AI-powered insights (requires license + API key) */
-  insights_ai: z.boolean().default(false),
+  /** Enable AI-powered insights (requires AI provider) */
+  insights_ai: z.boolean().default(true),
   /** Enable AI-generated narrative prose on pages (requires AI provider) */
-  ai_narrative: z.boolean().default(false),
+  ai_narrative: z.boolean().default(true),
+  /** Max number of modules to generate full narrative descriptions for (most-connected first) */
+  ai_narrative_top_n: z.number().int().positive().default(10),
   /** Enable AI-generated diagrams (sequence, flowcharts) */
-  ai_diagrams: z.boolean().default(false),
+  ai_diagrams: z.boolean().default(true),
   /** Enable AI-driven dynamic page structure suggestions */
   ai_structure: z.boolean().default(false),
+  /** Documentation depth: comprehensive (8-12 topic pages) or concise (4-6 essential pages) */
+  doc_depth: z.enum(["comprehensive", "concise"]).default("comprehensive"),
   /** Enable monorepo workspace package resolution for dependency graphs */
   monorepo: z.boolean().default(true),
   /** Generate end-user documentation (user guides, troubleshooting, FAQ) */
@@ -158,7 +170,9 @@ var AnalysisSchema = z.object({
     greeting: z.string().default("Ask me anything about this project."),
     daily_limit: z.number().default(50),
     api_key_env: z.string().optional().describe("Environment variable name for Q&A API key (overrides ai_provider key)"),
-    base_url: z.string().optional().describe("Custom base URL for Q&A embedding provider")
+    base_url: z.string().optional().describe("Custom base URL for Q&A embedding provider"),
+    chunk_overlap: z.number().default(50).describe("Overlap tokens between adjacent QA chunks"),
+    chunk_target_size: z.number().default(300).describe("Target token count for QA chunks")
   }).optional()
 });
 var SyncSchema = z.object({

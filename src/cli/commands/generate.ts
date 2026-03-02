@@ -108,6 +108,7 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
     if (needsKey && !resolveApiKey(provName, keyEnv)) {
       log("info", "No API key found — using DocWalk's free AI service");
       config.analysis.ai_provider.name = "docwalk-proxy";
+      delete config.analysis.ai_provider.base_url;
     }
   }
 
@@ -227,6 +228,7 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
         // runAISetup already handled key entry — if we're here, key is still missing
         log("info", "No API key available — falling back to DocWalk free AI");
         aiProvider!.name = "docwalk-proxy";
+        delete aiProvider!.base_url;
       } else {
         // Non-interactive (CI) — disable AI silently
         config.analysis.ai_summaries = false;

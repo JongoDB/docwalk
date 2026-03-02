@@ -8,7 +8,7 @@ import {
   createProvider,
   createProxyFallback,
   resolveApiKey
-} from "./chunk-AOVQF4UT.js";
+} from "./chunk-5FUP7YMS.js";
 export {
   AnthropicProvider,
   DocWalkProxyProvider,

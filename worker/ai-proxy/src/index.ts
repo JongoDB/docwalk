@@ -8,7 +8,9 @@
  *   POST /v1/generate       — Non-streaming text generation (existing)
  *   POST /v1/qa/stream      — SSE-streaming Q&A answers from context chunks
  *
- * Rate limit: 20 req/min per IP for generate, 10 req/min for Q&A.
+ * Rate limit: 100 req/min per IP for generate, 20 req/min for Q&A.
+ * Rotates across 12 Groq models for higher throughput (per-model limits are independent).
+ * Q&A uses a quality-weighted subset of 7 models for better answers.
  */
 
 interface Env {
@@ -16,13 +18,59 @@ interface Env {
   ALLOWED_ORIGINS: string;
 }
 
+// ─── Model rotation (per-model rate limits → rotate for higher throughput) ───
+
+// All viable Groq text-generation models (12 total).
+// Per-model rate limits are independent → rotating across N models multiplies throughput.
+const GROQ_MODELS = [
+  "meta-llama/llama-4-scout-17b-16e-instruct",   // 30K TPM — best all-rounder
+  "groq/compound",                                 // 70K TPM — highest capacity
+  "groq/compound-mini",                            // 70K TPM — highest capacity
+  "llama-3.3-70b-versatile",                       // 12K TPM — high quality
+  "openai/gpt-oss-120b",                           // 8K  TPM — large model
+  "openai/gpt-oss-20b",                            // 8K  TPM
+  "openai/gpt-oss-safeguard-20b",                  // 8K  TPM
+  "moonshotai/kimi-k2-instruct",                   // 10K TPM
+  "moonshotai/kimi-k2-instruct-0905",              // 10K TPM
+  "qwen/qwen3-32b",                                // 6K  TPM
+  "meta-llama/llama-4-maverick-17b-128e-instruct", // 6K  TPM
+  "llama-3.1-8b-instant",                          // 6K  TPM — fastest inference
+];
+
+// Q&A-optimized subset: prioritize quality/reasoning for user-facing answers.
+// These models produce better conversational responses with citations.
+const QA_MODELS = [
+  "meta-llama/llama-4-scout-17b-16e-instruct",
+  "llama-3.3-70b-versatile",
+  "openai/gpt-oss-120b",
+  "groq/compound",
+  "moonshotai/kimi-k2-instruct",
+  "qwen/qwen3-32b",
+  "meta-llama/llama-4-maverick-17b-128e-instruct",
+];
+
+let modelIndex = 0;
+let qaModelIndex = 0;
+
+function nextModel(): string {
+  const model = GROQ_MODELS[modelIndex % GROQ_MODELS.length];
+  modelIndex++;
+  return model;
+}
+
+function nextQAModel(): string {
+  const model = QA_MODELS[qaModelIndex % QA_MODELS.length];
+  qaModelIndex++;
+  return model;
+}
+
 // ─── In-memory rate limiter (per-worker instance) ────────────────────────────
 
 const ipRequests = new Map<string, number[]>();
 const qaIpRequests = new Map<string, number[]>();
 const RATE_LIMIT_WINDOW_MS = 60_000;
-const RATE_LIMIT_MAX = 20;
-const QA_RATE_LIMIT_MAX = 10;
+const RATE_LIMIT_MAX = 100;  // Worker handles model rotation → can sustain higher throughput
+const QA_RATE_LIMIT_MAX = 20;
 
 function isRateLimited(ip: string, store: Map<string, number[]>, max: number): boolean {
   const now = Date.now();
@@ -60,32 +108,50 @@ async function callGroq(
   maxTokens?: number,
   temperature?: number,
 ): Promise<string> {
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "meta-llama/llama-4-scout-17b-16e-instruct",
-      messages,
-      ...(maxTokens && { max_tokens: maxTokens }),
-      ...(temperature !== undefined && { temperature }),
-    }),
-  });
+  // Try up to 3 different models if one returns empty or errors
+  const maxAttempts = Math.min(3, GROQ_MODELS.length);
+  let lastError = "";
 
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Groq API error (${res.status}): ${errText}`);
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const model = nextModel();
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        ...(maxTokens && { max_tokens: maxTokens }),
+        ...(temperature !== undefined && { temperature }),
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      lastError = `Groq API error (${res.status}) on ${model}: ${errText}`;
+      // On 429/403/503, try a different model (503 = overloaded, brief pause)
+      if (res.status === 429 || res.status === 403) continue;
+      if (res.status === 503) {
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+        continue;
+      }
+      throw new Error(lastError);
+    }
+
+    const data = (await res.json()) as {
+      choices?: { message?: { content?: string } }[];
+    };
+
+    const text = data.choices?.[0]?.message?.content;
+    if (text) return text;
+
+    // Empty response — try a different model
+    lastError = `Empty response from ${model}`;
   }
 
-  const data = (await res.json()) as {
-    choices?: { message?: { content?: string } }[];
-  };
-
-  const text = data.choices?.[0]?.message?.content;
-  if (!text) throw new Error("Empty response from Groq");
-  return text;
+  throw new Error(lastError || "All models returned empty responses");
 }
 
 /**
@@ -96,28 +162,45 @@ async function callGroqStream(
   messages: GroqMessage[],
   maxTokens?: number,
   temperature?: number,
+  useQAModels = false,
 ): Promise<Response> {
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "meta-llama/llama-4-scout-17b-16e-instruct",
-      messages,
-      stream: true,
-      ...(maxTokens && { max_tokens: maxTokens }),
-      ...(temperature !== undefined && { temperature }),
-    }),
-  });
+  // Q&A streaming uses quality-weighted model list for better answers
+  const models = useQAModels ? QA_MODELS : GROQ_MODELS;
+  const maxAttempts = Math.min(3, models.length);
+  let lastError = "";
 
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Groq API error (${res.status}): ${errText}`);
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const model = useQAModels ? nextQAModel() : nextModel();
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        stream: true,
+        ...(maxTokens && { max_tokens: maxTokens }),
+        ...(temperature !== undefined && { temperature }),
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      lastError = `Groq API error (${res.status}) on ${model}: ${errText}`;
+      if (res.status === 429 || res.status === 403) continue;
+      if (res.status === 503) {
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+        continue;
+      }
+      throw new Error(lastError);
+    }
+
+    return res;
   }
 
-  return res;
+  throw new Error(lastError || "All models failed for streaming");
 }
 
 // ─── Q&A System Prompt ───────────────────────────────────────────────────────
@@ -197,7 +280,7 @@ async function handleQAStream(
 
   // Stream response from Groq
   try {
-    const groqRes = await callGroqStream(env.GROQ_API_KEY, messages, 1024, 0.3);
+    const groqRes = await callGroqStream(env.GROQ_API_KEY, messages, 1024, 0.3, true);
 
     if (!groqRes.body) {
       throw new Error("No response body from Groq");

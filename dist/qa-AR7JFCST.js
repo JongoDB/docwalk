@@ -1,12 +1,14 @@
 import {
   estimateTokens
-} from "./chunk-D4RNNKFF.js";
+} from "./chunk-VTREF62W.js";
 
 // src/qa/chunker.ts
 var MIN_CHUNK_TOKENS = 50;
-var TARGET_CHUNK_TOKENS = 300;
+var DEFAULT_TARGET_CHUNK_TOKENS = 300;
 var MAX_CHUNK_TOKENS = 500;
-function chunkPage(pagePath, pageTitle, content) {
+function chunkPage(pagePath, pageTitle, content, options) {
+  const targetChunkTokens = options?.targetSize ?? DEFAULT_TARGET_CHUNK_TOKENS;
+  const overlapTokens = options?.overlapTokens ?? 0;
   const chunks = [];
   let chunkIndex = 0;
   const stripped = content.replace(/^---[\s\S]*?---\n*/m, "");
@@ -31,43 +33,56 @@ function chunkPage(pagePath, pageTitle, content) {
       const paragraphs = sectionContent.split(/\n\n+/);
       let currentChunk = "";
       let currentTokens = 0;
+      let previousTail = "";
       for (const para of paragraphs) {
         const paraTokens = estimateTokens(para);
         if (currentTokens + paraTokens > MAX_CHUNK_TOKENS && currentChunk) {
+          const finalContent = currentChunk.trim();
           chunks.push({
             id: `${pagePath}:${chunkIndex++}`,
             pagePath,
             pageTitle,
             heading,
-            content: currentChunk.trim(),
-            tokenCount: currentTokens
+            content: finalContent,
+            tokenCount: estimateTokens(finalContent)
           });
-          currentChunk = "";
-          currentTokens = 0;
+          if (overlapTokens > 0) {
+            const words = finalContent.split(/\s+/);
+            const overlapWords = Math.min(overlapTokens, words.length);
+            previousTail = words.slice(-overlapWords).join(" ") + "\n\n";
+          }
+          currentChunk = previousTail;
+          currentTokens = estimateTokens(previousTail);
         }
         currentChunk += para + "\n\n";
         currentTokens += paraTokens;
-        if (currentTokens >= TARGET_CHUNK_TOKENS) {
+        if (currentTokens >= targetChunkTokens) {
+          const finalContent = currentChunk.trim();
           chunks.push({
             id: `${pagePath}:${chunkIndex++}`,
             pagePath,
             pageTitle,
             heading,
-            content: currentChunk.trim(),
-            tokenCount: currentTokens
+            content: finalContent,
+            tokenCount: estimateTokens(finalContent)
           });
-          currentChunk = "";
-          currentTokens = 0;
+          if (overlapTokens > 0) {
+            const words = finalContent.split(/\s+/);
+            const overlapWords = Math.min(overlapTokens, words.length);
+            previousTail = words.slice(-overlapWords).join(" ") + "\n\n";
+          }
+          currentChunk = previousTail;
+          currentTokens = estimateTokens(previousTail);
         }
       }
-      if (currentChunk.trim() && currentTokens >= MIN_CHUNK_TOKENS) {
+      if (currentChunk.trim() && estimateTokens(currentChunk.trim()) >= MIN_CHUNK_TOKENS) {
         chunks.push({
           id: `${pagePath}:${chunkIndex++}`,
           pagePath,
           pageTitle,
           heading,
           content: currentChunk.trim(),
-          tokenCount: currentTokens
+          tokenCount: estimateTokens(currentChunk.trim())
         });
       }
     }
@@ -102,10 +117,10 @@ function splitByHeadings(markdown) {
   }
   return sections;
 }
-function chunkPages(pages) {
+function chunkPages(pages, options) {
   const allChunks = [];
   for (const page of pages) {
-    allChunks.push(...chunkPage(page.path, page.title, page.content));
+    allChunks.push(...chunkPage(page.path, page.title, page.content, options));
   }
   return allChunks;
 }
@@ -300,12 +315,160 @@ function cosineSimilarity(a, b) {
   return magnitude === 0 ? 0 : dotProduct / magnitude;
 }
 
+// src/qa/text-search.ts
+var K1 = 1.2;
+var B = 0.75;
+var STOPWORDS = /* @__PURE__ */ new Set([
+  "a",
+  "an",
+  "the",
+  "and",
+  "or",
+  "but",
+  "in",
+  "on",
+  "at",
+  "to",
+  "for",
+  "of",
+  "with",
+  "by",
+  "from",
+  "is",
+  "are",
+  "was",
+  "were",
+  "be",
+  "been",
+  "being",
+  "have",
+  "has",
+  "had",
+  "do",
+  "does",
+  "did",
+  "will",
+  "would",
+  "could",
+  "should",
+  "may",
+  "might",
+  "shall",
+  "can",
+  "this",
+  "that",
+  "these",
+  "those",
+  "it",
+  "its",
+  "not",
+  "no",
+  "so",
+  "if",
+  "as",
+  "up",
+  "out",
+  "about",
+  "into",
+  "over",
+  "after",
+  "then",
+  "than",
+  "also"
+]);
+function tokenize(text) {
+  return text.toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length > 1 && !STOPWORDS.has(t));
+}
+function buildTextIndex(chunks) {
+  const storedChunks = [];
+  const terms = /* @__PURE__ */ Object.create(null);
+  let totalTokens = 0;
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    const tokens = tokenize(chunk.content);
+    const tokenCount = tokens.length;
+    totalTokens += tokenCount;
+    storedChunks.push({
+      id: chunk.id,
+      pagePath: chunk.pagePath,
+      pageTitle: chunk.pageTitle,
+      heading: chunk.heading,
+      content: chunk.content,
+      tokenCount
+    });
+    const tfMap = /* @__PURE__ */ new Map();
+    for (const token of tokens) {
+      tfMap.set(token, (tfMap.get(token) ?? 0) + 1);
+    }
+    for (const [term, tf] of tfMap) {
+      if (!terms[term]) {
+        terms[term] = { df: 0, postings: [] };
+      }
+      terms[term].df++;
+      terms[term].postings.push({ chunkIdx: i, tf });
+    }
+  }
+  return {
+    version: 1,
+    chunks: storedChunks,
+    terms,
+    avgDl: chunks.length > 0 ? totalTokens / chunks.length : 0
+  };
+}
+function searchText(index, query, topK = 5) {
+  const queryTokens = tokenize(query);
+  if (queryTokens.length === 0) return [];
+  const N = index.chunks.length;
+  if (N === 0) return [];
+  const scores = new Float64Array(N);
+  for (const token of queryTokens) {
+    const entry = index.terms[token];
+    if (!entry || !entry.postings) continue;
+    const idf = Math.log((N - entry.df + 0.5) / (entry.df + 0.5) + 1);
+    for (const posting of entry.postings) {
+      const dl = index.chunks[posting.chunkIdx].tokenCount;
+      const tfNorm = posting.tf * (K1 + 1) / (posting.tf + K1 * (1 - B + B * (dl / index.avgDl)));
+      scores[posting.chunkIdx] += idf * tfNorm;
+    }
+  }
+  const results = [];
+  for (let i = 0; i < N; i++) {
+    if (scores[i] > 0) {
+      const stored = index.chunks[i];
+      results.push({
+        chunk: {
+          id: stored.id,
+          pagePath: stored.pagePath,
+          pageTitle: stored.pageTitle,
+          heading: stored.heading,
+          content: stored.content,
+          tokenCount: stored.tokenCount
+        },
+        score: scores[i]
+      });
+    }
+  }
+  results.sort((a, b) => b.score - a.score);
+  return results.slice(0, topK);
+}
+function serializeTextIndex(index) {
+  return JSON.stringify(index);
+}
+function deserializeTextIndex(data) {
+  const parsed = JSON.parse(data);
+  if (parsed.version !== 1) {
+    throw new Error(`Unsupported text search index version: ${parsed.version}`);
+  }
+  return parsed;
+}
+
 // src/qa/index.ts
 async function buildQAIndex(options) {
-  const { pages, embedder, onProgress } = options;
+  const { pages, embedder, onProgress, chunkOverlap, chunkTargetSize } = options;
   onProgress?.("Chunking pages for Q&A index...");
   const chunks = chunkPages(
-    pages.map((p) => ({ path: p.path, title: p.title, content: p.content }))
+    pages.map((p) => ({ path: p.path, title: p.title, content: p.content })),
+    { overlapTokens: chunkOverlap ?? 50, targetSize: chunkTargetSize ?? 300 }
   );
   onProgress?.(`Created ${chunks.length} chunks from ${pages.length} pages`);
   onProgress?.("Generating embeddings...");
@@ -317,8 +480,13 @@ async function buildQAIndex(options) {
   onProgress?.(`Generated ${embeddings.length} embeddings`);
   const store = new VectorStore();
   store.addEntries(chunks, embeddings);
+  onProgress?.("Building text search index...");
+  const textIdx = buildTextIndex(chunks);
+  const textIndexJson = serializeTextIndex(textIdx);
+  onProgress?.(`Text search index: ${Object.keys(textIdx.terms).length} terms`);
   return {
     serialized: store.serialize(),
+    textIndex: textIndexJson,
     chunkCount: chunks.length,
     pageCount: pages.length
   };
@@ -326,6 +494,10 @@ async function buildQAIndex(options) {
 export {
   VectorStore,
   buildQAIndex,
+  buildTextIndex,
   chunkPages,
-  generateEmbeddings
+  deserializeTextIndex,
+  generateEmbeddings,
+  searchText,
+  serializeTextIndex
 };

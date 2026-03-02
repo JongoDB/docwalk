@@ -1,18 +1,18 @@
 /**
  * DocWalk Proxy AI Provider
  *
- * Routes AI requests through DocWalk's free AI service (ai.docwalk.dev),
- * backed by a self-hosted LiteLLM instance with local models.
- * No API key required — uses a virtual key for free-tier usage tracking.
+ * Routes AI requests through DocWalk's Cloudflare Worker proxy, which holds
+ * the Groq API key and handles model rotation across 8 free-tier models.
+ * No API key required from the user — the worker handles auth.
  *
- * Used as an automatic fallback when `--ai` is passed without any configured key.
+ * Used as automatic fallback when `--ai` is passed without any configured key.
  */
 
 import type { ModuleInfo, Symbol } from "../types.js";
 import type { AIProvider, GenerateOptions } from "./base.js";
 import { buildModuleSummaryPrompt, buildSymbolSummaryPrompt } from "./base.js";
 
-const DEFAULT_BASE_URL = "https://ai.docwalk.dev";
+const DEFAULT_BASE_URL = "https://docwalk-ai-proxy.jonathanrannabargar.workers.dev";
 
 export class DocWalkProxyProvider implements AIProvider {
   readonly name = "DocWalk AI";
@@ -31,22 +31,13 @@ export class DocWalkProxyProvider implements AIProvider {
   }
 
   async generate(prompt: string, options?: GenerateOptions): Promise<string> {
-    const messages: Array<{ role: string; content: string }> = [];
-    if (options?.systemPrompt) {
-      messages.push({ role: "system", content: options.systemPrompt });
-    }
-    messages.push({ role: "user", content: prompt });
-
-    const res = await fetch(`${this.baseURL}/v1/chat/completions`, {
+    const res = await fetch(`${this.baseURL}/v1/generate`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer sk-docwalk-free",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "docwalk-default",
-        messages,
-        max_tokens: options?.maxTokens ?? 256,
+        prompt,
+        systemPrompt: options?.systemPrompt,
+        maxTokens: options?.maxTokens ?? 256,
         temperature: options?.temperature ?? 0.7,
       }),
     });
@@ -56,9 +47,7 @@ export class DocWalkProxyProvider implements AIProvider {
       throw new Error(`DocWalk AI error (${res.status}): ${body}`);
     }
 
-    const data = (await res.json()) as {
-      choices: Array<{ message: { content: string } }>;
-    };
-    return data.choices[0].message.content.trim();
+    const data = (await res.json()) as { text: string };
+    return data.text.trim();
   }
 }

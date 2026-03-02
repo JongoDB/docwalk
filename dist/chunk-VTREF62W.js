@@ -229,6 +229,41 @@ function parseConventionalType(message) {
   const match = message.match(/^(feat|fix|docs|refactor|test|chore|perf|ci|style|build)(\([^)]*\))?:/);
   return match ? match[1] : "other";
 }
+function shouldGenerateModulePage(mod) {
+  const basename = mod.filePath.split("/").pop()?.toLowerCase() || "";
+  const ext = basename.slice(basename.lastIndexOf("."));
+  const SKIP_BASENAMES = /* @__PURE__ */ new Set([
+    "package.json",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+    "tsconfig.json",
+    "tsconfig.node.json",
+    "tsconfig.preload.json",
+    "postcss.config.js",
+    "tailwind.config.ts",
+    "tailwind.config.js",
+    "vite.config.ts",
+    "vite.config.js",
+    "eslint.config.js",
+    ".eslintrc.js",
+    "jest.config.ts",
+    "vitest.config.ts",
+    "electron-builder-update.yml",
+    "manifest.json",
+    "pyproject.toml"
+  ]);
+  if (SKIP_BASENAMES.has(basename)) return false;
+  const SKIP_EXTENSIONS = /* @__PURE__ */ new Set([".json", ".yaml", ".yml", ".toml", ".lock", ".sh", ".bash", ".zsh"]);
+  if (SKIP_EXTENSIONS.has(ext)) return false;
+  if (ext === ".md") {
+    const depth = mod.filePath.split("/").length;
+    if (depth <= 2 || mod.filePath.includes("docs/plans/")) return false;
+  }
+  if (mod.lineCount <= 10 && mod.symbols.filter((s) => s.exported).length === 0) return false;
+  if (mod.exports.length > 0 && mod.exports.every((e) => e.isReExport) && mod.symbols.length === 0) return false;
+  return true;
+}
 function buildSymbolPageMap(modules) {
   const map = /* @__PURE__ */ new Map();
   for (const mod of modules) {
@@ -242,14 +277,23 @@ function buildSymbolPageMap(modules) {
   }
   return map;
 }
-function renderTypeWithLinks(typeStr, symbolPageMap) {
+function renderTypeWithLinks(typeStr, symbolPageMap, currentPagePath) {
   if (!symbolPageMap || symbolPageMap.size === 0) return `\`${typeStr}\``;
   let result = typeStr;
   for (const [symName, pagePath] of symbolPageMap) {
     const regex = new RegExp(`\\b${symName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
     if (regex.test(result)) {
       const symAnchor = symName.toLowerCase().replace(/[^a-z0-9-_]/g, "");
-      result = result.replace(regex, `[${symName}](../${pagePath}#${symAnchor})`);
+      let relativePath;
+      if (currentPagePath) {
+        relativePath = path.posix.relative(
+          path.posix.dirname(currentPagePath),
+          pagePath
+        );
+      } else {
+        relativePath = `../${pagePath}`;
+      }
+      result = result.replace(regex, `[${symName}](${relativePath}#${symAnchor})`);
       break;
     }
   }
@@ -352,7 +396,7 @@ classDiagram
         const docDesc = sym.docs?.params?.[param.name] || param.description || "";
         const opt = param.optional ? "?" : "";
         const def = param.defaultValue ? `\`${param.defaultValue}\`` : "";
-        const typeStr = renderTypeWithLinks(param.type || "unknown", opts?.symbolPageMap);
+        const typeStr = renderTypeWithLinks(param.type || "unknown", opts?.symbolPageMap, opts?.currentPagePath);
         md += `    | \`${param.name}${opt}\` | ${typeStr} | ${def} | ${docDesc} |
 `;
       }
@@ -369,7 +413,7 @@ classDiagram
         const docDesc = sym.docs?.params?.[param.name] || param.description || "";
         const opt = param.optional ? "?" : "";
         const def = param.defaultValue ? `\`${param.defaultValue}\`` : "";
-        const typeStr = renderTypeWithLinks(param.type || "unknown", opts?.symbolPageMap);
+        const typeStr = renderTypeWithLinks(param.type || "unknown", opts?.symbolPageMap, opts?.currentPagePath);
         md += `| \`${param.name}${opt}\` | ${typeStr} | ${def} | ${docDesc} |
 `;
       }
@@ -390,7 +434,7 @@ classDiagram
     md += "\n";
   }
   if (sym.returns?.type || sym.docs?.returns) {
-    const retType = sym.returns?.type ? renderTypeWithLinks(sym.returns.type, opts?.symbolPageMap) : "";
+    const retType = sym.returns?.type ? renderTypeWithLinks(sym.returns.type, opts?.symbolPageMap, opts?.currentPagePath) : "";
     md += `**Returns:** ${retType} ${sym.docs?.returns || ""}
 
 `;
@@ -418,7 +462,6 @@ ${example}
 export {
   LOGICAL_SECTIONS,
   groupModulesLogically,
-  detectLogicalSection,
   groupByLogicalSection,
   renderNavYaml,
   detectPackageManager,
@@ -431,6 +474,7 @@ export {
   getLanguageTag,
   getKindBadge,
   parseConventionalType,
+  shouldGenerateModulePage,
   buildSymbolPageMap,
   renderSymbol
 };

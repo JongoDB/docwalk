@@ -90,14 +90,18 @@ declare const AnalysisSchema: z.ZodObject<{
     source_links: z.ZodDefault<z.ZodBoolean>;
     /** Generate code insights page (static analyzers) */
     insights: z.ZodDefault<z.ZodBoolean>;
-    /** Enable AI-powered insights (requires license + API key) */
+    /** Enable AI-powered insights (requires AI provider) */
     insights_ai: z.ZodDefault<z.ZodBoolean>;
     /** Enable AI-generated narrative prose on pages (requires AI provider) */
     ai_narrative: z.ZodDefault<z.ZodBoolean>;
+    /** Max number of modules to generate full narrative descriptions for (most-connected first) */
+    ai_narrative_top_n: z.ZodDefault<z.ZodNumber>;
     /** Enable AI-generated diagrams (sequence, flowcharts) */
     ai_diagrams: z.ZodDefault<z.ZodBoolean>;
     /** Enable AI-driven dynamic page structure suggestions */
     ai_structure: z.ZodDefault<z.ZodBoolean>;
+    /** Documentation depth: comprehensive (8-12 topic pages) or concise (4-6 essential pages) */
+    doc_depth: z.ZodDefault<z.ZodEnum<["comprehensive", "concise"]>>;
     /** Enable monorepo workspace package resolution for dependency graphs */
     monorepo: z.ZodDefault<z.ZodBoolean>;
     /** Generate end-user documentation (user guides, troubleshooting, FAQ) */
@@ -138,6 +142,8 @@ declare const AnalysisSchema: z.ZodObject<{
         daily_limit: z.ZodDefault<z.ZodNumber>;
         api_key_env: z.ZodOptional<z.ZodString>;
         base_url: z.ZodOptional<z.ZodString>;
+        chunk_overlap: z.ZodDefault<z.ZodNumber>;
+        chunk_target_size: z.ZodDefault<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
         provider: "local" | "openai" | "anthropic" | "gemini" | "ollama";
         embedding_model: string;
@@ -145,6 +151,8 @@ declare const AnalysisSchema: z.ZodObject<{
         position: "bottom-right" | "bottom-left";
         greeting: string;
         daily_limit: number;
+        chunk_overlap: number;
+        chunk_target_size: number;
         model?: string | undefined;
         api_key_env?: string | undefined;
         base_url?: string | undefined;
@@ -158,6 +166,8 @@ declare const AnalysisSchema: z.ZodObject<{
         position?: "bottom-right" | "bottom-left" | undefined;
         greeting?: string | undefined;
         daily_limit?: number | undefined;
+        chunk_overlap?: number | undefined;
+        chunk_target_size?: number | undefined;
     }>>;
 }, "strip", z.ZodTypeAny, {
     depth: "full" | "surface" | "api-only";
@@ -178,8 +188,10 @@ declare const AnalysisSchema: z.ZodObject<{
     insights: boolean;
     insights_ai: boolean;
     ai_narrative: boolean;
+    ai_narrative_top_n: number;
     ai_diagrams: boolean;
     ai_structure: boolean;
+    doc_depth: "comprehensive" | "concise";
     monorepo: boolean;
     user_docs: boolean;
     qa_widget: boolean;
@@ -204,6 +216,8 @@ declare const AnalysisSchema: z.ZodObject<{
         position: "bottom-right" | "bottom-left";
         greeting: string;
         daily_limit: number;
+        chunk_overlap: number;
+        chunk_target_size: number;
         model?: string | undefined;
         api_key_env?: string | undefined;
         base_url?: string | undefined;
@@ -233,8 +247,10 @@ declare const AnalysisSchema: z.ZodObject<{
     insights?: boolean | undefined;
     insights_ai?: boolean | undefined;
     ai_narrative?: boolean | undefined;
+    ai_narrative_top_n?: number | undefined;
     ai_diagrams?: boolean | undefined;
     ai_structure?: boolean | undefined;
+    doc_depth?: "comprehensive" | "concise" | undefined;
     monorepo?: boolean | undefined;
     user_docs?: boolean | undefined;
     user_docs_config?: {
@@ -256,6 +272,8 @@ declare const AnalysisSchema: z.ZodObject<{
         position?: "bottom-right" | "bottom-left" | undefined;
         greeting?: string | undefined;
         daily_limit?: number | undefined;
+        chunk_overlap?: number | undefined;
+        chunk_target_size?: number | undefined;
     } | undefined;
 }>;
 declare const SyncSchema: z.ZodObject<{
@@ -567,14 +585,18 @@ declare const DocWalkConfigSchema: z.ZodObject<{
         source_links: z.ZodDefault<z.ZodBoolean>;
         /** Generate code insights page (static analyzers) */
         insights: z.ZodDefault<z.ZodBoolean>;
-        /** Enable AI-powered insights (requires license + API key) */
+        /** Enable AI-powered insights (requires AI provider) */
         insights_ai: z.ZodDefault<z.ZodBoolean>;
         /** Enable AI-generated narrative prose on pages (requires AI provider) */
         ai_narrative: z.ZodDefault<z.ZodBoolean>;
+        /** Max number of modules to generate full narrative descriptions for (most-connected first) */
+        ai_narrative_top_n: z.ZodDefault<z.ZodNumber>;
         /** Enable AI-generated diagrams (sequence, flowcharts) */
         ai_diagrams: z.ZodDefault<z.ZodBoolean>;
         /** Enable AI-driven dynamic page structure suggestions */
         ai_structure: z.ZodDefault<z.ZodBoolean>;
+        /** Documentation depth: comprehensive (8-12 topic pages) or concise (4-6 essential pages) */
+        doc_depth: z.ZodDefault<z.ZodEnum<["comprehensive", "concise"]>>;
         /** Enable monorepo workspace package resolution for dependency graphs */
         monorepo: z.ZodDefault<z.ZodBoolean>;
         /** Generate end-user documentation (user guides, troubleshooting, FAQ) */
@@ -615,6 +637,8 @@ declare const DocWalkConfigSchema: z.ZodObject<{
             daily_limit: z.ZodDefault<z.ZodNumber>;
             api_key_env: z.ZodOptional<z.ZodString>;
             base_url: z.ZodOptional<z.ZodString>;
+            chunk_overlap: z.ZodDefault<z.ZodNumber>;
+            chunk_target_size: z.ZodDefault<z.ZodNumber>;
         }, "strip", z.ZodTypeAny, {
             provider: "local" | "openai" | "anthropic" | "gemini" | "ollama";
             embedding_model: string;
@@ -622,6 +646,8 @@ declare const DocWalkConfigSchema: z.ZodObject<{
             position: "bottom-right" | "bottom-left";
             greeting: string;
             daily_limit: number;
+            chunk_overlap: number;
+            chunk_target_size: number;
             model?: string | undefined;
             api_key_env?: string | undefined;
             base_url?: string | undefined;
@@ -635,6 +661,8 @@ declare const DocWalkConfigSchema: z.ZodObject<{
             position?: "bottom-right" | "bottom-left" | undefined;
             greeting?: string | undefined;
             daily_limit?: number | undefined;
+            chunk_overlap?: number | undefined;
+            chunk_target_size?: number | undefined;
         }>>;
     }, "strip", z.ZodTypeAny, {
         depth: "full" | "surface" | "api-only";
@@ -655,8 +683,10 @@ declare const DocWalkConfigSchema: z.ZodObject<{
         insights: boolean;
         insights_ai: boolean;
         ai_narrative: boolean;
+        ai_narrative_top_n: number;
         ai_diagrams: boolean;
         ai_structure: boolean;
+        doc_depth: "comprehensive" | "concise";
         monorepo: boolean;
         user_docs: boolean;
         qa_widget: boolean;
@@ -681,6 +711,8 @@ declare const DocWalkConfigSchema: z.ZodObject<{
             position: "bottom-right" | "bottom-left";
             greeting: string;
             daily_limit: number;
+            chunk_overlap: number;
+            chunk_target_size: number;
             model?: string | undefined;
             api_key_env?: string | undefined;
             base_url?: string | undefined;
@@ -710,8 +742,10 @@ declare const DocWalkConfigSchema: z.ZodObject<{
         insights?: boolean | undefined;
         insights_ai?: boolean | undefined;
         ai_narrative?: boolean | undefined;
+        ai_narrative_top_n?: number | undefined;
         ai_diagrams?: boolean | undefined;
         ai_structure?: boolean | undefined;
+        doc_depth?: "comprehensive" | "concise" | undefined;
         monorepo?: boolean | undefined;
         user_docs?: boolean | undefined;
         user_docs_config?: {
@@ -733,6 +767,8 @@ declare const DocWalkConfigSchema: z.ZodObject<{
             position?: "bottom-right" | "bottom-left" | undefined;
             greeting?: string | undefined;
             daily_limit?: number | undefined;
+            chunk_overlap?: number | undefined;
+            chunk_target_size?: number | undefined;
         } | undefined;
     }>>;
     /** Sync strategy configuration */
@@ -995,8 +1031,10 @@ declare const DocWalkConfigSchema: z.ZodObject<{
         insights: boolean;
         insights_ai: boolean;
         ai_narrative: boolean;
+        ai_narrative_top_n: number;
         ai_diagrams: boolean;
         ai_structure: boolean;
+        doc_depth: "comprehensive" | "concise";
         monorepo: boolean;
         user_docs: boolean;
         qa_widget: boolean;
@@ -1021,6 +1059,8 @@ declare const DocWalkConfigSchema: z.ZodObject<{
             position: "bottom-right" | "bottom-left";
             greeting: string;
             daily_limit: number;
+            chunk_overlap: number;
+            chunk_target_size: number;
             model?: string | undefined;
             api_key_env?: string | undefined;
             base_url?: string | undefined;
@@ -1119,8 +1159,10 @@ declare const DocWalkConfigSchema: z.ZodObject<{
         insights?: boolean | undefined;
         insights_ai?: boolean | undefined;
         ai_narrative?: boolean | undefined;
+        ai_narrative_top_n?: number | undefined;
         ai_diagrams?: boolean | undefined;
         ai_structure?: boolean | undefined;
+        doc_depth?: "comprehensive" | "concise" | undefined;
         monorepo?: boolean | undefined;
         user_docs?: boolean | undefined;
         user_docs_config?: {
@@ -1142,6 +1184,8 @@ declare const DocWalkConfigSchema: z.ZodObject<{
             position?: "bottom-right" | "bottom-left" | undefined;
             greeting?: string | undefined;
             daily_limit?: number | undefined;
+            chunk_overlap?: number | undefined;
+            chunk_target_size?: number | undefined;
         } | undefined;
     } | undefined;
     sync?: {
@@ -1507,7 +1551,7 @@ interface GenerationResult {
  * using LLM providers. Provider implementations live in ./providers/.
  *
  * This module contains:
- * - RateLimiter for API call throttling
+ * - RateLimiter for concurrency control
  * - SummaryCache for content-hash-based caching
  * - summarizeModules() orchestrator
  * - createProvider() factory (re-exported from providers)
@@ -1550,6 +1594,8 @@ interface AnalysisOptions {
     onAIProgress?: (current: number, total: number, message: string) => void;
     /** Hooks configuration for pre/post analyze */
     hooks?: HooksConfig;
+    /** Cap AI summarization to this many modules (rest skipped). */
+    maxAiModules?: number;
 }
 declare function analyzeCodebase(options: AnalysisOptions): Promise<AnalysisManifest>;
 

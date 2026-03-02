@@ -3785,7 +3785,12 @@ var MarkdownParser = class {
       const stripped = trimmed.replace(/<[^>]+>/g, "").trim();
       if (!stripped) continue;
       if (stripped.length < 20 && !stripped.includes(".")) continue;
-      summary = stripped.slice(0, 200);
+      if (stripped.length <= 300) {
+        summary = stripped;
+      } else {
+        const cut = stripped.lastIndexOf(" ", 300);
+        summary = stripped.slice(0, cut > 200 ? cut : 300) + "...";
+      }
       break;
     }
     if (!summary) {
@@ -3958,7 +3963,8 @@ async function analyzeCodebase(options) {
     onProgress,
     previousSummaryCache,
     onAIProgress,
-    hooks
+    hooks,
+    maxAiModules
   } = options;
   await executeHooks("pre_analyze", hooks, { cwd: repoRoot });
   const files = targetFiles ?? await discoverFiles(repoRoot, source);
@@ -4049,7 +4055,7 @@ async function analyzeCodebase(options) {
   let finalModules = allModules;
   let summaryCache = previousSummaryCache || [];
   if (analysis.ai_summaries && analysis.ai_provider) {
-    const { summarizeModules } = await import("./ai-summarizer-2RC2OZXV.js");
+    const { summarizeModules } = await import("./ai-summarizer-7OANZYRY.js");
     const result = await summarizeModules({
       providerConfig: analysis.ai_provider,
       modules: allModules,
@@ -4058,7 +4064,10 @@ async function analyzeCodebase(options) {
         return readFile2(absolutePath, "utf-8");
       },
       previousCache: previousSummaryCache,
-      onProgress: onAIProgress
+      onProgress: onAIProgress,
+      concurrency: analysis.ai_provider.name === "docwalk-proxy" ? 6 : analysis.concurrency,
+      delayMs: analysis.ai_provider.name === "docwalk-proxy" ? 1e3 : analysis.concurrency && analysis.concurrency <= 4 ? 3e3 : 0,
+      maxModules: maxAiModules
     });
     finalModules = result.modules;
     summaryCache = result.cache;
@@ -4069,7 +4078,7 @@ async function analyzeCodebase(options) {
   log("info", "Running static code analysis...");
   let insights;
   try {
-    const { runStaticInsights } = await import("./insights-R4UTJF7H.js");
+    const { runStaticInsights } = await import("./insights-6DZIXSO4.js");
     const tempManifest = {
       modules: finalModules,
       dependencyGraph,
@@ -4083,7 +4092,7 @@ async function analyzeCodebase(options) {
   }
   if (insights?.length && analysis.insights_ai && analysis.ai_provider) {
     try {
-      const { createProvider } = await import("./providers-MLNQEDPY.js");
+      const { createProvider } = await import("./providers-YCGW22CL.js");
       const { enhanceInsightsWithAI } = await import("./ai-insights-EZM4JOGP.js");
       const provider = createProvider(analysis.ai_provider);
       if (provider) {

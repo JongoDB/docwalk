@@ -13,8 +13,8 @@ export interface EmbeddingResult {
 }
 
 export interface EmbedderOptions {
-  /** Provider to use */
-  provider: "openai" | "anthropic" | "gemini" | "ollama" | "local";
+  /** Provider to use (docwalk-proxy and unknown providers fall back to bag-of-words) */
+  provider: string;
   /** Model name */
   model?: string;
   /** API key */

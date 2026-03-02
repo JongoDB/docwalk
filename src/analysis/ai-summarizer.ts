@@ -23,6 +23,114 @@ import {
 } from "./providers/base.js";
 import type { MultiFileBatchEntry } from "./providers/base.js";
 import { createProvider as _createProvider } from "./providers/index.js";
+import { OpenAIProvider } from "./providers/openai.js";
+
+// ─── Groq Model Pool ─────────────────────────────────────────────────────────
+// Groq rate limits are per-model. Running parallel requests across N models
+// multiplies effective RPM/TPM by N×. Each model's capacity determines how
+// many files it should handle per wave.
+// 12 models: ~430 RPM combined, ~228K TPM combined. ~65 files/wave.
+
+interface GroqModelSpec {
+  id: string;
+  rpm: number;    // requests per minute
+  tpm: number;    // tokens per minute
+  /** Estimated files per request based on TPM. ~500 tokens/file summary round-trip. */
+  filesPerRequest: number;
+}
+
+// ~500 tokens per file (prompt + response) — conservative estimate.
+// Models with higher TPM can pack more files per request.
+const TOKENS_PER_FILE = 500;
+
+const GROQ_MODELS: GroqModelSpec[] = [
+  // Compound models: 70K TPM each — by far the highest capacity.
+  // Groq's compound AI routing models. Cap at 10 files/req to keep prompt size reasonable.
+  { id: "groq/compound",                                  rpm: 30, tpm: 70000, filesPerRequest: 10 },
+  { id: "groq/compound-mini",                             rpm: 30, tpm: 70000, filesPerRequest: 10 },
+  // Scout: best all-rounder, 30K TPM
+  { id: "meta-llama/llama-4-scout-17b-16e-instruct",     rpm: 30, tpm: 30000, filesPerRequest: 8 },
+  // High-quality large models
+  { id: "llama-3.3-70b-versatile",                        rpm: 30, tpm: 12000, filesPerRequest: 6 },
+  { id: "moonshotai/kimi-k2-instruct",                    rpm: 60, tpm: 10000, filesPerRequest: 5 },
+  { id: "moonshotai/kimi-k2-instruct-0905",               rpm: 60, tpm: 10000, filesPerRequest: 5 },
+  { id: "openai/gpt-oss-120b",                            rpm: 30, tpm: 8000,  filesPerRequest: 4 },
+  { id: "openai/gpt-oss-20b",                             rpm: 30, tpm: 8000,  filesPerRequest: 4 },
+  { id: "openai/gpt-oss-safeguard-20b",                   rpm: 30, tpm: 8000,  filesPerRequest: 4 },
+  // Smaller/faster models
+  { id: "qwen/qwen3-32b",                                 rpm: 60, tpm: 6000,  filesPerRequest: 3 },
+  { id: "meta-llama/llama-4-maverick-17b-128e-instruct",  rpm: 30, tpm: 6000,  filesPerRequest: 3 },
+  { id: "llama-3.1-8b-instant",                           rpm: 30, tpm: 6000,  filesPerRequest: 3 },
+];
+
+/** A provider slot in the pool, with its capacity metadata. */
+interface PoolSlot {
+  provider: OpenAIProvider;
+  spec: GroqModelSpec;
+}
+
+/**
+ * Capacity-aware provider pool. Assigns more files to models with higher
+ * TPM limits, and dispatches all models in parallel per wave.
+ *
+ * Total capacity per wave: sum of all filesPerRequest = ~65 files.
+ */
+class ProviderPool {
+  private readonly slots: PoolSlot[];
+  private slotIndex = 0;
+
+  constructor(apiKey: string, baseURL: string, specs: GroqModelSpec[]) {
+    this.slots = specs.map((spec) => ({
+      provider: new OpenAIProvider(apiKey, spec.id, baseURL),
+      spec,
+    }));
+  }
+
+  /**
+   * Plan work distribution for a set of modules.
+   * Returns assignments: which provider handles which modules, respecting
+   * per-model TPM capacity. Higher-TPM models get more files.
+   */
+  planWave(modules: ModuleInfo[]): Array<{ provider: OpenAIProvider; batch: ModuleInfo[] }> {
+    const assignments: Array<{ provider: OpenAIProvider; batch: ModuleInfo[] }> = [];
+    let offset = 0;
+
+    for (const slot of this.slots) {
+      if (offset >= modules.length) break;
+      const count = Math.min(slot.spec.filesPerRequest, modules.length - offset);
+      assignments.push({
+        provider: slot.provider,
+        batch: modules.slice(offset, offset + count),
+      });
+      offset += count;
+    }
+
+    return assignments;
+  }
+
+  /** Total files that can be processed in one wave across all models. */
+  get waveCapacity(): number {
+    return this.slots.reduce((sum, s) => sum + s.spec.filesPerRequest, 0);
+  }
+
+  /** Get a different provider than the one that failed (for retry on 429). */
+  nextAfter(failed: OpenAIProvider): OpenAIProvider {
+    const startIdx = this.slotIndex;
+    for (let i = 0; i < this.slots.length; i++) {
+      const slot = this.slots[(startIdx + i) % this.slots.length];
+      if (slot.provider !== failed) {
+        this.slotIndex = (startIdx + i + 1) % this.slots.length;
+        return slot.provider;
+      }
+    }
+    this.slotIndex++;
+    return this.slots[this.slotIndex % this.slots.length].provider;
+  }
+
+  get size(): number {
+    return this.slots.length;
+  }
+}
 
 // Re-export provider types and factory
 export type { AISummaryProvider } from "./providers/base.js";
@@ -125,11 +233,16 @@ export class SummaryCache {
 
 // ─── Retry Helper ────────────────────────────────────────────────────────────
 
-/** Retry an async function with exponential backoff on transient errors. */
+/**
+ * Retry an async function with exponential backoff on transient errors.
+ * When a model rotator is provided, rotates to the next model on 429 errors
+ * before retrying — this often succeeds immediately since limits are per-model.
+ */
 async function withRetry<T>(
   fn: () => Promise<T>,
   maxRetries = 3,
-  baseDelayMs = 3000
+  baseDelayMs = 3000,
+  onRateLimit?: () => void
 ): Promise<T> {
   let lastError: unknown;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -143,12 +256,70 @@ async function withRetry<T>(
         || message.toLowerCase().includes("quota")
         || message.toLowerCase().includes("resource_exhausted");
       if (!isRateLimit || attempt === maxRetries) throw err;
-      // Exponential backoff: 3s, 6s, 12s — long enough for rate windows
-      const delay = baseDelayMs * Math.pow(2, attempt);
+
+      // Rotate to next model before retrying (if available)
+      onRateLimit?.();
+
+      // Short delay when rotating models (new model has fresh quota),
+      // longer backoff otherwise
+      const delay = onRateLimit ? 500 : baseDelayMs * Math.pow(2, attempt);
       await new Promise((r) => setTimeout(r, delay));
     }
   }
   throw lastError;
+}
+
+// ─── Try-Mode Module Scoring ─────────────────────────────────────────────
+// Ranks modules by "demo impressiveness" — classes with methods, interfaces
+// with rich type signatures, and core architectural files score highest.
+// This ensures try-mode showcases the most compelling AI summaries.
+
+function scoreModuleForDemo(mod: ModuleInfo): number {
+  let score = 0;
+  const exported = mod.symbols.filter((s) => s.exported);
+
+  // Classes and interfaces are the most visually impressive in docs
+  const classes = exported.filter((s) => s.kind === "class");
+  const interfaces = exported.filter((s) => s.kind === "interface");
+  const functions = exported.filter((s) => s.kind === "function");
+  const types = exported.filter((s) => s.kind === "type" || s.kind === "enum");
+
+  score += classes.length * 15;       // Classes are doc gold — methods, inheritance, etc.
+  score += interfaces.length * 12;    // Interfaces define contracts
+  score += functions.length * 5;      // Functions are useful but simpler
+  score += types.length * 3;          // Types/enums add completeness
+
+  // More exported symbols = richer API reference page
+  score += Math.min(exported.length, 20) * 2;
+
+  // Documented symbols (JSDoc/docstrings) produce better AI summaries
+  const documented = exported.filter((s) => s.docs?.summary);
+  score += documented.length * 3;
+
+  // Entry points and core files (index, main, app, server, config)
+  const name = mod.filePath.toLowerCase();
+  if (/index\.[^/]+$/.test(name)) score += 8;
+  if (/main\.[^/]+$/.test(name)) score += 10;
+  if (/app\.[^/]+$/.test(name)) score += 10;
+  if (/server\.[^/]+$/.test(name)) score += 8;
+  if (/config|schema/.test(name)) score += 6;
+  if (/router|routes/.test(name)) score += 6;
+  if (/model|entity/.test(name)) score += 6;
+
+  // Moderate file size (not too small, not too large) — sweet spot for summaries
+  if (mod.lineCount >= 50 && mod.lineCount <= 500) score += 5;
+  if (mod.lineCount < 10) score -= 10; // Tiny stubs aren't impressive
+
+  // Penalize test files and generated files — not demo-worthy
+  if (/\.(test|spec|mock)\.[^/]+$/.test(name)) score -= 20;
+  if (/__(tests|mocks|fixtures)__/.test(name)) score -= 20;
+  if (/\.d\.ts$/.test(name)) score -= 10; // Type declaration files
+  if (/generated|dist\//.test(name)) score -= 15;
+
+  // Files with many imports connect to more of the codebase (architectural)
+  score += Math.min(mod.imports.length, 10);
+
+  return score;
 }
 
 // ─── Orchestrator ────────────────────────────────────────────────────────────
@@ -238,7 +409,6 @@ export async function summarizeModules(
   }
 
   const cache = new SummaryCache(previousCache);
-  const limiter = new RateLimiter(concurrency, delayMs);
   let generated = 0;
   let cached = 0;
   let failed = 0;
@@ -260,20 +430,40 @@ export async function summarizeModules(
   // Groq free tier: 30 RPM, 30k TPM — 4 files ≈ 2k tokens/req.
   const filesPerRequest = isRateLimited ? 4 : 1;
 
-  // Cap modules for try-mode (summarize first N, pass rest through unchanged)
+  // Detect Groq and set up parallel model pool to multiply effective rate limits.
+  // Each model gets its own RPM/TPM quota, and higher-TPM models handle more files.
+  const isGroq = providerConfig.base_url?.includes("groq.com") ?? false;
+  const poolApiKey = providerConfig.api_key_env ? process.env[providerConfig.api_key_env] : undefined;
+  const pool = isGroq && poolApiKey && providerConfig.base_url
+    ? new ProviderPool(poolApiKey, providerConfig.base_url, GROQ_MODELS)
+    : undefined;
+
+  // When using a model pool, allow pool-sized concurrency since each model
+  // has independent rate limits. Otherwise use the configured concurrency.
+  const effectiveConcurrency = pool ? pool.size : concurrency;
+  const limiter = new RateLimiter(effectiveConcurrency, pool ? 0 : delayMs);
+
+  // Cap modules for try-mode: prioritize the most impressive modules
+  // so the demo showcases the best output (classes, interfaces, rich APIs).
   let modulesToSummarize = modules;
   let skippedModules: ModuleInfo[] = [];
   if (maxModules && modules.length > maxModules) {
-    modulesToSummarize = modules.slice(0, maxModules);
-    skippedModules = modules.slice(maxModules);
+    const scored = modules.map((mod) => ({ mod, score: scoreModuleForDemo(mod) }));
+    scored.sort((a, b) => b.score - a.score);
+    modulesToSummarize = scored.slice(0, maxModules).map((s) => s.mod);
+    skippedModules = scored.slice(maxModules).map((s) => s.mod);
   }
 
   let progressCount = 0;
 
   // ── Multi-file batch path (rate-limited providers) ──────────────────────
   // Packs N files into a single API call, reducing request count by N×.
+  // Accepts an explicit provider so parallel batches can use different models.
 
-  async function processMultiFileBatch(batch: ModuleInfo[]): Promise<ModuleInfo[]> {
+  async function processMultiFileBatch(
+    batch: ModuleInfo[],
+    batchProvider: AIProvider
+  ): Promise<ModuleInfo[]> {
     // Separate cached vs uncached modules
     const results: ModuleInfo[] = [];
     const uncached: ModuleInfo[] = [];
@@ -307,12 +497,22 @@ export async function summarizeModules(
 
       onProgress?.(progressCount + 1, modules.length, `Summarizing ${filePaths.length} files...`);
 
+      // On 429, try a different model from the pool if available
+      const onRateLimit = pool
+        ? () => {
+            if (batchProvider instanceof OpenAIProvider) {
+              batchProvider.setModel(pool.nextAfter(batchProvider).getModel());
+            }
+          }
+        : undefined;
+
       const response = await withRetry(
-        () => (provider as AIProvider).generate(prompt, {
+        () => batchProvider.generate(prompt, {
           maxTokens: 512,
           temperature: 0.2,
           systemPrompt,
-        })
+        }),
+        3, 3000, onRateLimit
       );
 
       const summaries = parseMultiFileBatchResponse(response, filePaths);
@@ -454,30 +654,119 @@ export async function summarizeModules(
   let updatedModules: ModuleInfo[];
 
   if (isRateLimited && canBatch && filesPerRequest > 1) {
-    // Multi-file batching: process sequentially to respect rate limits.
-    const chunks: ModuleInfo[][] = [];
-    for (let i = 0; i < modulesToSummarize.length; i += filesPerRequest) {
-      chunks.push(modulesToSummarize.slice(i, i + filesPerRequest));
-    }
     const allResults: ModuleInfo[] = [];
-    for (const chunk of chunks) {
-      const batchResults = await processMultiFileBatch(chunk);
-      allResults.push(...batchResults);
+
+    if (pool) {
+      // ── Capacity-aware parallel dispatch ─────────────────────────────
+      // Each model gets files proportional to its TPM limit:
+      //   scout (30K TPM) → 8 files, llama-70b (12K) → 6, kimi (10K) → 5, etc.
+      // All models fire in parallel per wave. ~36 files/wave total.
+      let remaining = [...modulesToSummarize];
+
+      while (remaining.length > 0) {
+        const assignments = pool.planWave(remaining);
+        const consumed = assignments.reduce((n, a) => n + a.batch.length, 0);
+
+        const waveResults = await Promise.all(
+          assignments.map(({ provider: p, batch }) =>
+            processMultiFileBatch(batch, p)
+          )
+        );
+        for (const results of waveResults) {
+          allResults.push(...results);
+        }
+
+        remaining = remaining.slice(consumed);
+
+        // Brief pause between waves to let rate windows recover
+        if (remaining.length > 0) {
+          await new Promise((r) => setTimeout(r, 1000));
+        }
+      }
+    } else {
+      // Sequential fallback for non-Groq rate-limited providers
+      const chunks: ModuleInfo[][] = [];
+      for (let i = 0; i < modulesToSummarize.length; i += filesPerRequest) {
+        chunks.push(modulesToSummarize.slice(i, i + filesPerRequest));
+      }
+      for (const chunk of chunks) {
+        const batchResults = await processMultiFileBatch(chunk, provider as AIProvider);
+        allResults.push(...batchResults);
+      }
     }
+
     updatedModules = [...allResults, ...skippedModules];
   } else {
-    // Single-file: parallel with rate limiter
+    // Single-file: parallel with rate limiter (local/unrestricted providers)
     const summarized = await Promise.all(modulesToSummarize.map(processModule));
     updatedModules = [...summarized, ...skippedModules];
   }
 
-  // Log failure summary if many calls failed
+  // ── Retry pass for failed modules ──────────────────────────────────────
+  // Transient 503s and empty responses often succeed on a second attempt
+  // after rate windows have partially recovered.
+  const failedModules = updatedModules.filter((m) => !m.aiSummary && !skippedModules.includes(m));
+
+  if (failedModules.length > 0 && failedModules.length < modules.length && canBatch) {
+    onProgress?.(progressCount, modules.length,
+      `Retrying ${failedModules.length} failed modules...`);
+
+    // Brief pause before retry to let rate limits recover
+    await new Promise((r) => setTimeout(r, 3000));
+
+    // Reset counters for retry pass
+    const retryFailed = failed;
+    failed = 0;
+    progressCount = modules.length - failedModules.length;
+
+    if (pool) {
+      let remaining = [...failedModules];
+      while (remaining.length > 0) {
+        const assignments = pool.planWave(remaining);
+        const consumed = assignments.reduce((n, a) => n + a.batch.length, 0);
+        const waveResults = await Promise.all(
+          assignments.map(({ provider: p, batch }) => processMultiFileBatch(batch, p))
+        );
+        for (const results of waveResults) {
+          // Replace failed modules in updatedModules with retry results
+          for (const mod of results) {
+            if (mod.aiSummary) {
+              const idx = updatedModules.findIndex((m) => m.filePath === mod.filePath);
+              if (idx >= 0) updatedModules[idx] = mod;
+            }
+          }
+        }
+        remaining = remaining.slice(consumed);
+        if (remaining.length > 0) await new Promise((r) => setTimeout(r, 1500));
+      }
+    } else {
+      // Sequential retry for proxy/non-pool path
+      const retryChunks: ModuleInfo[][] = [];
+      for (let i = 0; i < failedModules.length; i += filesPerRequest) {
+        retryChunks.push(failedModules.slice(i, i + filesPerRequest));
+      }
+      for (const chunk of retryChunks) {
+        const results = await processMultiFileBatch(chunk, provider as AIProvider);
+        for (const mod of results) {
+          if (mod.aiSummary) {
+            const idx = updatedModules.findIndex((m) => m.filePath === mod.filePath);
+            if (idx >= 0) updatedModules[idx] = mod;
+          }
+        }
+      }
+    }
+
+    // Merge retry failures back (don't double-count)
+    failed = updatedModules.filter((m) => !m.aiSummary && !skippedModules.includes(m)).length;
+  }
+
+  // Log failure summary if calls still failed after retry
   if (failed > 0 && onProgress) {
     const truncatedError = firstError && firstError.length > 120
       ? firstError.slice(0, 120) + "..."
       : firstError;
     onProgress(modules.length, modules.length,
-      `AI summary failures: ${failed} calls failed. First error: ${truncatedError || "unknown"}`);
+      `AI summary failures: ${failed} calls failed after retry. First error: ${truncatedError || "unknown"}`);
   }
 
   return {

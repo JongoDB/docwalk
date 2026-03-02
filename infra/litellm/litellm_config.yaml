@@ -3,10 +3,9 @@
 # Routes requests from the DocWalk CLI through Groq's free tier.
 # Exposed to the internet via Cloudflare tunnel at ai.docwalk.dev.
 #
-# Groq free tier limits (llama-4-scout-17b-16e-instruct):
-#   - 30 RPM, 1,000 RPD
-#   - 30,000 TPM
-#   - 500,000 TPD
+# Groq free tier limits are per-model, so we rotate across 8 models
+# to multiply effective throughput by ~10×:
+#   Combined: ~300 RPM, ~86K TPM (vs 30 RPM, 30K TPM single-model)
 #
 # Usage:
 #   1. Set GROQ_API_KEY env var
@@ -17,6 +16,34 @@ model_list:
   - model_name: docwalk-default
     litellm_params:
       model: groq/meta-llama/llama-4-scout-17b-16e-instruct
+      api_key: os.environ/GROQ_API_KEY
+  - model_name: docwalk-default
+    litellm_params:
+      model: groq/moonshotai/kimi-k2-instruct
+      api_key: os.environ/GROQ_API_KEY
+  - model_name: docwalk-default
+    litellm_params:
+      model: groq/llama-3.3-70b-versatile
+      api_key: os.environ/GROQ_API_KEY
+  - model_name: docwalk-default
+    litellm_params:
+      model: groq/openai/gpt-oss-120b
+      api_key: os.environ/GROQ_API_KEY
+  - model_name: docwalk-default
+    litellm_params:
+      model: groq/openai/gpt-oss-20b
+      api_key: os.environ/GROQ_API_KEY
+  - model_name: docwalk-default
+    litellm_params:
+      model: groq/qwen/qwen3-32b
+      api_key: os.environ/GROQ_API_KEY
+  - model_name: docwalk-default
+    litellm_params:
+      model: groq/meta-llama/llama-4-maverick-17b-128e-instruct
+      api_key: os.environ/GROQ_API_KEY
+  - model_name: docwalk-default
+    litellm_params:
+      model: groq/llama-3.1-8b-instant
       api_key: os.environ/GROQ_API_KEY
 
 general_settings:

@@ -1,0 +1,492 @@
+import {
+  OpenAIProvider,
+  buildBatchSummaryPrompt,
+  buildBatchSystemPrompt,
+  buildMultiFileBatchPrompt,
+  createProvider,
+  parseBatchSummaryResponse,
+  parseMultiFileBatchResponse
+} from "./chunk-5FUP7YMS.js";
+
+// src/analysis/ai-summarizer.ts
+var GROQ_MODELS = [
+  // Compound models: 70K TPM each — by far the highest capacity.
+  // Groq's compound AI routing models. Cap at 10 files/req to keep prompt size reasonable.
+  { id: "groq/compound", rpm: 30, tpm: 7e4, filesPerRequest: 10 },
+  { id: "groq/compound-mini", rpm: 30, tpm: 7e4, filesPerRequest: 10 },
+  // Scout: best all-rounder, 30K TPM
+  { id: "meta-llama/llama-4-scout-17b-16e-instruct", rpm: 30, tpm: 3e4, filesPerRequest: 8 },
+  // High-quality large models
+  { id: "llama-3.3-70b-versatile", rpm: 30, tpm: 12e3, filesPerRequest: 6 },
+  { id: "moonshotai/kimi-k2-instruct", rpm: 60, tpm: 1e4, filesPerRequest: 5 },
+  { id: "moonshotai/kimi-k2-instruct-0905", rpm: 60, tpm: 1e4, filesPerRequest: 5 },
+  { id: "openai/gpt-oss-120b", rpm: 30, tpm: 8e3, filesPerRequest: 4 },
+  { id: "openai/gpt-oss-20b", rpm: 30, tpm: 8e3, filesPerRequest: 4 },
+  { id: "openai/gpt-oss-safeguard-20b", rpm: 30, tpm: 8e3, filesPerRequest: 4 },
+  // Smaller/faster models
+  { id: "qwen/qwen3-32b", rpm: 60, tpm: 6e3, filesPerRequest: 3 },
+  { id: "meta-llama/llama-4-maverick-17b-128e-instruct", rpm: 30, tpm: 6e3, filesPerRequest: 3 },
+  { id: "llama-3.1-8b-instant", rpm: 30, tpm: 6e3, filesPerRequest: 3 }
+];
+var ProviderPool = class {
+  slots;
+  slotIndex = 0;
+  constructor(apiKey, baseURL, specs) {
+    this.slots = specs.map((spec) => ({
+      provider: new OpenAIProvider(apiKey, spec.id, baseURL),
+      spec
+    }));
+  }
+  /**
+   * Plan work distribution for a set of modules.
+   * Returns assignments: which provider handles which modules, respecting
+   * per-model TPM capacity. Higher-TPM models get more files.
+   */
+  planWave(modules) {
+    const assignments = [];
+    let offset = 0;
+    for (const slot of this.slots) {
+      if (offset >= modules.length) break;
+      const count = Math.min(slot.spec.filesPerRequest, modules.length - offset);
+      assignments.push({
+        provider: slot.provider,
+        batch: modules.slice(offset, offset + count)
+      });
+      offset += count;
+    }
+    return assignments;
+  }
+  /** Total files that can be processed in one wave across all models. */
+  get waveCapacity() {
+    return this.slots.reduce((sum, s) => sum + s.spec.filesPerRequest, 0);
+  }
+  /** Get a different provider than the one that failed (for retry on 429). */
+  nextAfter(failed) {
+    const startIdx = this.slotIndex;
+    for (let i = 0; i < this.slots.length; i++) {
+      const slot = this.slots[(startIdx + i) % this.slots.length];
+      if (slot.provider !== failed) {
+        this.slotIndex = (startIdx + i + 1) % this.slots.length;
+        return slot.provider;
+      }
+    }
+    this.slotIndex++;
+    return this.slots[this.slotIndex % this.slots.length].provider;
+  }
+  get size() {
+    return this.slots.length;
+  }
+};
+var RateLimiter = class {
+  constructor(maxConcurrent, delayMs) {
+    this.maxConcurrent = maxConcurrent;
+    this.delayMs = delayMs;
+  }
+  queue = [];
+  running = 0;
+  async acquire() {
+    if (this.running < this.maxConcurrent) {
+      this.running++;
+      return;
+    }
+    return new Promise((resolve) => {
+      this.queue.push(resolve);
+    });
+  }
+  async release() {
+    if (this.delayMs > 0) {
+      await new Promise((r) => setTimeout(r, this.delayMs));
+    }
+    this.running--;
+    const next = this.queue.shift();
+    if (next) {
+      this.running++;
+      next();
+    }
+  }
+};
+var SummaryCache = class {
+  entries = /* @__PURE__ */ new Map();
+  constructor(existing) {
+    if (existing) {
+      for (const entry of existing) {
+        this.entries.set(entry.contentHash, entry);
+      }
+    }
+  }
+  /** Get a cached summary if the content hash matches. */
+  get(contentHash) {
+    return this.entries.get(contentHash)?.summary;
+  }
+  /** Store a summary with its content hash. */
+  set(contentHash, summary) {
+    this.entries.set(contentHash, {
+      contentHash,
+      summary,
+      generatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  }
+  /** Export all cache entries for persistence. */
+  toArray() {
+    return [...this.entries.values()];
+  }
+  get size() {
+    return this.entries.size;
+  }
+};
+async function withRetry(fn, maxRetries = 3, baseDelayMs = 3e3, onRateLimit) {
+  let lastError;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      const message = err instanceof Error ? err.message : String(err);
+      const isRateLimit = message.includes("429") || message.toLowerCase().includes("rate") || message.toLowerCase().includes("quota") || message.toLowerCase().includes("resource_exhausted");
+      if (!isRateLimit || attempt === maxRetries) throw err;
+      onRateLimit?.();
+      const delay = onRateLimit ? 500 : baseDelayMs * Math.pow(2, attempt);
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastError;
+}
+function scoreModuleForDemo(mod) {
+  let score = 0;
+  const exported = mod.symbols.filter((s) => s.exported);
+  const classes = exported.filter((s) => s.kind === "class");
+  const interfaces = exported.filter((s) => s.kind === "interface");
+  const functions = exported.filter((s) => s.kind === "function");
+  const types = exported.filter((s) => s.kind === "type" || s.kind === "enum");
+  score += classes.length * 15;
+  score += interfaces.length * 12;
+  score += functions.length * 5;
+  score += types.length * 3;
+  score += Math.min(exported.length, 20) * 2;
+  const documented = exported.filter((s) => s.docs?.summary);
+  score += documented.length * 3;
+  const name = mod.filePath.toLowerCase();
+  if (/index\.[^/]+$/.test(name)) score += 8;
+  if (/main\.[^/]+$/.test(name)) score += 10;
+  if (/app\.[^/]+$/.test(name)) score += 10;
+  if (/server\.[^/]+$/.test(name)) score += 8;
+  if (/config|schema/.test(name)) score += 6;
+  if (/router|routes/.test(name)) score += 6;
+  if (/model|entity/.test(name)) score += 6;
+  if (mod.lineCount >= 50 && mod.lineCount <= 500) score += 5;
+  if (mod.lineCount < 10) score -= 10;
+  if (/\.(test|spec|mock)\.[^/]+$/.test(name)) score -= 20;
+  if (/__(tests|mocks|fixtures)__/.test(name)) score -= 20;
+  if (/\.d\.ts$/.test(name)) score -= 10;
+  if (/generated|dist\//.test(name)) score -= 15;
+  score += Math.min(mod.imports.length, 10);
+  return score;
+}
+async function summarizeModules(options) {
+  const {
+    providerConfig,
+    modules,
+    readFile,
+    previousCache,
+    onProgress,
+    concurrency = 10,
+    delayMs = 0,
+    maxModules
+  } = options;
+  const provider = createProvider(providerConfig);
+  if (!provider) {
+    return {
+      modules,
+      cache: previousCache || [],
+      generated: 0,
+      cached: 0,
+      failed: 0
+    };
+  }
+  const cache = new SummaryCache(previousCache);
+  let generated = 0;
+  let cached = 0;
+  let failed = 0;
+  let firstError;
+  const canBatch = "generate" in provider && typeof provider.generate === "function";
+  const isLocal = providerConfig.name === "local" || providerConfig.name === "ollama";
+  const isRateLimited = !isLocal && concurrency <= 4;
+  const systemPrompt = buildBatchSystemPrompt();
+  const filesPerRequest = isRateLimited ? 4 : 1;
+  const isGroq = providerConfig.base_url?.includes("groq.com") ?? false;
+  const poolApiKey = providerConfig.api_key_env ? process.env[providerConfig.api_key_env] : void 0;
+  const pool = isGroq && poolApiKey && providerConfig.base_url ? new ProviderPool(poolApiKey, providerConfig.base_url, GROQ_MODELS) : void 0;
+  const effectiveConcurrency = pool ? pool.size : concurrency;
+  const limiter = new RateLimiter(effectiveConcurrency, pool ? 0 : delayMs);
+  let modulesToSummarize = modules;
+  let skippedModules = [];
+  if (maxModules && modules.length > maxModules) {
+    const scored = modules.map((mod) => ({ mod, score: scoreModuleForDemo(mod) }));
+    scored.sort((a, b) => b.score - a.score);
+    modulesToSummarize = scored.slice(0, maxModules).map((s) => s.mod);
+    skippedModules = scored.slice(maxModules).map((s) => s.mod);
+  }
+  let progressCount = 0;
+  async function processMultiFileBatch(batch, batchProvider) {
+    const results = [];
+    const uncached = [];
+    for (const mod of batch) {
+      const cachedSummary = cache.get(mod.contentHash);
+      if (cachedSummary) {
+        cached++;
+        results.push({ ...mod, aiSummary: cachedSummary });
+        onProgress?.(++progressCount, modules.length, `Cached ${mod.filePath}`);
+      } else {
+        uncached.push(mod);
+      }
+    }
+    if (uncached.length === 0) return results;
+    try {
+      await limiter.acquire();
+      const entries = await Promise.all(
+        uncached.map(async (mod) => ({
+          module: mod,
+          content: await readFile(mod.filePath)
+        }))
+      );
+      const prompt = buildMultiFileBatchPrompt(entries);
+      const filePaths = uncached.map((m) => m.filePath);
+      onProgress?.(progressCount + 1, modules.length, `Summarizing ${filePaths.length} files...`);
+      const onRateLimit = pool ? () => {
+        if (batchProvider instanceof OpenAIProvider) {
+          batchProvider.setModel(pool.nextAfter(batchProvider).getModel());
+        }
+      } : void 0;
+      const response = await withRetry(
+        () => batchProvider.generate(prompt, {
+          maxTokens: 512,
+          temperature: 0.2,
+          systemPrompt
+        }),
+        3,
+        3e3,
+        onRateLimit
+      );
+      const summaries = parseMultiFileBatchResponse(response, filePaths);
+      for (const mod of uncached) {
+        const summary = summaries[mod.filePath];
+        if (summary) {
+          cache.set(mod.contentHash, summary);
+          generated++;
+          results.push({ ...mod, aiSummary: summary });
+        } else {
+          failed++;
+          results.push(mod);
+        }
+        onProgress?.(++progressCount, modules.length, `Summarizing ${mod.filePath}`);
+      }
+      return results;
+    } catch (err) {
+      for (const mod of uncached) {
+        failed++;
+        results.push(mod);
+        onProgress?.(++progressCount, modules.length, `Summarizing ${mod.filePath}`);
+      }
+      if (!firstError) {
+        firstError = err instanceof Error ? err.message : String(err);
+      }
+      return results;
+    } finally {
+      await limiter.release();
+    }
+  }
+  async function processModule(mod) {
+    onProgress?.(++progressCount, modules.length, `Summarizing ${mod.filePath}`);
+    const updatedSymbols = [...mod.symbols];
+    const exportedSymbols = isLocal ? [] : updatedSymbols.filter(
+      (s) => s.exported && (s.kind === "function" || s.kind === "class" || s.kind === "interface")
+    );
+    const cachedModuleSummary = cache.get(mod.contentHash);
+    const uncachedSymbols = [];
+    for (const sym of exportedSymbols) {
+      const symbolCacheKey = `${mod.contentHash}:${sym.id}`;
+      const cachedSym = cache.get(symbolCacheKey);
+      if (cachedSym) {
+        sym.aiSummary = cachedSym;
+        cached++;
+      } else {
+        uncachedSymbols.push(sym);
+      }
+    }
+    if (cachedModuleSummary && uncachedSymbols.length === 0) {
+      cached++;
+      return { ...mod, aiSummary: cachedModuleSummary, symbols: updatedSymbols };
+    }
+    try {
+      await limiter.acquire();
+      const content = await readFile(mod.filePath);
+      if (canBatch && uncachedSymbols.length > 0) {
+        const batchPrompt = buildBatchSummaryPrompt(mod, content, uncachedSymbols);
+        const response = await withRetry(
+          () => provider.generate(batchPrompt, {
+            maxTokens: 256,
+            temperature: 0.2,
+            systemPrompt
+          })
+        );
+        const result = parseBatchSummaryResponse(response, uncachedSymbols.map((s) => s.name));
+        const moduleSummary = cachedModuleSummary || result.moduleSummary;
+        if (!cachedModuleSummary && result.moduleSummary) {
+          cache.set(mod.contentHash, result.moduleSummary);
+          generated++;
+        } else if (cachedModuleSummary) {
+          cached++;
+        }
+        for (const sym of uncachedSymbols) {
+          const summary = result.symbolSummaries[sym.name];
+          if (summary) {
+            sym.aiSummary = summary;
+            cache.set(`${mod.contentHash}:${sym.id}`, summary);
+            generated++;
+          }
+        }
+        return { ...mod, aiSummary: moduleSummary, symbols: updatedSymbols };
+      } else {
+        let moduleSummary = cachedModuleSummary;
+        if (!moduleSummary) {
+          if (canBatch) {
+            const batchPrompt = buildBatchSummaryPrompt(mod, content, []);
+            const response = await withRetry(
+              () => provider.generate(batchPrompt, {
+                maxTokens: 256,
+                temperature: 0.2,
+                systemPrompt
+              })
+            );
+            const result = parseBatchSummaryResponse(response, []);
+            moduleSummary = result.moduleSummary;
+          } else {
+            moduleSummary = await withRetry(
+              () => provider.summarizeModule(mod, content)
+            );
+          }
+          cache.set(mod.contentHash, moduleSummary);
+          generated++;
+        } else {
+          cached++;
+        }
+        return { ...mod, aiSummary: moduleSummary, symbols: updatedSymbols };
+      }
+    } catch (err) {
+      failed++;
+      if (!firstError) {
+        firstError = err instanceof Error ? err.message : String(err);
+      }
+      return {
+        ...mod,
+        aiSummary: cachedModuleSummary,
+        symbols: updatedSymbols
+      };
+    } finally {
+      await limiter.release();
+    }
+  }
+  let updatedModules;
+  if (isRateLimited && canBatch && filesPerRequest > 1) {
+    const allResults = [];
+    if (pool) {
+      let remaining = [...modulesToSummarize];
+      while (remaining.length > 0) {
+        const assignments = pool.planWave(remaining);
+        const consumed = assignments.reduce((n, a) => n + a.batch.length, 0);
+        const waveResults = await Promise.all(
+          assignments.map(
+            ({ provider: p, batch }) => processMultiFileBatch(batch, p)
+          )
+        );
+        for (const results of waveResults) {
+          allResults.push(...results);
+        }
+        remaining = remaining.slice(consumed);
+        if (remaining.length > 0) {
+          await new Promise((r) => setTimeout(r, 1e3));
+        }
+      }
+    } else {
+      const chunks = [];
+      for (let i = 0; i < modulesToSummarize.length; i += filesPerRequest) {
+        chunks.push(modulesToSummarize.slice(i, i + filesPerRequest));
+      }
+      for (const chunk of chunks) {
+        const batchResults = await processMultiFileBatch(chunk, provider);
+        allResults.push(...batchResults);
+      }
+    }
+    updatedModules = [...allResults, ...skippedModules];
+  } else {
+    const summarized = await Promise.all(modulesToSummarize.map(processModule));
+    updatedModules = [...summarized, ...skippedModules];
+  }
+  const failedModules = updatedModules.filter((m) => !m.aiSummary && !skippedModules.includes(m));
+  if (failedModules.length > 0 && failedModules.length < modules.length && canBatch) {
+    onProgress?.(
+      progressCount,
+      modules.length,
+      `Retrying ${failedModules.length} failed modules...`
+    );
+    await new Promise((r) => setTimeout(r, 3e3));
+    const retryFailed = failed;
+    failed = 0;
+    progressCount = modules.length - failedModules.length;
+    if (pool) {
+      let remaining = [...failedModules];
+      while (remaining.length > 0) {
+        const assignments = pool.planWave(remaining);
+        const consumed = assignments.reduce((n, a) => n + a.batch.length, 0);
+        const waveResults = await Promise.all(
+          assignments.map(({ provider: p, batch }) => processMultiFileBatch(batch, p))
+        );
+        for (const results of waveResults) {
+          for (const mod of results) {
+            if (mod.aiSummary) {
+              const idx = updatedModules.findIndex((m) => m.filePath === mod.filePath);
+              if (idx >= 0) updatedModules[idx] = mod;
+            }
+          }
+        }
+        remaining = remaining.slice(consumed);
+        if (remaining.length > 0) await new Promise((r) => setTimeout(r, 1500));
+      }
+    } else {
+      const retryChunks = [];
+      for (let i = 0; i < failedModules.length; i += filesPerRequest) {
+        retryChunks.push(failedModules.slice(i, i + filesPerRequest));
+      }
+      for (const chunk of retryChunks) {
+        const results = await processMultiFileBatch(chunk, provider);
+        for (const mod of results) {
+          if (mod.aiSummary) {
+            const idx = updatedModules.findIndex((m) => m.filePath === mod.filePath);
+            if (idx >= 0) updatedModules[idx] = mod;
+          }
+        }
+      }
+    }
+    failed = updatedModules.filter((m) => !m.aiSummary && !skippedModules.includes(m)).length;
+  }
+  if (failed > 0 && onProgress) {
+    const truncatedError = firstError && firstError.length > 120 ? firstError.slice(0, 120) + "..." : firstError;
+    onProgress(
+      modules.length,
+      modules.length,
+      `AI summary failures: ${failed} calls failed after retry. First error: ${truncatedError || "unknown"}`
+    );
+  }
+  return {
+    modules: updatedModules,
+    cache: cache.toArray(),
+    generated,
+    cached,
+    failed
+  };
+}
+export {
+  SummaryCache,
+  createProvider,
+  summarizeModules
+};

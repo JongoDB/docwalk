@@ -44,6 +44,92 @@ ${snippet}
 
 Write only the summary \u2014 no preamble, no code blocks.`;
 }
+function buildBatchSystemPrompt() {
+  return `You summarize source code files for a developer documentation site. Respond ONLY with valid JSON \u2014 no markdown fences, no explanation.
+
+Module summaries must be 3-4 sentences: state the module's architectural role, name its key exports, and explain how it connects to the broader system.
+
+Symbol summaries must be 1 sentence stating what the symbol does and when a developer would use it.
+
+ANTI-PATTERNS \u2014 never write:
+- "This module provides..." or "This file contains..."
+- "A utility for..." or "Helper functions for..."
+- Generic descriptions that could apply to any module
+
+INSTEAD \u2014 always:
+- State the architectural role: "Orchestrates the X pipeline by..."
+- Name actual exports: "Exposes createProvider() and resolveApiKey() for..."
+- Reference connected modules: "Consumed by the CLI layer to..."`;
+}
+function buildBatchSummaryPrompt(module, fileContent, symbols) {
+  const truncated = fileContent.split("\n").slice(0, 120).join("\n");
+  const symbolList = symbols.map((s) => {
+    const params = s.parameters?.map((p) => p.name).join(", ") || "";
+    const ret = s.returns?.type ? ` \u2192 ${s.returns.type}` : "";
+    return `- ${s.kind} ${s.name}(${params})${ret}`;
+  }).join("\n");
+  const importList = module.imports.map((imp) => imp.source).slice(0, 15).join(", ");
+  return `File: ${module.filePath} (${module.language}, ${module.lineCount} lines)
+${importList ? `Imports: ${importList}` : ""}
+
+Source:
+\`\`\`
+${truncated}
+\`\`\`
+${symbols.length > 0 ? `
+Exported symbols:
+${symbolList}
+` : ""}
+Respond with this exact JSON structure:
+{"module":"3-4 sentence summary stating purpose, key exports, and architectural role"${symbols.map((s) => `,"${s.name}":"1 sentence summary"`).join("")}}`;
+}
+function parseBatchSummaryResponse(response, symbolNames) {
+  let cleaned = response.trim();
+  cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?\s*```\s*$/i, "");
+  try {
+    const parsed = JSON.parse(cleaned);
+    const moduleSummary = parsed.module || "";
+    const symbolSummaries = {};
+    for (const name of symbolNames) {
+      if (parsed[name]) {
+        symbolSummaries[name] = parsed[name];
+      }
+    }
+    return { moduleSummary, symbolSummaries };
+  } catch {
+    return { moduleSummary: cleaned, symbolSummaries: {} };
+  }
+}
+function buildMultiFileBatchPrompt(entries) {
+  const fileSections = entries.map((e) => {
+    const truncated = e.content.split("\n").slice(0, 50).join("\n");
+    return `## ${e.module.filePath} (${e.module.language}, ${e.module.lineCount} lines)
+\`\`\`
+${truncated}
+\`\`\``;
+  }).join("\n\n");
+  const keys = entries.map((e) => `"${e.module.filePath}":"3-4 sentence summary stating purpose, key exports, and architectural role"`).join(",");
+  return `${fileSections}
+
+Respond with this exact JSON structure:
+{${keys}}`;
+}
+function parseMultiFileBatchResponse(response, filePaths) {
+  let cleaned = response.trim();
+  cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?\s*```\s*$/i, "");
+  try {
+    const parsed = JSON.parse(cleaned);
+    const result = {};
+    for (const fp of filePaths) {
+      if (parsed[fp]) {
+        result[fp] = parsed[fp];
+      }
+    }
+    return result;
+  } catch {
+    return {};
+  }
+}
 
 // src/analysis/providers/anthropic.ts
 var AnthropicProvider = class {
@@ -102,6 +188,13 @@ var OpenAIProvider = class {
     this.apiKey = apiKey;
     this.model = model || "gpt-4o-mini";
     this.baseURL = baseURL;
+  }
+  /** Swap the active model (used for model rotation on rate-limited providers). */
+  setModel(model) {
+    this.model = model;
+  }
+  getModel() {
+    return this.model;
   }
   async getClient() {
     if (!this._client) {
@@ -195,7 +288,7 @@ var OpenRouterProvider = class extends OpenAIProvider {
 // src/analysis/providers/docwalk-proxy.ts
 var DEFAULT_BASE_URL = "https://docwalk-ai-proxy.jonathanrannabargar.workers.dev";
 var DocWalkProxyProvider = class {
-  name = "DocWalk Proxy (Gemini Flash)";
+  name = "DocWalk AI";
   baseURL;
   constructor(baseURL) {
     this.baseURL = (baseURL || DEFAULT_BASE_URL).replace(/\/+$/, "");
@@ -212,14 +305,14 @@ var DocWalkProxyProvider = class {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         prompt,
-        maxTokens: options?.maxTokens,
-        temperature: options?.temperature,
-        systemPrompt: options?.systemPrompt
+        systemPrompt: options?.systemPrompt,
+        maxTokens: options?.maxTokens ?? 256,
+        temperature: options?.temperature ?? 0.7
       })
     });
     if (!res.ok) {
       const body = await res.text();
-      throw new Error(`DocWalk proxy error (${res.status}): ${body}`);
+      throw new Error(`DocWalk AI error (${res.status}): ${body}`);
     }
     const data = await res.json();
     return data.text.trim();
@@ -287,6 +380,11 @@ function createProxyFallback(baseURL) {
 }
 
 export {
+  buildBatchSystemPrompt,
+  buildBatchSummaryPrompt,
+  parseBatchSummaryResponse,
+  buildMultiFileBatchPrompt,
+  parseMultiFileBatchResponse,
   AnthropicProvider,
   OpenAIProvider,
   GeminiProvider,
