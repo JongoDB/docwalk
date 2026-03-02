@@ -9,10 +9,13 @@ import type { GeneratedPage } from "../analysis/types.js";
 import { chunkPages, type ContentChunk } from "./chunker.js";
 import { generateEmbeddings, type EmbedderOptions } from "./embedder.js";
 import { VectorStore, type SerializedIndex } from "./vector-store.js";
+import { buildTextIndex, serializeTextIndex } from "./text-search.js";
 
 export { chunkPages, type ContentChunk } from "./chunker.js";
 export { generateEmbeddings, type EmbedderOptions } from "./embedder.js";
 export { VectorStore, type SerializedIndex } from "./vector-store.js";
+export { buildTextIndex, searchText, serializeTextIndex, deserializeTextIndex } from "./text-search.js";
+export type { TextSearchIndex, TextSearchResult } from "./text-search.js";
 
 export interface BuildQAIndexOptions {
   /** Generated pages to index */
@@ -30,6 +33,8 @@ export interface BuildQAIndexOptions {
 export interface QAIndex {
   /** Serialized vector store for persistence */
   serialized: SerializedIndex;
+  /** Serialized BM25 text search index (no embeddings needed at query time) */
+  textIndex: string;
   /** Number of chunks indexed */
   chunkCount: number;
   /** Number of pages processed */
@@ -65,8 +70,15 @@ export async function buildQAIndex(options: BuildQAIndexOptions): Promise<QAInde
   const store = new VectorStore();
   store.addEntries(chunks, embeddings);
 
+  // Step 4: Build BM25 text search index (runs client-side, no API needed)
+  onProgress?.("Building text search index...");
+  const textIdx = buildTextIndex(chunks);
+  const textIndexJson = serializeTextIndex(textIdx);
+  onProgress?.(`Text search index: ${Object.keys(textIdx.terms).length} terms`);
+
   return {
     serialized: store.serialize(),
+    textIndex: textIndexJson,
     chunkCount: chunks.length,
     pageCount: pages.length,
   };

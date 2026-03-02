@@ -531,11 +531,16 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
         path.join(qaDir, "qa-index.json"),
         JSON.stringify(qaIndex.serialized)
       );
+      // Write lightweight BM25 text search index (used by client-side Q&A widget)
+      await writeFile(
+        path.join(qaDir, "qa-search.json"),
+        qaIndex.textIndex
+      );
       onProgress?.(`Q&A index built: ${qaIndex.chunkCount} chunks from ${qaIndex.pageCount} pages`);
 
       // Inject widget assets
       const { injectQAWidget } = await import("./qa-widget/inject.js");
-      await injectQAWidget(outputDir, config.analysis.qa_config, "https://qa.docwalk.dev/api/ask");
+      await injectQAWidget(outputDir, config.analysis.qa_config);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       onProgress?.(`Warning: Q&A index build failed: ${msg}`);

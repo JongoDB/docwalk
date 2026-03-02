@@ -686,5 +686,137 @@ describe("buildQAIndex", () => {
     });
 
     expect(result.serialized.version).toBe(1);
+    // Text search index should also be present
+    expect(result.textIndex).toBeTruthy();
+    const textIdx = JSON.parse(result.textIndex);
+    expect(textIdx.version).toBe(1);
+    expect(textIdx.chunks.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// BM25 Text Search
+// ---------------------------------------------------------------------------
+
+import {
+  tokenize,
+  buildTextIndex,
+  searchText,
+  serializeTextIndex,
+  deserializeTextIndex,
+} from "../../src/qa/text-search.js";
+import type { ContentChunk } from "../../src/qa/chunker.js";
+
+describe("tokenize", () => {
+  it("lowercases and splits on non-alphanumeric", () => {
+    const tokens = tokenize("Hello World! foo-bar");
+    expect(tokens).toContain("hello");
+    expect(tokens).toContain("world");
+    expect(tokens).toContain("foo");
+    expect(tokens).toContain("bar");
+  });
+
+  it("removes stopwords", () => {
+    const tokens = tokenize("the quick brown fox is a test");
+    expect(tokens).not.toContain("the");
+    expect(tokens).not.toContain("is");
+    expect(tokens).toContain("quick");
+    expect(tokens).toContain("brown");
+    expect(tokens).toContain("fox");
+    expect(tokens).toContain("test");
+  });
+
+  it("removes single-character tokens", () => {
+    const tokens = tokenize("a b c d word");
+    expect(tokens).toEqual(["word"]);
+  });
+});
+
+describe("buildTextIndex", () => {
+  const chunks: ContentChunk[] = [
+    { id: "c1", pagePath: "auth.md", pageTitle: "Authentication", content: "User authentication with JWT tokens and OAuth flow", tokenCount: 8 },
+    { id: "c2", pagePath: "api.md", pageTitle: "API Reference", content: "REST API endpoints for user management and data retrieval", tokenCount: 9 },
+    { id: "c3", pagePath: "deploy.md", pageTitle: "Deployment", content: "Deploy the application to production using Docker containers", tokenCount: 9 },
+  ];
+
+  it("builds an index with correct structure", () => {
+    const index = buildTextIndex(chunks);
+    expect(index.version).toBe(1);
+    expect(index.chunks).toHaveLength(3);
+    expect(index.avgDl).toBeGreaterThan(0);
+    expect(Object.keys(index.terms).length).toBeGreaterThan(0);
+  });
+
+  it("stores document frequencies correctly", () => {
+    const index = buildTextIndex(chunks);
+    // "user" appears in chunks c1 and c2
+    expect(index.terms["user"]).toBeDefined();
+    expect(index.terms["user"].df).toBe(2);
+  });
+
+  it("handles empty input", () => {
+    const index = buildTextIndex([]);
+    expect(index.chunks).toHaveLength(0);
+    expect(index.avgDl).toBe(0);
+  });
+});
+
+describe("searchText", () => {
+  const chunks: ContentChunk[] = [
+    { id: "c1", pagePath: "auth.md", pageTitle: "Authentication", content: "User authentication with JWT tokens and OAuth provider flow for secure login", tokenCount: 12 },
+    { id: "c2", pagePath: "api.md", pageTitle: "API Reference", content: "REST API endpoints for data retrieval and database queries", tokenCount: 9 },
+    { id: "c3", pagePath: "deploy.md", pageTitle: "Deployment", content: "Deploy the application to production using Docker containers and Kubernetes orchestration", tokenCount: 11 },
+  ];
+
+  const index = buildTextIndex(chunks);
+
+  it("returns relevant results for authentication query", () => {
+    const results = searchText(index, "authentication JWT tokens");
+    expect(results.length).toBeGreaterThan(0);
+    expect(results[0].chunk.id).toBe("c1");
+    expect(results[0].score).toBeGreaterThan(0);
+  });
+
+  it("returns relevant results for deployment query", () => {
+    const results = searchText(index, "Docker deployment containers");
+    expect(results.length).toBeGreaterThan(0);
+    expect(results[0].chunk.id).toBe("c3");
+  });
+
+  it("respects topK limit", () => {
+    const results = searchText(index, "user application", 1);
+    expect(results).toHaveLength(1);
+  });
+
+  it("returns empty for nonsense query", () => {
+    const results = searchText(index, "xyzzy qwerty");
+    expect(results).toHaveLength(0);
+  });
+
+  it("ranks multi-term matches higher", () => {
+    const results = searchText(index, "API endpoints data");
+    expect(results[0].chunk.id).toBe("c2");
+  });
+});
+
+describe("text search serialization", () => {
+  const chunks: ContentChunk[] = [
+    { id: "c1", pagePath: "test.md", pageTitle: "Test", content: "Testing the serialization round trip", tokenCount: 5 },
+  ];
+
+  it("round-trips through serialize/deserialize", () => {
+    const original = buildTextIndex(chunks);
+    const serialized = serializeTextIndex(original);
+    const restored = deserializeTextIndex(serialized);
+
+    expect(restored.version).toBe(original.version);
+    expect(restored.chunks).toHaveLength(original.chunks.length);
+    expect(restored.avgDl).toBe(original.avgDl);
+    expect(Object.keys(restored.terms)).toEqual(Object.keys(original.terms));
+  });
+
+  it("rejects unsupported versions", () => {
+    const bad = JSON.stringify({ version: 99, chunks: [], terms: {}, avgDl: 0 });
+    expect(() => deserializeTextIndex(bad)).toThrow("Unsupported");
   });
 });

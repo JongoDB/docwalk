@@ -10,9 +10,11 @@ import path from "path";
 import type { AnalysisConfig } from "../../config/schema.js";
 import { generateWidgetJS } from "./widget.js";
 
-// The CSS is imported as a string at build time, or read from the file
 import { readFile } from "fs/promises";
 import { fileURLToPath } from "url";
+
+/** Default AI proxy Q&A streaming endpoint */
+const DEFAULT_QA_ENDPOINT = "https://docwalk-ai-proxy.jonwfh.workers.dev/v1/qa/stream";
 
 /**
  * Inject the Q&A widget assets into the docs output.
@@ -20,22 +22,23 @@ import { fileURLToPath } from "url";
 export async function injectQAWidget(
   outputDir: string,
   config: NonNullable<AnalysisConfig["qa_config"]>,
-  qaApiEndpoint: string
+  qaApiEndpoint?: string
 ): Promise<{ extraCss: string[]; extraJs: string[] }> {
   const assetsDir = path.join(outputDir, "docs", "_docwalk");
   await mkdir(assetsDir, { recursive: true });
 
   // Generate and write widget JS
   const widgetJS = generateWidgetJS({
-    apiEndpoint: qaApiEndpoint,
+    apiEndpoint: qaApiEndpoint || DEFAULT_QA_ENDPOINT,
+    searchIndexUrl: "_docwalk/qa-search.json",
     position: config.position || "bottom-right",
     greeting: config.greeting || "Ask me anything about this project.",
     dailyLimit: config.daily_limit || 50,
+    mode: "client",
   });
   await writeFile(path.join(assetsDir, "qa-widget.js"), widgetJS);
 
   // Write widget CSS
-  // Read the CSS from the source file
   let css: string;
   try {
     const cssPath = path.resolve(
@@ -44,11 +47,10 @@ export async function injectQAWidget(
     );
     css = await readFile(cssPath, "utf-8");
   } catch {
-    // Fallback: inline minimal CSS
     css = `
 #docwalk-qa-widget { position: fixed; bottom: 20px; right: 20px; z-index: 9999; }
 #dw-qa-toggle { width: 56px; height: 56px; border-radius: 50%; background: #5de4c7; color: #0a0a0c; border: none; cursor: pointer; }
-#dw-qa-panel { width: 380px; height: 500px; background: #16161a; border: 1px solid #2a2a32; border-radius: 12px; }
+#dw-qa-panel { width: 400px; height: 520px; background: #16161a; border: 1px solid #2a2a32; border-radius: 12px; }
 `;
   }
   await writeFile(path.join(assetsDir, "qa-widget.css"), css);
