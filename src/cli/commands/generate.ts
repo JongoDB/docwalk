@@ -92,6 +92,7 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
     config.analysis.ai_summaries = true;
     config.analysis.ai_narrative = true;
     config.analysis.ai_diagrams = true;
+    config.analysis.qa_widget = true;
 
     if (!config.analysis.ai_provider) {
       config.analysis.ai_provider = {

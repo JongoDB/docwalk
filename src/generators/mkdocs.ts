@@ -502,7 +502,20 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
   }
 
   // ── 2b. Build Q&A index if enabled ──────────────────────────────────
-  if (config.analysis.qa_widget && config.analysis.qa_config) {
+  if (config.analysis.qa_widget) {
+    // Provide sensible defaults if qa_config not explicitly set
+    if (!config.analysis.qa_config) {
+      config.analysis.qa_config = {
+        provider: (config.analysis.ai_provider?.name as "openai" | "anthropic" | "gemini" | "ollama" | "local") || "local",
+        embedding_model: "text-embedding-3-small",
+        context_window: 4000,
+        position: "bottom-right",
+        greeting: "Ask me anything about this project.",
+        daily_limit: 50,
+        chunk_overlap: 50,
+        chunk_target_size: 300,
+      };
+    }
     onProgress?.("Building Q&A index...");
     try {
       const { buildQAIndex } = await import("../qa/index.js");
