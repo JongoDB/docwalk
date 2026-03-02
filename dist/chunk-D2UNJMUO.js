@@ -1353,7 +1353,7 @@ async function generateDocs(options) {
         qaIndex.textIndex
       );
       onProgress?.(`Q&A index built: ${qaIndex.chunkCount} chunks from ${qaIndex.pageCount} pages`);
-      const { injectQAWidget } = await import("./inject-XIL3FHSR.js");
+      const { injectQAWidget } = await import("./inject-5P2G4X24.js");
       qaWidgetAssets = await injectQAWidget(outputDir, config.analysis.qa_config);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

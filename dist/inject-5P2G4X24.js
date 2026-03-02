@@ -510,9 +510,11 @@ async function injectQAWidget(outputDir, config, qaApiEndpoint) {
     css = await readFile(cssPath, "utf-8");
   } catch {
     css = `
-#docwalk-qa-widget { position: fixed; bottom: 20px; right: 20px; z-index: 9999; }
-#dw-qa-toggle { width: 56px; height: 56px; border-radius: 50%; background: #5de4c7; color: #0a0a0c; border: none; cursor: pointer; }
-#dw-qa-panel { width: 400px; height: 520px; background: #16161a; border: 1px solid #2a2a32; border-radius: 12px; }
+#docwalk-qa-widget { --dw-accent: var(--md-accent-fg-color, #5de4c7); position: fixed; bottom: 20px; right: 20px; z-index: 9999; }
+#docwalk-qa-widget #dw-qa-toggle { all: unset; width: 56px; height: 56px; border-radius: 50%; background: var(--dw-accent); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+#docwalk-qa-widget #dw-qa-panel { width: 400px; height: 520px; background: var(--md-default-bg-color, #16161a); border: 1px solid var(--md-default-fg-color--lightest, #2a2a32); border-radius: 12px; }
+#docwalk-qa-widget #dw-qa-input { all: unset; box-sizing: border-box; flex: 1; padding: 10px 14px; border: 1px solid var(--md-default-fg-color--lightest, #2a2a32); border-radius: 8px; background: var(--md-default-bg-color, #16161a); color: var(--md-default-fg-color, #e8e6e3); font-size: 13px; }
+#docwalk-qa-widget #dw-qa-send { all: unset; box-sizing: border-box; width: 38px; height: 38px; border-radius: 8px; background: var(--dw-accent); cursor: pointer; display: flex; align-items: center; justify-content: center; }
 `;
   }
   await writeFile(path.join(assetsDir, "qa-widget.css"), css);
