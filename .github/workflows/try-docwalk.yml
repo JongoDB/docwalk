@@ -69,12 +69,12 @@ jobs:
           BRANCH: ${{ github.event.inputs.branch }}
         run: |
           if [ -n "$BRANCH" ]; then
-            git clone --depth 100 --branch "$BRANCH" "$REPO_URL" target-repo || \
-            git clone --depth 100 "$REPO_URL" target-repo
+            git clone --depth 1 --branch "$BRANCH" "$REPO_URL" target-repo || \
+            git clone --depth 1 "$REPO_URL" target-repo
           else
-            git clone --depth 100 "$REPO_URL" target-repo
+            git clone --depth 1 "$REPO_URL" target-repo
           fi
-          cd target-repo && git fetch --tags
+          cd target-repo && git fetch --tags --depth 1
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -115,7 +115,7 @@ jobs:
             /^(analysis:)/m,
             'analysis:\n  ai_provider:\n    name: openai\n    model: meta-llama/llama-4-scout-17b-16e-instruct\n    api_key_env: GROQ_API_KEY\n    base_url: \"https://api.groq.com/openai/v1\"'
           );
-          cfg = cfg.replace(/concurrency: \d+/, 'concurrency: 1');
+          cfg = cfg.replace(/concurrency: \d+/, 'concurrency: 3');
           fs.writeFileSync('docwalk.config.yml', cfg);
           "
 

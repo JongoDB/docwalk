@@ -244,16 +244,16 @@ export async function summarizeModules(
   const canBatch = "generate" in provider && typeof (provider as AIProvider).generate === "function";
 
   // Rate-limited providers skip symbol-level summaries to halve token usage.
-  // Local models have no rate limits; remote free tiers (concurrency ≤ 2) do.
+  // Local models have no rate limits; remote free tiers (concurrency ≤ 4) do.
   const isLocal = providerConfig.name === "local" || providerConfig.name === "ollama";
-  const isRateLimited = !isLocal && concurrency <= 2;
+  const isRateLimited = !isLocal && concurrency <= 4;
 
   // Pre-build the system prompt once (Groq caches these — cached tokens are free)
   const systemPrompt = buildBatchSystemPrompt();
 
   // Number of files to pack into each API request.
-  // Rate-limited providers batch 3 files/request to reduce RPM usage.
-  const filesPerRequest = isRateLimited ? 3 : 1;
+  // Rate-limited providers batch 5 files/request to reduce RPM usage.
+  const filesPerRequest = isRateLimited ? 5 : 1;
 
   let progressCount = 0;
 
@@ -441,17 +441,13 @@ export async function summarizeModules(
   let updatedModules: ModuleInfo[];
 
   if (isRateLimited && canBatch && filesPerRequest > 1) {
-    // Multi-file batching: group modules into chunks, process sequentially
+    // Multi-file batching: group modules into chunks, process concurrently
     const chunks: ModuleInfo[][] = [];
     for (let i = 0; i < modules.length; i += filesPerRequest) {
       chunks.push(modules.slice(i, i + filesPerRequest));
     }
-    const allResults: ModuleInfo[] = [];
-    for (const chunk of chunks) {
-      const batchResults = await processMultiFileBatch(chunk);
-      allResults.push(...batchResults);
-    }
-    updatedModules = allResults;
+    const batchResults = await Promise.all(chunks.map(processMultiFileBatch));
+    updatedModules = batchResults.flat();
   } else {
     // Single-file: parallel with rate limiter
     updatedModules = await Promise.all(modules.map(processModule));

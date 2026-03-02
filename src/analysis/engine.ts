@@ -220,7 +220,7 @@ export async function analyzeCodebase(
       previousCache: previousSummaryCache,
       onProgress: onAIProgress,
       concurrency: analysis.concurrency,
-      delayMs: analysis.concurrency && analysis.concurrency <= 2 ? 2000 : 0,
+      delayMs: analysis.concurrency && analysis.concurrency <= 4 ? 2000 : 0,
     });
 
     finalModules = result.modules;
