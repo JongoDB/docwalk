@@ -157,7 +157,8 @@ export async function generateGettingStartedPageNarrative(
   manifest: AnalysisManifest,
   config: DocWalkConfig,
   provider: AIProvider,
-  readFile: (filePath: string) => Promise<string>
+  readFile: (filePath: string) => Promise<string>,
+  validPagePaths?: Set<string>
 ): Promise<GeneratedPage> {
   const basePage = generateGettingStartedPage(manifest, config);
 
@@ -169,7 +170,7 @@ export async function generateGettingStartedPageNarrative(
     });
 
     const repoUrl = config.source.repo.includes("/") ? config.source.repo : undefined;
-    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, config.source.branch);
+    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, config.source.branch, undefined, validPagePaths);
 
     const projectName = resolveProjectName(manifest);
     const narrativeContent = `---

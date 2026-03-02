@@ -22,7 +22,8 @@ export async function generateConceptPage(
   provider: AIProvider,
   readFile: (filePath: string) => Promise<string>,
   repoUrl?: string,
-  branch?: string
+  branch?: string,
+  validPagePaths?: Set<string>
 ): Promise<GeneratedPage> {
   const targetModule = suggestion.relatedModules.length > 0
     ? manifest.modules.find((m) => m.filePath === suggestion.relatedModules[0])
@@ -89,7 +90,7 @@ Write for developers who need to understand or modify this feature.`;
       citations.push({ text: match[0], filePath: match[1], line: parseInt(match[2], 10) });
     }
     const currentPagePath = `concepts/${suggestion.id}.md`;
-    prose = renderCitations(prose, citations, repoUrl, branch, currentPagePath);
+    prose = renderCitations(prose, citations, repoUrl, branch, currentPagePath, validPagePaths);
 
     const content = `---
 title: "${suggestion.title}"

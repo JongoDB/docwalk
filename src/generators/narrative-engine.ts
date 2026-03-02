@@ -14,6 +14,7 @@ import { buildContext, type ContextChunk } from "../analysis/context-builder.js"
 import { estimateTokens } from "./utils.js";
 import { extractAllMermaidBlocks } from "./diagrams.js";
 import { buildPagePrompt, buildPageSystemPrompt } from "./prompt-builder.js";
+import { validateNarrativeProse } from "./validators.js";
 
 export interface NarrativeResult {
   /** LLM-generated prose content */
@@ -87,16 +88,21 @@ Do NOT include a title heading (# Overview) — it will be added by the template
     repoUrl: manifest.projectMeta.repository,
   });
 
-  const prose = await provider.generate(prompt, {
+  let prose = await provider.generate(prompt, {
     maxTokens: 2048,
     temperature: 0.3,
     systemPrompt: buildPageSystemPrompt(),
   });
 
-  const citations = extractCitations(prose);
+  prose = ensureProvenanceBlock(prose, contextChunks, manifest.projectMeta.name, "Overview", manifest.projectMeta.repository);
+  prose = validateNarrativeProse(prose, "overview").prose;
+
+  const rawCitations = extractCitations(prose);
+  const validated = validateCitations(prose, rawCitations, manifest);
+  prose = validated.prose;
   const suggestedDiagrams = extractDiagramSuggestions(prose);
 
-  return { prose, citations, suggestedDiagrams };
+  return { prose, citations: validated.citations, suggestedDiagrams };
 }
 
 /**
@@ -186,15 +192,20 @@ Keep it concise — developers want to get started, not read an essay.`;
     repoUrl: projectMeta.repository,
   });
 
-  const prose = await provider.generate(prompt, {
+  let prose = await provider.generate(prompt, {
     maxTokens: 2048,
     temperature: 0.3,
     systemPrompt: buildPageSystemPrompt(),
   });
 
-  const citations = extractCitations(prose);
+  prose = ensureProvenanceBlock(prose, contextChunks, projectMeta.name, "Getting Started", projectMeta.repository);
+  prose = validateNarrativeProse(prose, "getting-started").prose;
 
-  return { prose, citations, suggestedDiagrams: [] };
+  const rawCitations = extractCitations(prose);
+  const validated = validateCitations(prose, rawCitations, manifest);
+  prose = validated.prose;
+
+  return { prose, citations: validated.citations, suggestedDiagrams: [] };
 }
 
 /**
@@ -262,16 +273,21 @@ Write for developers who need to understand or modify this code.`;
     repoUrl: manifest.projectMeta.repository,
   });
 
-  const prose = await provider.generate(prompt, {
+  let prose = await provider.generate(prompt, {
     maxTokens: 1536,
     temperature: 0.3,
     systemPrompt: buildPageSystemPrompt(),
   });
 
-  const citations = extractCitations(prose);
+  prose = ensureProvenanceBlock(prose, contextChunks, manifest.projectMeta.name, module.filePath, manifest.projectMeta.repository);
+  prose = validateNarrativeProse(prose, "module", { expectNoH1: true }).prose;
+
+  const rawCitations = extractCitations(prose);
+  const validated = validateCitations(prose, rawCitations, manifest);
+  prose = validated.prose;
   const suggestedDiagrams = extractDiagramSuggestions(prose);
 
-  return { prose, citations, suggestedDiagrams };
+  return { prose, citations: validated.citations, suggestedDiagrams };
 }
 
 /**
@@ -339,16 +355,194 @@ Do NOT include a title heading — it will be added by the template.`;
     repoUrl: manifest.projectMeta.repository,
   });
 
-  const prose = await provider.generate(prompt, {
+  let prose = await provider.generate(prompt, {
     maxTokens: 2048,
     temperature: 0.3,
     systemPrompt: buildPageSystemPrompt(),
   });
 
-  const citations = extractCitations(prose);
+  prose = ensureProvenanceBlock(prose, contextChunks, manifest.projectMeta.name, "Architecture", manifest.projectMeta.repository);
+  prose = validateNarrativeProse(prose, "architecture").prose;
+
+  const rawCitations = extractCitations(prose);
+  const validated = validateCitations(prose, rawCitations, manifest);
+  prose = validated.prose;
   const suggestedDiagrams = extractDiagramSuggestions(prose);
 
-  return { prose, citations, suggestedDiagrams };
+  return { prose, citations: validated.citations, suggestedDiagrams };
+}
+
+// ─── Validation Helpers ─────────────────────────────────────────────────────
+
+/**
+ * Validate extracted citations against the manifest.
+ * Drops citations whose file path doesn't exist in the manifest or
+ * whose line number exceeds the module's line count.
+ * Returns the cleaned prose (invalid citation markers replaced with
+ * just the filename as inline code) and the valid citation list.
+ */
+export function validateCitations(
+  prose: string,
+  citations: Citation[],
+  manifest: AnalysisManifest
+): { prose: string; citations: Citation[] } {
+  const modulePaths = new Set(manifest.modules.map((m) => m.filePath));
+  const moduleLineCount = new Map(manifest.modules.map((m) => [m.filePath, m.lineCount]));
+
+  const valid: Citation[] = [];
+  let cleaned = prose;
+  let droppedCount = 0;
+
+  for (const citation of citations) {
+    const lineCount = moduleLineCount.get(citation.filePath);
+    if (modulePaths.has(citation.filePath) && lineCount !== undefined && citation.line >= 1 && citation.line <= lineCount) {
+      valid.push(citation);
+    } else {
+      // Replace the raw [file:line] text with just the filename as inline code
+      cleaned = cleaned.replaceAll(citation.text, `\`${citation.filePath}\``);
+      droppedCount++;
+    }
+  }
+
+  return { prose: cleaned, citations: valid };
+}
+
+/**
+ * Ensure the prose contains a provenance `<details>` block.
+ * If the LLM omitted it, synthesize one from the context chunks.
+ */
+export function ensureProvenanceBlock(
+  prose: string,
+  contextChunks: ContextChunk[],
+  projectName: string,
+  title: string,
+  repoUrl?: string,
+  branch = "main"
+): string {
+  if (prose.includes("<details>")) return prose;
+
+  const sourceFiles = contextChunks.map((c) => c.filePath);
+  const fileList = sourceFiles
+    .map((f) => {
+      if (repoUrl) {
+        const cleanUrl = repoUrl.replace(/\/$/, "");
+        return `- [\`${f}\`](${cleanUrl}/blob/${branch}/${f})`;
+      }
+      return `- \`${f}\``;
+    })
+    .join("\n");
+
+  const block = [
+    "<details>",
+    `<summary>Sources for "${title}" in ${projectName}</summary>`,
+    "",
+    fileList,
+    "",
+    "</details>",
+    "",
+  ].join("\n");
+
+  return block + prose;
+}
+
+/**
+ * Levenshtein edit distance between two strings.
+ * Optimized: bails out early when distance exceeds maxDist.
+ */
+function levenshtein(a: string, b: string, maxDist = 2): number {
+  if (Math.abs(a.length - b.length) > maxDist) return maxDist + 1;
+  const m = a.length, n = b.length;
+  let prev = Array.from({ length: n + 1 }, (_, i) => i);
+  let curr = new Array(n + 1);
+  for (let i = 1; i <= m; i++) {
+    curr[0] = i;
+    let rowMin = i;
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
+      rowMin = Math.min(rowMin, curr[j]);
+    }
+    if (rowMin > maxDist) return maxDist + 1;
+    [prev, curr] = [curr, prev];
+  }
+  return prev[n];
+}
+
+/** Built-in type names that should not be corrected */
+const BUILTIN_TYPES = new Set([
+  "Promise", "Map", "Set", "Array", "Record", "Partial", "Error", "Buffer",
+  "String", "Number", "Boolean", "Object", "Function", "Symbol", "RegExp",
+  "Date", "Math", "JSON", "Uint8Array", "Int32Array", "Float64Array",
+  "ArrayBuffer", "SharedArrayBuffer", "DataView", "WeakMap", "WeakSet",
+  "Proxy", "Reflect", "Intl", "Iterator", "Generator", "AsyncGenerator",
+  "ReadableStream", "WritableStream", "TransformStream", "Response", "Request",
+  "Headers", "URL", "URLSearchParams", "FormData", "Blob", "File",
+  "Omit", "Pick", "Required", "Readonly", "Exclude", "Extract", "NonNullable",
+  "ReturnType", "Parameters", "InstanceType", "ConstructorParameters",
+  "Awaited", "Uppercase", "Lowercase", "Capitalize", "Uncapitalize",
+]);
+
+/**
+ * Validate backtick-quoted PascalCase identifiers in prose against the manifest.
+ * Auto-corrects hallucinated names that have a close Levenshtein match (distance 2 or less).
+ */
+export function validateSymbolReferences(prose: string, manifest: AnalysisManifest): string {
+  // Build set of all symbol names from manifest
+  const allSymbolNames = new Set<string>();
+  for (const mod of manifest.modules) {
+    for (const sym of mod.symbols) {
+      allSymbolNames.add(sym.name);
+    }
+  }
+
+  // Index by first letter for fast lookup
+  const byFirstLetter = new Map<string, string[]>();
+  for (const name of allSymbolNames) {
+    const key = name[0];
+    if (!byFirstLetter.has(key)) byFirstLetter.set(key, []);
+    byFirstLetter.get(key)!.push(name);
+  }
+
+  // Find backtick-quoted PascalCase identifiers
+  const pattern = /`([A-Z][a-zA-Z0-9_]+)`/g;
+  let result = prose;
+
+  // Collect all replacements first to avoid modifying string while iterating
+  const replacements: Array<{ from: string; to: string }> = [];
+  let match;
+
+  while ((match = pattern.exec(prose)) !== null) {
+    const name = match[1];
+
+    // Skip if it's a known symbol or built-in type
+    if (allSymbolNames.has(name) || BUILTIN_TYPES.has(name)) continue;
+
+    // Find closest match among candidates with same first letter and similar length
+    const candidates = byFirstLetter.get(name[0]) || [];
+    let bestMatch: string | undefined;
+    let bestDist = 3; // threshold
+
+    for (const candidate of candidates) {
+      if (Math.abs(candidate.length - name.length) > 2) continue;
+      const dist = levenshtein(name, candidate);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestMatch = candidate;
+      }
+    }
+
+    if (bestMatch) {
+      replacements.push({ from: `\`${name}\``, to: `\`${bestMatch}\`` });
+    }
+    // If no close match, leave as-is (may be an external type)
+  }
+
+  // Apply replacements
+  for (const { from, to } of replacements) {
+    result = result.replaceAll(from, to);
+  }
+
+  return result;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -410,7 +604,8 @@ export function renderCitations(
   citations: Citation[],
   repoUrl?: string,
   branch?: string,
-  currentPagePath?: string
+  currentPagePath?: string,
+  validPagePaths?: Set<string>
 ): string {
   let result = prose;
 
@@ -420,25 +615,37 @@ export function renderCitations(
     if (seen.has(citation.text)) continue;
     seen.add(citation.text);
 
-    let linkTarget: string;
     if (repoUrl) {
-      linkTarget = `https://github.com/${repoUrl}/blob/${branch || "main"}/${citation.filePath}#L${citation.line}`;
+      const linkTarget = `https://github.com/${repoUrl}/blob/${branch || "main"}/${citation.filePath}#L${citation.line}`;
+      result = result.replaceAll(
+        citation.text,
+        `[${citation.filePath}:${citation.line}](${linkTarget})`
+      );
     } else {
       const targetPage = `api/${citation.filePath.replace(/\.[^.]+$/, "")}.md`;
-      if (currentPagePath) {
-        linkTarget = path.posix.relative(
-          path.posix.dirname(currentPagePath),
-          targetPage
+
+      // If we have a valid page set and the target isn't in it, render as inline code
+      if (validPagePaths && !validPagePaths.has(targetPage)) {
+        result = result.replaceAll(
+          citation.text,
+          `\`${citation.filePath}:${citation.line}\``
         );
       } else {
-        linkTarget = targetPage;
+        let linkTarget: string;
+        if (currentPagePath) {
+          linkTarget = path.posix.relative(
+            path.posix.dirname(currentPagePath),
+            targetPage
+          );
+        } else {
+          linkTarget = targetPage;
+        }
+        result = result.replaceAll(
+          citation.text,
+          `[${citation.filePath}:${citation.line}](${linkTarget})`
+        );
       }
     }
-
-    result = result.replaceAll(
-      citation.text,
-      `[${citation.filePath}:${citation.line}](${linkTarget})`
-    );
   }
 
   return result;

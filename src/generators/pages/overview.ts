@@ -239,7 +239,8 @@ export async function generateOverviewPageNarrative(
   manifest: AnalysisManifest,
   config: DocWalkConfig,
   provider: AIProvider,
-  readFile: (filePath: string) => Promise<string>
+  readFile: (filePath: string) => Promise<string>,
+  validPagePaths?: Set<string>
 ): Promise<GeneratedPage> {
   const basePage = generateOverviewPage(manifest, config);
 
@@ -251,7 +252,7 @@ export async function generateOverviewPageNarrative(
     });
 
     const repoUrl = config.source.repo.includes("/") ? config.source.repo : undefined;
-    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, config.source.branch);
+    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, config.source.branch, undefined, validPagePaths);
 
     // Insert narrative prose after the title, replacing the project description
     const projectName = resolveProjectName(manifest);

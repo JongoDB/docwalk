@@ -822,7 +822,13 @@ describe("generateOverviewNarrative", () => {
       modules: [
         makeModule({
           filePath: "src/index.ts",
+          lineCount: 100,
           symbols: [makeSymbol({ id: "main", name: "main", kind: "function" })],
+        }),
+        makeModule({
+          filePath: "src/engine.ts",
+          lineCount: 50,
+          symbols: [],
         }),
       ],
     });
@@ -921,11 +927,9 @@ describe("generateOverviewNarrative", () => {
     });
 
     const options = mockProvider.generate.mock.calls[0][1];
-    expect(options).toEqual({
-      maxTokens: 2048,
-      temperature: 0.3,
-      systemPrompt: "You are a technical documentation writer. Write clear, precise, developer-focused documentation.",
-    });
+    expect(options.maxTokens).toBe(2048);
+    expect(options.temperature).toBe(0.3);
+    expect(options.systemPrompt).toContain("technical writer");
   });
 });
 
@@ -943,7 +947,13 @@ describe("generateGettingStartedNarrative", () => {
       modules: [
         makeModule({
           filePath: "src/index.ts",
+          lineCount: 100,
           symbols: [makeSymbol({ id: "app", name: "app", kind: "variable" })],
+        }),
+        makeModule({
+          filePath: "src/engine.ts",
+          lineCount: 50,
+          symbols: [],
         }),
       ],
     });
@@ -1017,6 +1027,7 @@ describe("generateModuleNarrative", () => {
     const mod = makeModule({
       filePath: "src/engine.ts",
       language: "typescript",
+      lineCount: 50,
       symbols: [
         makeSymbol({
           id: "e1",
@@ -1042,7 +1053,10 @@ describe("generateModuleNarrative", () => {
     });
 
     const manifest = makeManifest({
-      modules: [mod],
+      modules: [
+        mod,
+        makeModule({ filePath: "src/index.ts", lineCount: 100, symbols: [] }),
+      ],
     });
 
     const result = await generateModuleNarrative(mod, {
@@ -1076,7 +1090,7 @@ describe("generateModuleNarrative", () => {
     });
 
     const options = mockProvider.generate.mock.calls[0][1];
-    expect(options.maxTokens).toBe(1024);
+    expect(options.maxTokens).toBe(1536);
   });
 });
 
@@ -1369,6 +1383,7 @@ describe("generateFlowchartDiagram", () => {
     );
 
     expect(result).toBeDefined();
-    expect(result!.mermaidCode).toBe("flowchart LR\n  Input --> Output");
+    // LR is normalized to TD per Mermaid rules
+    expect(result!.mermaidCode).toBe("flowchart TD\n  Input --> Output");
   });
 });

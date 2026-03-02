@@ -397,6 +397,97 @@ export function buildSymbolPageMap(modules: ModuleInfo[]): Map<string, string> {
   return map;
 }
 
+/**
+ * Build a comprehensive symbol-to-page-path map including all exported symbol kinds
+ * (function, constant, interface, type, class, enum).
+ * Non-exported symbols are added as fallback only if no exported symbol claims the name.
+ */
+export function buildFullSymbolPageMap(modules: ModuleInfo[]): Map<string, string> {
+  const map = new Map<string, string>();
+  const nonExported: Array<[string, string]> = [];
+
+  for (const mod of modules) {
+    const slug = mod.filePath.replace(/\.[^.]+$/, "");
+    const pagePath = `api/${slug}.md`;
+
+    for (const sym of mod.symbols) {
+      if (sym.exported) {
+        if (!map.has(sym.name)) {
+          map.set(sym.name, pagePath);
+        }
+      } else {
+        nonExported.push([sym.name, pagePath]);
+      }
+    }
+  }
+
+  // Add non-exported symbols as fallback (only if name not already claimed)
+  for (const [name, pagePath] of nonExported) {
+    if (!map.has(name)) {
+      map.set(name, pagePath);
+    }
+  }
+
+  return map;
+}
+
+/**
+ * Replace backtick-quoted PascalCase symbol names in prose with links to their pages.
+ * Only links the first occurrence of each symbol to keep prose readable.
+ * Skips names already inside markdown links.
+ */
+export function linkSymbolsInProse(
+  prose: string,
+  symbolPageMap: Map<string, string>,
+  currentPagePath: string
+): string {
+  if (symbolPageMap.size === 0) return prose;
+
+  let result = prose;
+  const pattern = /`([A-Z][a-zA-Z0-9_]+)`/g;
+  const replacements: Array<{ from: string; to: string }> = [];
+  let match;
+
+  while ((match = pattern.exec(prose)) !== null) {
+    const name = match[1];
+    const pagePath = symbolPageMap.get(name);
+    if (!pagePath) continue;
+
+    // Skip if already inside a markdown link
+    const before = prose.substring(Math.max(0, match.index - 1), match.index);
+    if (before === "[") continue;
+
+    // Skip self-links
+    if (pagePath === currentPagePath) continue;
+
+    const anchor = name.toLowerCase().replace(/[^a-z0-9-_]/g, "");
+    const relativePath = path.posix.relative(
+      path.posix.dirname(currentPagePath),
+      pagePath
+    );
+
+    const from = `\`${name}\``;
+    const to = `[\`${name}\`](${relativePath}#${anchor})`;
+
+    if (!replacements.some((r) => r.from === from)) {
+      replacements.push({ from, to });
+    }
+  }
+
+  for (const { from, to } of replacements) {
+    // Only replace the first occurrence
+    const idx = result.indexOf(from);
+    if (idx !== -1) {
+      const beforeChar = idx > 0 ? result[idx - 1] : "";
+      if (beforeChar !== "[") {
+        result = result.substring(0, idx) + to + result.substring(idx + from.length);
+      }
+    }
+  }
+
+  return result;
+}
+
 // ─── Symbol Rendering ───────────────────────────────────────────────────────
 
 /** Replace type names with links to their pages if found in the symbol map */

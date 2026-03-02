@@ -210,6 +210,8 @@ export const AnalysisSchema = z.object({
     daily_limit: z.number().default(50),
     api_key_env: z.string().optional().describe("Environment variable name for Q&A API key (overrides ai_provider key)"),
     base_url: z.string().optional().describe("Custom base URL for Q&A embedding provider"),
+    chunk_overlap: z.number().default(50).describe("Overlap tokens between adjacent QA chunks"),
+    chunk_target_size: z.number().default(300).describe("Target token count for QA chunks"),
   }).optional(),
 });
 

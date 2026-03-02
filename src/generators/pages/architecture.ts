@@ -373,7 +373,8 @@ export async function generateArchitecturePageNarrative(
   provider: AIProvider,
   readFile: (filePath: string) => Promise<string>,
   repoUrl?: string,
-  branch?: string
+  branch?: string,
+  validPagePaths?: Set<string>
 ): Promise<GeneratedPage> {
   const basePage = generateArchitecturePage(manifest);
 
@@ -384,7 +385,7 @@ export async function generateArchitecturePageNarrative(
       readFile,
     });
 
-    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, branch);
+    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, branch, undefined, validPagePaths);
 
     // Insert AI narrative after the dependency graph section
     const diagramSections = narrative.suggestedDiagrams

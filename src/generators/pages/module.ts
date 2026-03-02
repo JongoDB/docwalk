@@ -277,7 +277,8 @@ export async function generateModulePageNarrative(
   group: string,
   ctx: ModulePageContext,
   provider: AIProvider,
-  readFile: (filePath: string) => Promise<string>
+  readFile: (filePath: string) => Promise<string>,
+  validPagePaths?: Set<string>
 ): Promise<GeneratedPage> {
   const basePage = generateModulePage(mod, group, ctx);
 
@@ -290,7 +291,7 @@ export async function generateModulePageNarrative(
 
     const repoUrl = ctx.config.source.repo.includes("/") ? ctx.config.source.repo : undefined;
     const currentPagePath = `api/${mod.filePath.replace(/\.[^.]+$/, "")}.md`;
-    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, ctx.config.source.branch, currentPagePath);
+    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, ctx.config.source.branch, currentPagePath, validPagePaths);
 
     // Insert narrative prose after the module metadata table
     const insertPoint = basePage.content.indexOf("---\n\n## Exports");

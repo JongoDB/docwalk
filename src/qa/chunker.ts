@@ -23,9 +23,15 @@ export interface ContentChunk {
 }
 
 const MIN_CHUNK_TOKENS = 50;
-const TARGET_CHUNK_TOKENS = 300;
+const DEFAULT_TARGET_CHUNK_TOKENS = 300;
 const MAX_CHUNK_TOKENS = 500;
 
+export interface ChunkOptions {
+  /** Overlap tokens carried forward between adjacent chunks (default: 50) */
+  overlapTokens?: number;
+  /** Target token count for chunks (default: 300) */
+  targetSize?: number;
+}
 
 /**
  * Split a page's markdown content into semantic chunks.
@@ -33,8 +39,11 @@ const MAX_CHUNK_TOKENS = 500;
 export function chunkPage(
   pagePath: string,
   pageTitle: string,
-  content: string
+  content: string,
+  options?: ChunkOptions
 ): ContentChunk[] {
+  const targetChunkTokens = options?.targetSize ?? DEFAULT_TARGET_CHUNK_TOKENS;
+  const overlapTokens = options?.overlapTokens ?? 0;
   const chunks: ContentChunk[] = [];
   let chunkIndex = 0;
 
@@ -65,53 +74,72 @@ export function chunkPage(
         });
       }
     } else {
-      // Split into paragraph-level chunks
+      // Split into paragraph-level chunks with optional overlap
       const paragraphs = sectionContent.split(/\n\n+/);
       let currentChunk = "";
       let currentTokens = 0;
+      let previousTail = ""; // Overlap text from previous chunk
 
       for (const para of paragraphs) {
         const paraTokens = estimateTokens(para);
 
         if (currentTokens + paraTokens > MAX_CHUNK_TOKENS && currentChunk) {
+          const finalContent = currentChunk.trim();
           chunks.push({
             id: `${pagePath}:${chunkIndex++}`,
             pagePath,
             pageTitle,
             heading,
-            content: currentChunk.trim(),
-            tokenCount: currentTokens,
+            content: finalContent,
+            tokenCount: estimateTokens(finalContent),
           });
-          currentChunk = "";
-          currentTokens = 0;
+
+          // Build overlap prefix from the tail of the current chunk
+          if (overlapTokens > 0) {
+            const words = finalContent.split(/\s+/);
+            const overlapWords = Math.min(overlapTokens, words.length);
+            previousTail = words.slice(-overlapWords).join(" ") + "\n\n";
+          }
+
+          currentChunk = previousTail;
+          currentTokens = estimateTokens(previousTail);
         }
 
         currentChunk += para + "\n\n";
         currentTokens += paraTokens;
 
-        if (currentTokens >= TARGET_CHUNK_TOKENS) {
+        if (currentTokens >= targetChunkTokens) {
+          const finalContent = currentChunk.trim();
           chunks.push({
             id: `${pagePath}:${chunkIndex++}`,
             pagePath,
             pageTitle,
             heading,
-            content: currentChunk.trim(),
-            tokenCount: currentTokens,
+            content: finalContent,
+            tokenCount: estimateTokens(finalContent),
           });
-          currentChunk = "";
-          currentTokens = 0;
+
+          // Build overlap prefix
+          if (overlapTokens > 0) {
+            const words = finalContent.split(/\s+/);
+            const overlapWords = Math.min(overlapTokens, words.length);
+            previousTail = words.slice(-overlapWords).join(" ") + "\n\n";
+          }
+
+          currentChunk = previousTail;
+          currentTokens = estimateTokens(previousTail);
         }
       }
 
       // Remainder
-      if (currentChunk.trim() && currentTokens >= MIN_CHUNK_TOKENS) {
+      if (currentChunk.trim() && estimateTokens(currentChunk.trim()) >= MIN_CHUNK_TOKENS) {
         chunks.push({
           id: `${pagePath}:${chunkIndex++}`,
           pagePath,
           pageTitle,
           heading,
           content: currentChunk.trim(),
-          tokenCount: currentTokens,
+          tokenCount: estimateTokens(currentChunk.trim()),
         });
       }
     }
@@ -163,12 +191,13 @@ function splitByHeadings(markdown: string): Section[] {
  * Chunk all pages in a batch.
  */
 export function chunkPages(
-  pages: Array<{ path: string; title: string; content: string }>
+  pages: Array<{ path: string; title: string; content: string }>,
+  options?: ChunkOptions
 ): ContentChunk[] {
   const allChunks: ContentChunk[] = [];
 
   for (const page of pages) {
-    allChunks.push(...chunkPage(page.path, page.title, page.content));
+    allChunks.push(...chunkPage(page.path, page.title, page.content, options));
   }
 
   return allChunks;

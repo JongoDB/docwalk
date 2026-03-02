@@ -49,6 +49,72 @@ function detectSection(filePath: string): string {
 }
 
 /**
+ * Split content into overlapping line-based chunks and return the chunk
+ * with the highest symbol density (number of symbol name occurrences).
+ * Strictly respects the maxTokens budget.
+ */
+function bestChunkBySymbolDensity(
+  content: string,
+  symbolNames: string[],
+  maxTokens: number
+): string {
+  const lines = content.split("\n");
+  const tokensPerLine = Math.max(1, estimateTokens(content) / lines.length);
+  const maxLines = Math.floor(maxTokens / tokensPerLine);
+
+  if (maxLines >= lines.length) return content;
+  if (maxLines <= 0) return "";
+
+  // Build overlapping line-based windows
+  const chunkLines = maxLines;
+  const overlap = Math.min(Math.floor(chunkLines * 0.3), 25);
+  const step = Math.max(1, chunkLines - overlap);
+
+  const chunks: Array<{ text: string; startLine: number }> = [];
+  for (let start = 0; start < lines.length; start += step) {
+    const end = Math.min(start + chunkLines, lines.length);
+    const text = lines.slice(start, end).join("\n");
+    chunks.push({ text, startLine: start });
+    if (end >= lines.length) break;
+  }
+
+  if (chunks.length <= 1) {
+    return lines.slice(0, maxLines).join("\n");
+  }
+
+  // Score each chunk by symbol density
+  let bestIdx = 0;
+  let bestScore = -1;
+
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i].text;
+    let score = 0;
+    for (const sym of symbolNames) {
+      let pos = 0;
+      while ((pos = chunk.indexOf(sym, pos)) !== -1) {
+        score++;
+        pos += sym.length;
+      }
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestIdx = i;
+    }
+  }
+
+  // Ensure strict budget compliance
+  const selected = chunks[bestIdx].text;
+  if (estimateTokens(selected) <= maxTokens) return selected;
+
+  // Trim lines from the end until within budget
+  const selectedLines = selected.split("\n");
+  while (selectedLines.length > 1 && estimateTokens(selectedLines.join("\n")) > maxTokens) {
+    selectedLines.pop();
+  }
+  return selectedLines.join("\n");
+}
+
+/**
  * Build a ranked set of context chunks for an LLM call,
  * fitting within a token budget.
  */
@@ -194,19 +260,20 @@ export async function buildContext(options: BuildContextOptions): Promise<Contex
         });
         usedTokens += tokens;
       } else {
-        // Truncate to fit within 40% of budget
-        const lines = content.split("\n");
-        const maxLines = Math.floor((tokenBudget * 0.4) / (estimateTokens(content) / lines.length));
-        const truncated = lines.slice(0, maxLines).join("\n");
+        // Large file: pick the best overlapping chunk by symbol density
+        const maxBudget = Math.floor(tokenBudget * 0.4);
+        const symbolNames = targetModule.symbols.map((s) => s.name);
+        const bestChunk = bestChunkBySymbolDensity(content, symbolNames, maxBudget);
+        const bestLines = bestChunk.split("\n");
         chunks.push({
           filePath: targetModule.filePath,
           startLine: 1,
-          endLine: maxLines,
-          content: truncated,
+          endLine: bestLines.length,
+          content: bestChunk,
           relevanceScore: 1.0,
           kind: "full-file",
         });
-        usedTokens += estimateTokens(truncated);
+        usedTokens += estimateTokens(bestChunk);
       }
     } catch {
       // File read failure — continue without it
@@ -234,20 +301,21 @@ export async function buildContext(options: BuildContextOptions): Promise<Contex
         });
         usedTokens += tokens;
       } else if (remaining > 100) {
-        // Include truncated version
-        const lines = content.split("\n");
-        const maxLines = Math.floor(remaining / (tokens / lines.length));
-        if (maxLines > 5) {
-          const truncated = lines.slice(0, maxLines).join("\n");
+        // Large file: pick the best overlapping chunk that fits
+        const symbolNames = mod.symbols.map((s) => s.name);
+        const bestChunk = bestChunkBySymbolDensity(content, symbolNames, remaining);
+        const chunkTokens = estimateTokens(bestChunk);
+        if (chunkTokens > 20) {
+          const bestLines = bestChunk.split("\n");
           chunks.push({
             filePath: mod.filePath,
             startLine: 1,
-            endLine: maxLines,
-            content: truncated,
+            endLine: bestLines.length,
+            content: bestChunk,
             relevanceScore: score,
             kind: "full-file",
           });
-          usedTokens += estimateTokens(truncated);
+          usedTokens += chunkTokens;
         }
       }
     } catch {

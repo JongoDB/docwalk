@@ -259,6 +259,12 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
   // ── 1. Generate pages ──────────────────────────────────────────────────
   const pages: GeneratedPage[] = [];
 
+  // Pre-compute code modules and valid page paths for citation validation
+  const codeModules = manifest.modules.filter(shouldGenerateModulePage);
+  const validPagePaths = new Set(
+    codeModules.map((m) => `api/${m.filePath.replace(/\.[^.]+$/, "")}.md`)
+  );
+
   // Launch narrative pages in parallel when AI is enabled
   if (useNarrative) {
     onProgress?.("Generating narrative pages (overview, getting started, architecture)...");
@@ -266,18 +272,18 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
 
     narrativePromises.push(
       safeGenerateAsync("Overview",
-        () => generateOverviewPageNarrative(manifest, config, aiProvider!, readFile!), onProgress)
+        () => generateOverviewPageNarrative(manifest, config, aiProvider!, readFile!, validPagePaths), onProgress)
     );
     narrativePromises.push(
       safeGenerateAsync("Getting Started",
-        () => generateGettingStartedPageNarrative(manifest, config, aiProvider!, readFile!), onProgress)
+        () => generateGettingStartedPageNarrative(manifest, config, aiProvider!, readFile!, validPagePaths), onProgress)
     );
 
     if (config.analysis.dependency_graph && config.analysis.architecture_tiers === false) {
       const repoUrl = config.source.repo.includes("/") ? config.source.repo : undefined;
       narrativePromises.push(
         safeGenerateAsync("Architecture",
-          () => generateArchitecturePageNarrative(manifest, aiProvider!, readFile!, repoUrl, config.source.branch), onProgress)
+          () => generateArchitecturePageNarrative(manifest, aiProvider!, readFile!, repoUrl, config.source.branch, validPagePaths), onProgress)
       );
     }
 
@@ -317,7 +323,6 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
   // API Reference pages — one per module, grouped logically
   // Top modules (by connection count) get full AI narrative treatment
   onProgress?.("Generating API reference pages...");
-  const codeModules = manifest.modules.filter(shouldGenerateModulePage);
   const modulesByGroup = groupModulesLogically(codeModules);
 
   // Identify top modules for narrative generation
@@ -348,7 +353,7 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
       if (narrativeModulePaths.has(mod.filePath)) {
         const page = await safeGenerateAsync(
           `Module narrative: ${mod.filePath}`,
-          () => generateModulePageNarrative(mod, group, modulePageCtx, aiProvider!, readFile!),
+          () => generateModulePageNarrative(mod, group, modulePageCtx, aiProvider!, readFile!, validPagePaths),
           onProgress
         );
         pages.push(page);
@@ -474,7 +479,7 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
 
     for (const suggestion of structurePlan.conceptPages) {
       const page = await safeGenerateAsync(suggestion.title,
-        () => generateConceptPage(suggestion, manifest, aiProvider!, readFile!, repoUrl, config.source.branch),
+        () => generateConceptPage(suggestion, manifest, aiProvider!, readFile!, repoUrl, config.source.branch, validPagePaths),
         onProgress);
       pages.push(page);
     }
@@ -515,6 +520,8 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
           base_url: config.analysis.qa_config.base_url,
         },
         onProgress,
+        chunkOverlap: config.analysis.qa_config.chunk_overlap,
+        chunkTargetSize: config.analysis.qa_config.chunk_target_size,
       });
 
       // Write index

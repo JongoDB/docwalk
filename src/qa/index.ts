@@ -21,6 +21,10 @@ export interface BuildQAIndexOptions {
   embedder: EmbedderOptions;
   /** Progress callback */
   onProgress?: (message: string) => void;
+  /** Overlap tokens between adjacent chunks (default: 50) */
+  chunkOverlap?: number;
+  /** Target token count for chunks (default: 300) */
+  chunkTargetSize?: number;
 }
 
 export interface QAIndex {
@@ -37,12 +41,13 @@ export interface QAIndex {
  * Chunks pages, generates embeddings, and creates a searchable index.
  */
 export async function buildQAIndex(options: BuildQAIndexOptions): Promise<QAIndex> {
-  const { pages, embedder, onProgress } = options;
+  const { pages, embedder, onProgress, chunkOverlap, chunkTargetSize } = options;
 
   // Step 1: Chunk all pages
   onProgress?.("Chunking pages for Q&A index...");
   const chunks = chunkPages(
-    pages.map((p) => ({ path: p.path, title: p.title, content: p.content }))
+    pages.map((p) => ({ path: p.path, title: p.title, content: p.content })),
+    { overlapTokens: chunkOverlap ?? 50, targetSize: chunkTargetSize ?? 300 }
   );
   onProgress?.(`Created ${chunks.length} chunks from ${pages.length} pages`);
 
