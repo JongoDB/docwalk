@@ -148,8 +148,9 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
     ]);
     config.theme.layout = chosenLayout;
 
-    // AI setup — skip if already configured in docwalk.config.yml
+    // AI setup
     if (!config.analysis.ai_summaries) {
+      // AI not configured yet — run full setup flow
       const aiResult = await runAISetup();
       if (aiResult.enabled) {
         config.analysis.ai_summaries = true;
@@ -161,8 +162,31 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
           api_key_env: "DOCWALK_AI_KEY",
         };
       }
-    } else {
-      log("info", `AI: ${chalk.green("enabled")} (from config)`);
+    } else if (config.analysis.ai_provider) {
+      // AI configured in config — check if key is available
+      const prov = config.analysis.ai_provider;
+      const needsKey = prov.name !== "ollama" && prov.name !== "local" && prov.name !== "docwalk-proxy";
+      const hasKey = !needsKey || !!resolveApiKey(prov.name, prov.api_key_env);
+
+      if (hasKey) {
+        log("info", `AI: ${chalk.green("enabled")} (${prov.name})`);
+      } else {
+        // Key missing — offer to enter it or reconfigure
+        log("warn", `AI is enabled but no ${prov.api_key_env || "API key"} found`);
+        const aiResult = await runAISetup();
+        if (aiResult.enabled) {
+          config.analysis.ai_provider = {
+            name: aiResult.providerName as any,
+            model: aiResult.model,
+            api_key_env: "DOCWALK_AI_KEY",
+          };
+          config.analysis.ai_narrative = true;
+          config.analysis.ai_diagrams = true;
+        } else {
+          config.analysis.ai_summaries = false;
+          config.analysis.ai_narrative = false;
+        }
+      }
     }
 
     blank();
