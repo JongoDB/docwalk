@@ -252,8 +252,8 @@ export async function summarizeModules(
   const systemPrompt = buildBatchSystemPrompt();
 
   // Number of files to pack into each API request.
-  // Rate-limited providers batch 5 files/request to reduce RPM usage.
-  const filesPerRequest = isRateLimited ? 5 : 1;
+  // Rate-limited providers batch 8 files/request to minimize RPM usage.
+  const filesPerRequest = isRateLimited ? 8 : 1;
 
   let progressCount = 0;
 
@@ -296,7 +296,7 @@ export async function summarizeModules(
 
       const response = await withRetry(
         () => (provider as AIProvider).generate(prompt, {
-          maxTokens: 512,
+          maxTokens: 1024,
           temperature: 0.2,
           systemPrompt,
         })
