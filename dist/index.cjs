@@ -697,7 +697,7 @@ async function summarizeModules(options) {
   const {
     providerConfig,
     modules,
-    readFile: readFile5,
+    readFile: readFile4,
     previousCache,
     onProgress,
     concurrency = 10,
@@ -757,7 +757,7 @@ async function summarizeModules(options) {
       const entries = await Promise.all(
         uncached.map(async (mod) => ({
           module: mod,
-          content: await readFile5(mod.filePath)
+          content: await readFile4(mod.filePath)
         }))
       );
       const prompt = buildMultiFileBatchPrompt(entries);
@@ -830,7 +830,7 @@ async function summarizeModules(options) {
     }
     try {
       await limiter.acquire();
-      const content = await readFile5(mod.filePath);
+      const content = await readFile4(mod.filePath);
       if (canBatch && uncachedSymbols.length > 0) {
         const batchPrompt = buildBatchSummaryPrompt(mod, content, uncachedSymbols);
         const response = await withRetry(
@@ -1415,7 +1415,7 @@ __export(ai_insights_exports, {
   enhanceInsightsWithAI: () => enhanceInsightsWithAI
 });
 async function enhanceInsightsWithAI(options) {
-  const { insights, aiProvider, readFile: readFile5, maxInsights = 20, onProgress } = options;
+  const { insights, aiProvider, readFile: readFile4, maxInsights = 20, onProgress } = options;
   const sorted = [...insights].sort(
     (a, b) => (SEVERITY_ORDER[a.severity] ?? 2) - (SEVERITY_ORDER[b.severity] ?? 2)
   );
@@ -1428,7 +1428,7 @@ async function enhanceInsightsWithAI(options) {
       let fileContext = "";
       if (insight.affectedFiles.length > 0) {
         try {
-          const content = await readFile5(insight.affectedFiles[0]);
+          const content = await readFile4(insight.affectedFiles[0]);
           const lines = content.split("\n");
           fileContext = lines.slice(0, 100).join("\n");
         } catch {
@@ -1998,7 +1998,7 @@ function bestChunkBySymbolDensity(content, symbolNames, maxTokens) {
   return selectedLines.join("\n");
 }
 async function buildContext(options) {
-  const { targetModule, topic, tokenBudget, manifest, readFile: readFile5 } = options;
+  const { targetModule, topic, tokenBudget, manifest, readFile: readFile4 } = options;
   const { dependencyGraph, modules } = manifest;
   const scored = [];
   if (targetModule) {
@@ -2089,7 +2089,7 @@ async function buildContext(options) {
   let usedTokens = 0;
   if (targetModule) {
     try {
-      const content = await readFile5(targetModule.filePath);
+      const content = await readFile4(targetModule.filePath);
       const tokens = estimateTokens(content);
       if (tokens <= tokenBudget * 0.4) {
         chunks.push({
@@ -2122,7 +2122,7 @@ async function buildContext(options) {
   for (const { module: mod, score } of scored) {
     if (usedTokens >= tokenBudget) break;
     try {
-      const content = await readFile5(mod.filePath);
+      const content = await readFile4(mod.filePath);
       const tokens = estimateTokens(content);
       const remaining = tokenBudget - usedTokens;
       if (tokens <= remaining) {
@@ -2406,11 +2406,11 @@ var init_validators = __esm({
 
 // src/generators/narrative-engine.ts
 async function generateOverviewNarrative(options) {
-  const { provider, manifest, readFile: readFile5, contextBudget = 8e3 } = options;
+  const { provider, manifest, readFile: readFile4, contextBudget = 8e3 } = options;
   const contextChunks = await buildContext({
     tokenBudget: contextBudget,
     manifest,
-    readFile: readFile5
+    readFile: readFile4
   });
   const moduleList = manifest.modules.map((m) => `- ${m.filePath} (${m.language}, ${m.symbols.length} symbols)`).slice(0, 30).join("\n");
   const pageInstructions = `PROJECT: ${manifest.projectMeta.name}
@@ -2458,7 +2458,7 @@ Do NOT include a title heading (# Overview) \u2014 it will be added by the templ
   return { prose, citations: validated.citations, suggestedDiagrams };
 }
 async function generateGettingStartedNarrative(options) {
-  const { provider, manifest, readFile: readFile5, contextBudget = 6e3 } = options;
+  const { provider, manifest, readFile: readFile4, contextBudget = 6e3 } = options;
   const relevantPatterns = [
     "index.",
     "main.",
@@ -2482,7 +2482,7 @@ async function generateGettingStartedNarrative(options) {
   let usedTokens = 0;
   for (const mod of entryModules.slice(0, 8)) {
     try {
-      const content = await readFile5(mod.filePath);
+      const content = await readFile4(mod.filePath);
       const tokens = estimateTokens(content);
       if (usedTokens + tokens <= contextBudget) {
         contextChunks.push({
@@ -2551,12 +2551,12 @@ Keep it concise \u2014 developers want to get started, not read an essay.`;
   return { prose, citations: validated.citations, suggestedDiagrams: [] };
 }
 async function generateModuleNarrative(module2, options) {
-  const { provider, manifest, readFile: readFile5, contextBudget = 6e3 } = options;
+  const { provider, manifest, readFile: readFile4, contextBudget = 6e3 } = options;
   const contextChunks = await buildContext({
     targetModule: module2,
     tokenBudget: contextBudget,
     manifest,
-    readFile: readFile5
+    readFile: readFile4
   });
   const symbolList = module2.symbols.filter((s) => s.exported).map((s) => `- ${s.kind} ${s.name}${s.signature ? `: ${s.signature}` : ""}`).join("\n");
   const depCount = manifest.dependencyGraph.edges.filter((e) => e.to === module2.filePath).length;
@@ -2610,12 +2610,12 @@ Write for developers who need to understand or modify this code.`;
   return { prose, citations: validated.citations, suggestedDiagrams };
 }
 async function generateArchitectureNarrative(options) {
-  const { provider, manifest, readFile: readFile5, contextBudget = 8e3 } = options;
+  const { provider, manifest, readFile: readFile4, contextBudget = 8e3 } = options;
   const contextChunks = await buildContext({
     topic: "architecture core engine",
     tokenBudget: contextBudget,
     manifest,
-    readFile: readFile5
+    readFile: readFile4
   });
   const { dependencyGraph } = manifest;
   const connectionCounts = /* @__PURE__ */ new Map();
@@ -2984,13 +2984,13 @@ ${meta.entryPoints.map((e) => {
     audience: "developer"
   };
 }
-async function generateOverviewPageNarrative(manifest, config, provider, readFile5, validPagePaths) {
+async function generateOverviewPageNarrative(manifest, config, provider, readFile4, validPagePaths) {
   const basePage = generateOverviewPage(manifest, config);
   try {
     const narrative = await generateOverviewNarrative({
       provider,
       manifest,
-      readFile: readFile5
+      readFile: readFile4
     });
     const repoUrl = config.source.repo.includes("/") ? config.source.repo : void 0;
     const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, config.source.branch, void 0, validPagePaths);
@@ -3155,13 +3155,13 @@ ${meta.entryPoints.map((e) => {
     audience: "developer"
   };
 }
-async function generateGettingStartedPageNarrative(manifest, config, provider, readFile5, validPagePaths) {
+async function generateGettingStartedPageNarrative(manifest, config, provider, readFile4, validPagePaths) {
   const basePage = generateGettingStartedPage(manifest, config);
   try {
     const narrative = await generateGettingStartedNarrative({
       provider,
       manifest,
-      readFile: readFile5
+      readFile: readFile4
     });
     const repoUrl = config.source.repo.includes("/") ? config.source.repo : void 0;
     const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, config.source.branch, void 0, validPagePaths);
@@ -3509,13 +3509,13 @@ graph ${nodes.length > 15 ? "TD" : "LR"}
   }
   return pages;
 }
-async function generateArchitecturePageNarrative(manifest, provider, readFile5, repoUrl, branch, validPagePaths) {
+async function generateArchitecturePageNarrative(manifest, provider, readFile4, repoUrl, branch, validPagePaths) {
   const basePage = generateArchitecturePage(manifest);
   try {
     const narrative = await generateArchitectureNarrative({
       provider,
       manifest,
-      readFile: readFile5
+      readFile: readFile4
     });
     const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, branch, void 0, validPagePaths);
     const diagramSections = narrative.suggestedDiagrams.map((d) => `### ${d.title}
@@ -3846,13 +3846,13 @@ flowchart TD
     audience: "developer"
   };
 }
-async function generateModulePageNarrative(mod, group, ctx, provider, readFile5, validPagePaths) {
+async function generateModulePageNarrative(mod, group, ctx, provider, readFile4, validPagePaths) {
   const basePage = generateModulePage(mod, group, ctx);
   try {
     const narrative = await generateModuleNarrative(mod, {
       provider,
       manifest: ctx.manifest,
-      readFile: readFile5
+      readFile: readFile4
     });
     const repoUrl = ctx.config.source.repo.includes("/") ? ctx.config.source.repo : void 0;
     const currentPagePath = `api/${mod.filePath.replace(/\.[^.]+$/, "")}.md`;
@@ -5969,14 +5969,14 @@ var concept_exports = {};
 __export(concept_exports, {
   generateConceptPage: () => generateConceptPage
 });
-async function generateConceptPage(suggestion, manifest, provider, readFile5, repoUrl, branch, validPagePaths) {
+async function generateConceptPage(suggestion, manifest, provider, readFile4, repoUrl, branch, validPagePaths) {
   const targetModule = suggestion.relatedModules.length > 0 ? manifest.modules.find((m) => m.filePath === suggestion.relatedModules[0]) : void 0;
   const contextChunks = await buildContext({
     targetModule,
     topic: suggestion.title,
     tokenBudget: 6e3,
     manifest,
-    readFile: readFile5
+    readFile: readFile4
   });
   const relatedFileList = suggestion.relatedModules.map((f) => `- \`${f}\``).join("\n");
   const pageInstructions = `CONCEPT: ${suggestion.title}
@@ -7123,39 +7123,301 @@ async function injectQAWidget(outputDir, config, qaApiEndpoint) {
     mode: "client"
   });
   await (0, import_promises4.writeFile)(import_path16.default.join(assetsDir, "qa-widget.js"), widgetJS);
-  let css;
-  try {
-    const cssPath = import_path16.default.resolve(
-      import_path16.default.dirname((0, import_url.fileURLToPath)(import_meta2.url)),
-      "widget.css"
-    );
-    css = await (0, import_promises5.readFile)(cssPath, "utf-8");
-  } catch {
-    css = `
-#docwalk-qa-widget { --dw-accent: var(--md-accent-fg-color, #5de4c7); position: fixed; bottom: 20px; right: 20px; z-index: 9999; }
-#docwalk-qa-widget #dw-qa-toggle { all: unset; width: 56px; height: 56px; border-radius: 50%; background: var(--dw-accent); cursor: pointer; display: flex; align-items: center; justify-content: center; }
-#docwalk-qa-widget #dw-qa-panel { width: 400px; height: 520px; background: var(--md-default-bg-color, #16161a); border: 1px solid var(--md-default-fg-color--lightest, #2a2a32); border-radius: 12px; }
-#docwalk-qa-widget #dw-qa-input { all: unset; box-sizing: border-box; flex: 1; padding: 10px 14px; border: 1px solid var(--md-default-fg-color--lightest, #2a2a32); border-radius: 8px; background: var(--md-default-bg-color, #16161a); color: var(--md-default-fg-color, #e8e6e3); font-size: 13px; }
-#docwalk-qa-widget #dw-qa-send { all: unset; box-sizing: border-box; width: 38px; height: 38px; border-radius: 8px; background: var(--dw-accent); cursor: pointer; display: flex; align-items: center; justify-content: center; }
-`;
-  }
-  await (0, import_promises4.writeFile)(import_path16.default.join(assetsDir, "qa-widget.css"), css);
+  await (0, import_promises4.writeFile)(import_path16.default.join(assetsDir, "qa-widget.css"), WIDGET_CSS);
   return {
     extraCss: ["_docwalk/qa-widget.css"],
     extraJs: ["_docwalk/qa-widget.js"]
   };
 }
-var import_promises4, import_path16, import_promises5, import_url, import_meta2, DEFAULT_QA_ENDPOINT;
+var import_promises4, import_path16, DEFAULT_QA_ENDPOINT, WIDGET_CSS;
 var init_inject = __esm({
   "src/generators/qa-widget/inject.ts"() {
     "use strict";
     import_promises4 = require("fs/promises");
     import_path16 = __toESM(require("path"), 1);
     init_widget();
-    import_promises5 = require("fs/promises");
-    import_url = require("url");
-    import_meta2 = {};
     DEFAULT_QA_ENDPOINT = "https://docwalk-ai-proxy.jonathanrannabargar.workers.dev/v1/qa/stream";
+    WIDGET_CSS = `/* DocWalk Q&A Widget */
+
+#docwalk-qa-widget {
+  --dw-accent: var(--md-accent-fg-color, #5de4c7);
+  --dw-accent-t: var(--md-accent-fg-color--transparent, rgba(93,228,199,0.1));
+  --dw-bg: var(--md-default-bg-color, #16161a);
+  --dw-bg-alt: var(--md-code-bg-color, #1c1c22);
+  --dw-fg: var(--md-default-fg-color, #e8e6e3);
+  --dw-fg-muted: var(--md-default-fg-color--light, #6a6a6e);
+  --dw-border: var(--md-default-fg-color--lightest, #2a2a32);
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9999;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.5;
+}
+
+/* Toggle button */
+#docwalk-qa-widget #dw-qa-toggle {
+  all: unset;
+  box-sizing: border-box;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--dw-accent);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+#docwalk-qa-widget #dw-qa-toggle svg { filter: brightness(0); }
+#docwalk-qa-widget #dw-qa-toggle:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.35);
+}
+
+/* Panel */
+#docwalk-qa-widget #dw-qa-panel {
+  display: none;
+  flex-direction: column;
+  width: 400px;
+  max-width: calc(100vw - 40px);
+  height: 520px;
+  max-height: calc(100vh - 100px);
+  background: var(--dw-bg);
+  border: 1px solid var(--dw-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 48px rgba(0,0,0,0.35);
+  overflow: hidden;
+  color: var(--dw-fg);
+}
+
+/* Header */
+#docwalk-qa-widget #dw-qa-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--dw-bg-alt);
+  border-bottom: 1px solid var(--dw-border);
+}
+#docwalk-qa-widget .dw-qa-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--dw-fg);
+  letter-spacing: -0.01em;
+}
+#docwalk-qa-widget .dw-qa-header-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+#docwalk-qa-widget #dw-qa-new,
+#docwalk-qa-widget #dw-qa-close {
+  all: unset;
+  box-sizing: border-box;
+  color: var(--dw-fg-muted);
+  cursor: pointer;
+  font-size: 18px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+}
+#docwalk-qa-widget #dw-qa-new:hover,
+#docwalk-qa-widget #dw-qa-close:hover {
+  color: var(--dw-fg);
+  background: var(--dw-accent-t);
+}
+
+/* Messages */
+#docwalk-qa-widget #dw-qa-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+#docwalk-qa-widget .dw-qa-msg {
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  line-height: 1.65;
+  max-width: 88%;
+  word-wrap: break-word;
+  animation: dw-qa-fadein 0.2s ease;
+}
+@keyframes dw-qa-fadein {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+#docwalk-qa-widget .dw-qa-user {
+  background: var(--dw-accent);
+  color: #000;
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+  font-weight: 500;
+}
+#docwalk-qa-widget .dw-qa-bot {
+  background: var(--dw-bg-alt);
+  color: var(--dw-fg);
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+  border: 1px solid var(--dw-border);
+}
+#docwalk-qa-widget .dw-qa-bot strong { color: var(--dw-fg); }
+#docwalk-qa-widget .dw-qa-bot a { color: var(--dw-accent); text-decoration: none; }
+#docwalk-qa-widget .dw-qa-bot a:hover { text-decoration: underline; }
+
+/* Streaming cursor */
+#docwalk-qa-widget .dw-qa-streaming .dw-qa-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 14px;
+  background: var(--dw-accent);
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: dw-qa-blink 0.8s infinite;
+}
+@keyframes dw-qa-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+/* Error */
+#docwalk-qa-widget .dw-qa-error {
+  border-color: #ef4444 !important;
+  color: #fca5a5 !important;
+}
+
+/* Code in bot messages */
+#docwalk-qa-widget .dw-qa-code {
+  background: var(--md-code-bg-color, #111115);
+  border: 1px solid var(--dw-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 8px 0;
+  font-family: var(--md-code-font-family, 'Fira Code', monospace);
+  font-size: 12px;
+  overflow-x: auto;
+  white-space: pre;
+  color: var(--dw-fg);
+}
+#docwalk-qa-widget .dw-qa-inline-code {
+  background: var(--dw-accent-t);
+  color: var(--dw-accent);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--md-code-font-family, 'Fira Code', monospace);
+  font-size: 0.88em;
+}
+
+/* Citations */
+#docwalk-qa-widget .dw-qa-citations {
+  padding: 8px 14px;
+  font-size: 11.5px;
+  color: var(--dw-fg-muted);
+  animation: dw-qa-fadein 0.3s ease;
+}
+#docwalk-qa-widget .dw-qa-citations-label {
+  font-weight: 600;
+  color: var(--dw-fg);
+}
+#docwalk-qa-widget .dw-qa-citation-link {
+  color: var(--dw-accent);
+  text-decoration: none;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+#docwalk-qa-widget .dw-qa-citation-link:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* Input area */
+#docwalk-qa-widget #dw-qa-input-area {
+  display: flex;
+  padding: 12px;
+  gap: 8px;
+  border-top: 1px solid var(--dw-border);
+  background: var(--dw-bg-alt);
+  align-items: center;
+}
+#docwalk-qa-widget #dw-qa-input {
+  all: unset;
+  box-sizing: border-box;
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid var(--dw-border);
+  border-radius: 8px;
+  background: var(--dw-bg);
+  color: var(--dw-fg);
+  font-size: 13.5px;
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  min-width: 0;
+}
+#docwalk-qa-widget #dw-qa-input:focus {
+  border-color: var(--dw-accent);
+  box-shadow: 0 0 0 2px var(--dw-accent-t);
+}
+#docwalk-qa-widget #dw-qa-input::placeholder {
+  color: var(--dw-fg-muted);
+}
+#docwalk-qa-widget #dw-qa-input:disabled {
+  opacity: 0.5;
+}
+#docwalk-qa-widget #dw-qa-send {
+  all: unset;
+  box-sizing: border-box;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: var(--dw-accent);
+  color: #000;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s, transform 0.15s;
+  flex-shrink: 0;
+}
+#docwalk-qa-widget #dw-qa-send:hover {
+  opacity: 0.85;
+  transform: scale(1.04);
+}
+#docwalk-qa-widget #dw-qa-send:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Scrollbar */
+#docwalk-qa-widget #dw-qa-messages::-webkit-scrollbar { width: 4px; }
+#docwalk-qa-widget #dw-qa-messages::-webkit-scrollbar-track { background: transparent; }
+#docwalk-qa-widget #dw-qa-messages::-webkit-scrollbar-thumb {
+  background: var(--dw-border);
+  border-radius: 2px;
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  #docwalk-qa-widget { bottom: 10px; right: 10px; left: 10px; }
+  #docwalk-qa-widget #dw-qa-panel {
+    width: calc(100vw - 20px);
+    height: calc(100vh - 80px);
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    left: 10px;
+  }
+  #docwalk-qa-widget #dw-qa-toggle { width: 48px; height: 48px; }
+}`;
   }
 });
 
@@ -12212,7 +12474,7 @@ async function saveManifest(manifestPath, manifest) {
 }
 
 // src/generators/mkdocs.ts
-var import_promises6 = require("fs/promises");
+var import_promises5 = require("fs/promises");
 var import_path17 = __toESM(require("path"), 1);
 
 // src/generators/theme-presets.ts
@@ -13248,15 +13510,15 @@ title: ${name}
   }
 }
 async function generateDocs(options) {
-  const { manifest, config, outputDir, onProgress, hooks, readFile: readFile5, tryMode } = options;
+  const { manifest, config, outputDir, onProgress, hooks, readFile: readFile4, tryMode } = options;
   await executeHooks("pre_build", hooks, { cwd: outputDir });
   const docsDir = import_path17.default.join(outputDir, "docs");
-  await (0, import_promises6.mkdir)(docsDir, { recursive: true });
+  await (0, import_promises5.mkdir)(docsDir, { recursive: true });
   let aiProvider;
   if (config.analysis.ai_summaries && config.analysis.ai_provider) {
     aiProvider = createProvider(config.analysis.ai_provider);
   }
-  const useNarrative = !!(config.analysis.ai_narrative && aiProvider && readFile5);
+  const useNarrative = !!(config.analysis.ai_narrative && aiProvider && readFile4);
   let structurePlan;
   if (config.analysis.ai_structure && aiProvider) {
     try {
@@ -13278,14 +13540,14 @@ async function generateDocs(options) {
     narrativePromises.push(
       safeGenerateAsync(
         "Overview",
-        () => generateOverviewPageNarrative(manifest, config, aiProvider, readFile5, validPagePaths),
+        () => generateOverviewPageNarrative(manifest, config, aiProvider, readFile4, validPagePaths),
         onProgress
       )
     );
     narrativePromises.push(
       safeGenerateAsync(
         "Getting Started",
-        () => generateGettingStartedPageNarrative(manifest, config, aiProvider, readFile5, validPagePaths),
+        () => generateGettingStartedPageNarrative(manifest, config, aiProvider, readFile4, validPagePaths),
         onProgress
       )
     );
@@ -13294,7 +13556,7 @@ async function generateDocs(options) {
       narrativePromises.push(
         safeGenerateAsync(
           "Architecture",
-          () => generateArchitecturePageNarrative(manifest, aiProvider, readFile5, repoUrl, config.source.branch, validPagePaths),
+          () => generateArchitecturePageNarrative(manifest, aiProvider, readFile4, repoUrl, config.source.branch, validPagePaths),
           onProgress
         )
       );
@@ -13347,7 +13609,7 @@ async function generateDocs(options) {
       if (narrativeModulePaths.has(mod.filePath)) {
         const page = await safeGenerateAsync(
           `Module narrative: ${mod.filePath}`,
-          () => generateModulePageNarrative(mod, group, modulePageCtx, aiProvider, readFile5, validPagePaths),
+          () => generateModulePageNarrative(mod, group, modulePageCtx, aiProvider, readFile4, validPagePaths),
           onProgress
         );
         pages.push(page);
@@ -13468,14 +13730,14 @@ async function generateDocs(options) {
     const insightsResult = safeGenerate("Insights", () => generateInsightsPage(manifest.insights, config), onProgress);
     pages.push(...Array.isArray(insightsResult) ? insightsResult : [insightsResult]);
   }
-  if (structurePlan && structurePlan.conceptPages.length > 0 && aiProvider && readFile5) {
+  if (structurePlan && structurePlan.conceptPages.length > 0 && aiProvider && readFile4) {
     onProgress?.("Generating concept pages...");
     const { generateConceptPage: generateConceptPage2 } = await Promise.resolve().then(() => (init_concept(), concept_exports));
     const repoUrl = config.source.repo.includes("/") ? config.source.repo : void 0;
     for (const suggestion of structurePlan.conceptPages) {
       const page = await safeGenerateAsync(
         suggestion.title,
-        () => generateConceptPage2(suggestion, manifest, aiProvider, readFile5, repoUrl, config.source.branch, validPagePaths),
+        () => generateConceptPage2(suggestion, manifest, aiProvider, readFile4, repoUrl, config.source.branch, validPagePaths),
         onProgress
       );
       pages.push(page);
@@ -13493,8 +13755,8 @@ async function generateDocs(options) {
   }
   for (const page of pages) {
     const pagePath = import_path17.default.join(docsDir, page.path);
-    await (0, import_promises6.mkdir)(import_path17.default.dirname(pagePath), { recursive: true });
-    await (0, import_promises6.writeFile)(pagePath, page.content);
+    await (0, import_promises5.mkdir)(import_path17.default.dirname(pagePath), { recursive: true });
+    await (0, import_promises5.writeFile)(pagePath, page.content);
     onProgress?.(`Written: ${page.path}`);
   }
   let qaWidgetAssets;
@@ -13530,12 +13792,12 @@ async function generateDocs(options) {
         chunkTargetSize: config.analysis.qa_config.chunk_target_size
       });
       const qaDir = import_path17.default.join(docsDir, "_docwalk");
-      await (0, import_promises6.mkdir)(qaDir, { recursive: true });
-      await (0, import_promises6.writeFile)(
+      await (0, import_promises5.mkdir)(qaDir, { recursive: true });
+      await (0, import_promises5.writeFile)(
         import_path17.default.join(qaDir, "qa-index.json"),
         JSON.stringify(qaIndex.serialized)
       );
-      await (0, import_promises6.writeFile)(
+      await (0, import_promises5.writeFile)(
         import_path17.default.join(qaDir, "qa-search.json"),
         qaIndex.textIndex
       );
@@ -13550,27 +13812,27 @@ async function generateDocs(options) {
   const preset = resolvePreset(config.theme.preset ?? "developer");
   if (preset) {
     const stylesDir = import_path17.default.join(docsDir, "stylesheets");
-    await (0, import_promises6.mkdir)(stylesDir, { recursive: true });
-    await (0, import_promises6.writeFile)(import_path17.default.join(stylesDir, "preset.css"), preset.customCss);
+    await (0, import_promises5.mkdir)(stylesDir, { recursive: true });
+    await (0, import_promises5.writeFile)(import_path17.default.join(stylesDir, "preset.css"), preset.customCss);
     onProgress?.("Written: stylesheets/preset.css");
     if (preset.customJs) {
       const jsDir = import_path17.default.join(docsDir, "javascripts");
-      await (0, import_promises6.mkdir)(jsDir, { recursive: true });
-      await (0, import_promises6.writeFile)(import_path17.default.join(jsDir, "preset.js"), preset.customJs);
+      await (0, import_promises5.mkdir)(jsDir, { recursive: true });
+      await (0, import_promises5.writeFile)(import_path17.default.join(jsDir, "preset.js"), preset.customJs);
       onProgress?.("Written: javascripts/preset.js");
     }
   }
   {
     const jsDir = import_path17.default.join(docsDir, "javascripts");
-    await (0, import_promises6.mkdir)(jsDir, { recursive: true });
-    await (0, import_promises6.writeFile)(import_path17.default.join(jsDir, "mermaid-zoom.js"), MERMAID_ZOOM_JS);
+    await (0, import_promises5.mkdir)(jsDir, { recursive: true });
+    await (0, import_promises5.writeFile)(import_path17.default.join(jsDir, "mermaid-zoom.js"), MERMAID_ZOOM_JS);
     onProgress?.("Written: javascripts/mermaid-zoom.js");
   }
   onProgress?.("Generating mkdocs.yml...");
   const audienceSeparation = resolveAudienceSeparation(config, manifest);
   const navigation = buildNavigation(pages, audienceSeparation);
   const mkdocsYml = generateMkdocsConfig(manifest, config, navigation, qaWidgetAssets);
-  await (0, import_promises6.writeFile)(import_path17.default.join(outputDir, "mkdocs.yml"), mkdocsYml);
+  await (0, import_promises5.writeFile)(import_path17.default.join(outputDir, "mkdocs.yml"), mkdocsYml);
   await executeHooks("post_build", hooks, { cwd: outputDir });
   onProgress?.(`Documentation generated: ${pages.length} pages`);
 }
@@ -13975,7 +14237,7 @@ async function runTool(command, args, options) {
 }
 
 // src/deploy/providers/github-pages.ts
-var import_promises7 = require("fs/promises");
+var import_promises6 = require("fs/promises");
 var import_path18 = __toESM(require("path"), 1);
 var GitHubPagesProvider = class {
   id = "gh-pages";
@@ -14001,7 +14263,7 @@ var GitHubPagesProvider = class {
   async deploy(buildDir, deploy, domain) {
     if (domain.custom) {
       const cnamePath = import_path18.default.join(buildDir, "CNAME");
-      await (0, import_promises7.writeFile)(cnamePath, domain.custom);
+      await (0, import_promises6.writeFile)(cnamePath, domain.custom);
     }
     return {
       url: domain.custom ? `https://${domain.custom}${domain.base_path}` : `https://<username>.github.io/<repo>${domain.base_path}`,
@@ -14452,7 +14714,7 @@ jobs:
 };
 
 // src/deploy/providers/vercel.ts
-var import_promises8 = require("fs/promises");
+var import_promises7 = require("fs/promises");
 var import_path19 = __toESM(require("path"), 1);
 var VercelProvider = class {
   id = "vercel";
@@ -14489,7 +14751,7 @@ var VercelProvider = class {
         { src: "/(.*)", dest: "/index.html" }
       ]
     };
-    await (0, import_promises8.writeFile)(
+    await (0, import_promises7.writeFile)(
       import_path19.default.join(buildDir, "vercel.json"),
       JSON.stringify(vercelConfig, null, 2)
     );

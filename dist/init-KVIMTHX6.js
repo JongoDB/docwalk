@@ -225,7 +225,7 @@ async function quickStartTrack(options) {
     blank();
     const { clearConfigCache } = await import("./loader-XGUECGGC.js");
     clearConfigCache();
-    const { generateCommand } = await import("./generate-N3WPCPH2.js");
+    const { generateCommand } = await import("./generate-GZA426U6.js");
     await generateCommand({ output: "docwalk-output" });
   } else {
     blank();
