@@ -129,7 +129,7 @@ export class SummaryCache {
 async function withRetry<T>(
   fn: () => Promise<T>,
   maxRetries = 3,
-  baseDelayMs = 500
+  baseDelayMs = 3000
 ): Promise<T> {
   let lastError: unknown;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -143,7 +143,7 @@ async function withRetry<T>(
         || message.toLowerCase().includes("quota")
         || message.toLowerCase().includes("resource_exhausted");
       if (!isRateLimit || attempt === maxRetries) throw err;
-      // Exponential backoff: 500ms, 1s, 2s
+      // Exponential backoff: 3s, 6s, 12s — long enough for rate windows
       const delay = baseDelayMs * Math.pow(2, attempt);
       await new Promise((r) => setTimeout(r, delay));
     }
@@ -441,13 +441,19 @@ export async function summarizeModules(
   let updatedModules: ModuleInfo[];
 
   if (isRateLimited && canBatch && filesPerRequest > 1) {
-    // Multi-file batching: group modules into chunks, process concurrently
+    // Multi-file batching: process sequentially to respect rate limits.
+    // Each batch packs N files into one API call; sequential ensures
+    // we never exceed the provider's RPM window.
     const chunks: ModuleInfo[][] = [];
     for (let i = 0; i < modules.length; i += filesPerRequest) {
       chunks.push(modules.slice(i, i + filesPerRequest));
     }
-    const batchResults = await Promise.all(chunks.map(processMultiFileBatch));
-    updatedModules = batchResults.flat();
+    const allResults: ModuleInfo[] = [];
+    for (const chunk of chunks) {
+      const batchResults = await processMultiFileBatch(chunk);
+      allResults.push(...batchResults);
+    }
+    updatedModules = allResults;
   } else {
     // Single-file: parallel with rate limiter
     updatedModules = await Promise.all(modules.map(processModule));
