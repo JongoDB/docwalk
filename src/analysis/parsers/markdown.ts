@@ -77,7 +77,13 @@ export class MarkdownParser implements LanguageParser {
       // We want a real sentence, not a title echo
       if (stripped.length < 20 && !stripped.includes(".")) continue;
 
-      summary = stripped.slice(0, 200);
+      if (stripped.length <= 300) {
+        summary = stripped;
+      } else {
+        // Truncate at word boundary near 300 chars
+        const cut = stripped.lastIndexOf(" ", 300);
+        summary = stripped.slice(0, cut > 200 ? cut : 300) + "...";
+      }
       break;
     }
 
