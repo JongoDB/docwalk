@@ -216,10 +216,14 @@ export async function generateModuleNarrative(
     .map((e) => e.from)
     .slice(0, 5);
 
+  const imports = module.imports.map((imp) => imp.source).slice(0, 10);
+  const hasManyDeps = imports.length >= 3 || depCount >= 3;
+
   const prompt = `You are an expert technical writer documenting a specific module.
 
 FILE: ${module.filePath}
 LANGUAGE: ${module.language}
+IMPORTS: ${imports.join(", ") || "(none)"}
 IMPORTED BY: ${depCount} modules${usedBy.length > 0 ? ` (${usedBy.join(", ")})` : ""}
 
 EXPORTED SYMBOLS:
@@ -230,23 +234,31 @@ ${contextText}
 
 Write a clear, developer-focused module description following this structure:
 
-1. **Purpose** (1-2 sentences): What this module does and why it exists.
+1. **Architectural framing** (first sentence): Start by stating this module's role in the system architecture — e.g., "Acts as the bridge between X and Y" or "Serves as the single entry point for Z".
 
 2. **How it works**: Explain the key logic, algorithms, or patterns. If there are multiple exported symbols, describe how they relate to each other. Reference specific function/class names.
 
-3. **Usage context**: How other modules use this one. What calls into it and why.
+3. **Usage context**: How other modules use this one. What calls into it and why. Include a brief code example showing typical usage (2-3 lines, using actual exported functions/classes).
 
 4. **Key implementation details**: Important trade-offs, error handling strategies, or performance considerations that a developer modifying this code should know.
+${hasManyDeps ? `
+5. **Dependency diagram**: Include a small Mermaid diagram showing this module's key relationships:
+\`\`\`mermaid
+flowchart TD
+    A[caller] --> B[this module] --> C[dependency]
+\`\`\`
+Keep to 5-8 nodes max, use \`flowchart TD\` orientation.` : ""}
 
 RULES:
-- Cite sources with [file:line] notation (e.g., [${module.filePath}:42])
+- Cite sources with [file:line] notation (e.g., [${module.filePath}:42]) for EVERY significant claim
 - Be specific — use actual function/class/type names from the code
 - Do NOT include Markdown headings (## or #) — this is inserted into an existing page
-- Keep it concise: 2-4 focused paragraphs, not a wall of text
+- NEVER say "This module provides..." or "This file contains..." — state the architectural role directly
+- Write 3-5 focused paragraphs with code examples and citations
 - Write for developers who need to understand or modify this code`;
 
   const prose = await provider.generate(prompt, {
-    maxTokens: 1024,
+    maxTokens: 1536,
     temperature: 0.3,
     systemPrompt: "You are a technical documentation writer. Be precise and reference specific code.",
   });

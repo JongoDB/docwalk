@@ -160,6 +160,9 @@ export const AnalysisSchema = z.object({
   /** Enable AI-generated narrative prose on pages (requires AI provider) */
   ai_narrative: z.boolean().default(false),
 
+  /** Max number of modules to generate full narrative descriptions for (most-connected first) */
+  ai_narrative_top_n: z.number().int().positive().default(10),
+
   /** Enable AI-generated diagrams (sequence, flowcharts) */
   ai_diagrams: z.boolean().default(false),
 

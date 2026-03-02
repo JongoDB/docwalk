@@ -18,7 +18,6 @@ import { generateDocs } from "../../generators/mkdocs.js";
 import { resolveApiKey } from "../../analysis/providers/index.js";
 import { log, header, blank, setVerbose } from "../../utils/logger.js";
 import { resolveRepoRoot } from "../../utils/index.js";
-import { saveProjectApiKey } from "../../utils/secrets.js";
 import { runAISetup } from "../flows/ai-setup.js";
 import simpleGit from "simple-git";
 
@@ -75,7 +74,7 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
 
   log("success", `Config loaded from ${chalk.dim(filepath)}`);
 
-  // ── Apply --theme / --layout overrides ──────────────────────────────────
+  // ── Apply CLI flag overrides ──────────────────────────────────────────
   if (options.theme) {
     config.theme.preset = options.theme;
     log("info", `Theme preset: ${chalk.bold(options.theme)}`);
@@ -84,8 +83,6 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
     config.theme.layout = options.layout as "tabs" | "sidebar" | "tabs-sticky";
     log("info", `Layout: ${chalk.bold(options.layout)}`);
   }
-
-  // ── Apply --ai flag overrides ─────────────────────────────────────────
   if (options.ai) {
     config.analysis.ai_summaries = true;
     config.analysis.ai_narrative = true;
@@ -108,7 +105,70 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
     }
   }
 
-  // ── Interactive AI key prompt when missing ────────────────────────────
+  // ── Interactive prompts (TTY only, no flags, not try-mode) ────────────
+  const isInteractive = process.stdout.isTTY && !options.tryMode;
+
+  const hasAnyFlag = !!(options.theme || options.layout || options.ai);
+
+  if (isInteractive && !hasAnyFlag) {
+    blank();
+    log("info", "Customize your documentation (or press Enter for defaults):");
+    blank();
+
+    // Theme preset
+    const { theme: chosenTheme } = await inquirer.prompt([
+      {
+        type: "list",
+        name: "theme",
+        message: "Theme preset:",
+        default: config.theme.preset || "developer",
+        choices: [
+          { name: "Developer    — dark-first, code-dense, teal accents", value: "developer" },
+          { name: "Corporate    — clean, professional, light mode", value: "corporate" },
+          { name: "Startup      — vibrant gradients, modern feel", value: "startup" },
+          { name: "Minimal      — reading-focused, no distractions", value: "minimal" },
+        ],
+      },
+    ]);
+    config.theme.preset = chosenTheme;
+
+    // Layout
+    const { layout: chosenLayout } = await inquirer.prompt([
+      {
+        type: "list",
+        name: "layout",
+        message: "Navigation layout:",
+        default: config.theme.layout || "tabs",
+        choices: [
+          { name: "Tabs          — top navigation bar with section tabs", value: "tabs" },
+          { name: "Tabs (sticky) — tabs stay visible while scrolling", value: "tabs-sticky" },
+          { name: "Sidebar       — all navigation in left sidebar", value: "sidebar" },
+        ],
+      },
+    ]);
+    config.theme.layout = chosenLayout;
+
+    // AI setup — skip if already configured in docwalk.config.yml
+    if (!config.analysis.ai_summaries) {
+      const aiResult = await runAISetup();
+      if (aiResult.enabled) {
+        config.analysis.ai_summaries = true;
+        config.analysis.ai_narrative = true;
+        config.analysis.ai_diagrams = true;
+        config.analysis.ai_provider = {
+          name: aiResult.providerName as any,
+          model: aiResult.model,
+          api_key_env: "DOCWALK_AI_KEY",
+        };
+      }
+    } else {
+      log("info", `AI: ${chalk.green("enabled")} (from config)`);
+    }
+
+    blank();
+  }
+
+  // ── Resolve AI key for non-interactive or flag-driven flows ───────────
   const aiProvider = config.analysis.ai_provider;
   const aiEnabled = config.analysis.ai_summaries && aiProvider;
 
@@ -118,42 +178,14 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
     const needsKey = provName !== "ollama" && provName !== "local" && provName !== "docwalk-proxy";
 
     if (needsKey && !resolveApiKey(provName, keyEnv)) {
-      blank();
-      const envVarName = keyEnv || provName.toUpperCase() + "_API_KEY";
-      const { action } = await inquirer.prompt([
-        {
-          type: "list",
-          name: "action",
-          message: `AI is enabled but no ${envVarName} found:`,
-          choices: [
-            { name: "Enter API key now", value: "enter" },
-            { name: "Use DocWalk free AI (limited to 2 generations)", value: "proxy" },
-            { name: "Continue without AI", value: "skip" },
-          ],
-        },
-      ]);
-
-      if (action === "enter") {
-        const { apiKey } = await inquirer.prompt([
-          {
-            type: "password",
-            name: "apiKey",
-            message: `${envVarName}:`,
-            mask: "*",
-            validate: (input: string) => input.length > 0 || "API key is required",
-          },
-        ]);
-
-        // Set in process.env so it's available for this run
-        process.env[envVarName] = apiKey;
-
-        // Persist to .docwalk/.env
-        await saveProjectApiKey(provName, apiKey);
-        log("success", `API key saved to ${chalk.dim(".docwalk/.env")}`);
-      } else if (action === "proxy") {
+      if (isInteractive) {
+        // runAISetup already handled key entry — if we're here, key is still missing
+        log("info", "No API key available — falling back to DocWalk free AI");
         aiProvider!.name = "docwalk-proxy";
       } else {
+        // Non-interactive (CI) — disable AI silently
         config.analysis.ai_summaries = false;
+        config.analysis.ai_narrative = false;
       }
     }
   }

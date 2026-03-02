@@ -33,6 +33,7 @@ import {
   generateArchitecturePage,
   generateTieredArchitecturePages,
   generateModulePage,
+  generateModulePageNarrative,
   generateConfigurationPage,
   generateTypesPage,
   generateDependenciesPage,
@@ -313,12 +314,45 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
   const modulePageCtx: ModulePageContext = { config, manifest, symbolPageMap };
 
   // API Reference pages — one per module, grouped logically
+  // Top modules (by connection count) get full AI narrative treatment
   onProgress?.("Generating API reference pages...");
   const codeModules = manifest.modules.filter(shouldGenerateModulePage);
   const modulesByGroup = groupModulesLogically(codeModules);
+
+  // Identify top modules for narrative generation
+  const narrativeModulePaths = new Set<string>();
+  if (useNarrative && aiProvider) {
+    const maxNarrative = config.analysis.ai_narrative_top_n ?? 10;
+    const connectionCounts = new Map<string, number>();
+    for (const edge of manifest.dependencyGraph.edges) {
+      connectionCounts.set(edge.from, (connectionCounts.get(edge.from) ?? 0) + 1);
+      connectionCounts.set(edge.to, (connectionCounts.get(edge.to) ?? 0) + 1);
+    }
+    const ranked = codeModules
+      .map((m) => ({ path: m.filePath, count: connectionCounts.get(m.filePath) ?? 0 }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, maxNarrative);
+    for (const r of ranked) {
+      narrativeModulePaths.add(r.path);
+    }
+    if (narrativeModulePaths.size > 0) {
+      onProgress?.(`Generating AI narratives for top ${narrativeModulePaths.size} modules...`);
+    }
+  }
+
+  // Generate narrative pages sequentially (LLM calls), non-narrative in parallel
   for (const [group, modules] of Object.entries(modulesByGroup)) {
     for (const mod of modules) {
-      pages.push(generateModulePage(mod, group, modulePageCtx));
+      if (narrativeModulePaths.has(mod.filePath)) {
+        const page = await safeGenerateAsync(
+          `Module narrative: ${mod.filePath}`,
+          () => generateModulePageNarrative(mod, group, modulePageCtx, aiProvider!, readFile!),
+          onProgress
+        );
+        pages.push(page);
+      } else {
+        pages.push(generateModulePage(mod, group, modulePageCtx));
+      }
     }
   }
 

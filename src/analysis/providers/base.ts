@@ -110,7 +110,21 @@ export interface BatchSummaryResult {
  * avoid counting these tokens against per-minute limits.
  */
 export function buildBatchSystemPrompt(): string {
-  return `You summarize source code files for a documentation site. Respond ONLY with valid JSON — no markdown fences, no explanation. For the module summary, state what it does and its role in 2-3 sentences. For each symbol, state what it does in 1 sentence.`;
+  return `You summarize source code files for a developer documentation site. Respond ONLY with valid JSON — no markdown fences, no explanation.
+
+Module summaries must be 3-4 sentences: state the module's architectural role, name its key exports, and explain how it connects to the broader system.
+
+Symbol summaries must be 1 sentence stating what the symbol does and when a developer would use it.
+
+ANTI-PATTERNS — never write:
+- "This module provides..." or "This file contains..."
+- "A utility for..." or "Helper functions for..."
+- Generic descriptions that could apply to any module
+
+INSTEAD — always:
+- State the architectural role: "Orchestrates the X pipeline by..."
+- Name actual exports: "Exposes createProvider() and resolveApiKey() for..."
+- Reference connected modules: "Consumed by the CLI layer to..."`;
 }
 
 /**
@@ -126,7 +140,7 @@ export function buildBatchSummaryPrompt(
   fileContent: string,
   symbols: Symbol[]
 ): string {
-  const truncated = fileContent.split("\n").slice(0, 80).join("\n");
+  const truncated = fileContent.split("\n").slice(0, 120).join("\n");
 
   const symbolList = symbols
     .map((s) => {
@@ -136,7 +150,14 @@ export function buildBatchSummaryPrompt(
     })
     .join("\n");
 
+  // Include import list for dependency context (~5 tokens each)
+  const importList = module.imports
+    .map((imp) => imp.source)
+    .slice(0, 15)
+    .join(", ");
+
   return `File: ${module.filePath} (${module.language}, ${module.lineCount} lines)
+${importList ? `Imports: ${importList}` : ""}
 
 Source:
 \`\`\`
@@ -144,7 +165,7 @@ ${truncated}
 \`\`\`
 ${symbols.length > 0 ? `\nExported symbols:\n${symbolList}\n` : ""}
 Respond with this exact JSON structure:
-{"module":"2-3 sentence file summary"${symbols.map((s) => `,"${s.name}":"1 sentence summary"`).join("")}}`;
+{"module":"3-4 sentence summary stating purpose, key exports, and architectural role"${symbols.map((s) => `,"${s.name}":"1 sentence summary"`).join("")}}`;
 }
 
 /**
@@ -199,7 +220,7 @@ ${truncated}
 \`\`\``;
   }).join("\n\n");
 
-  const keys = entries.map((e) => `"${e.module.filePath}":"2-3 sentence summary"`).join(",");
+  const keys = entries.map((e) => `"${e.module.filePath}":"3-4 sentence summary stating purpose, key exports, and architectural role"`).join(",");
 
   return `${fileSections}
 
