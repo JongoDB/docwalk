@@ -2753,14 +2753,24 @@
       }
 
       // Dispatch succeeded — mark as used and start polling
+      const fileCounts = data.file_counts;
+      const sourceFiles = fileCounts ? fileCounts.source : 0;
+      const fileLabel = sourceFiles > 0 ? ` (~${sourceFiles} source files)` : '';
       progressBar.style.width = '25%';
-      progressLabel.textContent = 'Build dispatched. Analyzing codebase...';
+      progressLabel.textContent = `Build dispatched. Analyzing codebase${fileLabel}...`;
       btn.textContent = 'Building...';
 
       const resultUrl = data.result_url;
       markTryUsed(data.slug, resultUrl);
       resultLink.href = resultUrl;
       resultLink.textContent = resultUrl;
+
+      // Update note with file count and time estimate
+      const noteEl = document.getElementById('try-note');
+      if (sourceFiles > 0 && noteEl) {
+        const estMin = Math.ceil((90 + sourceFiles * 1.0) / 60);
+        noteEl.textContent = `Analyzing ${sourceFiles} source files with AI. Estimated time: ~${estMin} minute${estMin > 1 ? 's' : ''}.`;
+      }
 
       // Poll for real progress from GitHub Actions via /status/:slug
       // Pass dispatch timestamp so the worker can match the correct run
@@ -2793,22 +2803,54 @@
 
       // Sub-phases for "Generate documentation" (the longest step)
       // Cycle through these while stuck on that step to show activity
-      const genSubPhases = [
-        'Scanning source files...',
-        'Parsing AST & extracting symbols...',
-        'Writing AI summaries for each module...',
-        'Generating narrative pages (overview, architecture)...',
-        'Generating API reference pages...',
-        'Generating configuration & types pages...',
-        'Generating end-user documentation...',
-        'Generating diagrams & insights...',
-        'Building navigation tree...',
-      ];
+      const genSubPhases = sourceFiles > 0
+        ? [
+            `Scanning ${sourceFiles} source files...`,
+            `Parsing AST & extracting symbols from ${sourceFiles} files...`,
+            `Writing AI summaries (up to 50 of ${sourceFiles} modules)...`,
+            'Generating narrative pages (overview, architecture)...',
+            'Generating API reference pages...',
+            'Generating configuration & types pages...',
+            'Generating end-user documentation...',
+            'Generating diagrams & insights...',
+            'Building navigation tree...',
+          ]
+        : [
+            'Scanning source files...',
+            'Parsing AST & extracting symbols...',
+            'Writing AI summaries for each module...',
+            'Generating narrative pages (overview, architecture)...',
+            'Generating API reference pages...',
+            'Generating configuration & types pages...',
+            'Generating end-user documentation...',
+            'Generating diagrams & insights...',
+            'Building navigation tree...',
+          ];
       let genSubIndex = 0;
       let lastStepName = '';
       let stuckOnStepCount = 0;
+      // Track file counts from status endpoint (may arrive after dispatch)
+      let latestSourceFiles = sourceFiles;
+
+      // Estimate total build time based on file count.
+      // Baseline: ~90s for setup + ~1s per source file for AI analysis.
+      const estimatedTotalSec = sourceFiles > 0
+        ? Math.round(90 + sourceFiles * 1.0)
+        : 0;
 
       function formatEta(elapsedSec, pct) {
+        // Prefer file-count-based estimate when available
+        if (estimatedTotalSec > 0 && pct > 5 && pct < 95) {
+          // Blend: weight file-based estimate early, step-based later
+          const stepEstimate = elapsedSec / (pct / 100);
+          const blendWeight = Math.min(pct / 50, 1); // step-based grows from 0→1 by 50%
+          const blended = estimatedTotalSec * (1 - blendWeight) + stepEstimate * blendWeight;
+          const remaining = Math.max(0, Math.round(blended - elapsedSec));
+          if (remaining < 10) return ' — almost done';
+          if (remaining < 60) return ` — ~${remaining}s remaining`;
+          const mins = Math.ceil(remaining / 60);
+          return ` — ~${mins} min remaining`;
+        }
         if (pct <= 5 || pct >= 95) return '';
         const totalEstimate = elapsedSec / (pct / 100);
         const remaining = Math.max(0, Math.round(totalEstimate - elapsedSec));
@@ -2845,6 +2887,11 @@
           const statusRes = await fetch(`${PROXY_URL}/status/${slug}?since=${dispatchedAt}`);
           if (statusRes.ok) {
             const status = await statusRes.json();
+
+            // Pick up file counts from status endpoint if we didn't get them at dispatch
+            if (status.file_counts && status.file_counts.source > 0 && !latestSourceFiles) {
+              latestSourceFiles = status.file_counts.source;
+            }
 
             if (status.steps_total > 0) {
               const pct = Math.round((status.steps_completed / status.steps_total) * 100);

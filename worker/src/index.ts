@@ -21,6 +21,72 @@ interface Env {
   WORKFLOW_FILE: string;
 }
 
+// Source file extensions DocWalk analyzes (matches DEFAULT_INCLUDES in init.ts)
+const SOURCE_EXTENSIONS = new Set([
+  "ts", "tsx", "js", "jsx", "py", "go", "rs", "java", "rb", "php",
+  "cs", "c", "h", "cpp", "hpp", "cc", "cxx", "swift", "kt", "kts", "scala",
+  "sh", "bash", "yaml", "yml", "tf", "hcl", "md", "json", "toml", "xml",
+  "sql", "dockerfile",
+]);
+
+// Directories to skip when counting (matches DEFAULT_EXCLUDES)
+const SKIP_DIRS = new Set([
+  "node_modules", "dist", "build", "out", ".git", ".next", "vendor",
+  "__pycache__", "venv", ".venv", "target", "coverage", ".docwalk",
+  "site", "test", "tests", "__tests__",
+]);
+
+/**
+ * Count source files in a GitHub repo using the git trees API.
+ * Returns the count of files matching DocWalk's default include patterns.
+ */
+async function countRepoFiles(
+  owner: string,
+  repo: string,
+  pat: string,
+  branch?: string,
+): Promise<{ total: number; source: number }> {
+  try {
+    const ref = branch || "HEAD";
+    const res = await ghApi(
+      `/repos/${owner}/${repo}/git/trees/${ref}?recursive=1`,
+      pat,
+    );
+    if (!res.ok) return { total: 0, source: 0 };
+
+    const data = (await res.json()) as {
+      tree: Array<{ path: string; type: string }>;
+      truncated: boolean;
+    };
+
+    let total = 0;
+    let source = 0;
+
+    for (const entry of data.tree) {
+      if (entry.type !== "blob") continue;
+      total++;
+
+      // Skip excluded directories
+      const parts = entry.path.split("/");
+      if (parts.some((p) => SKIP_DIRS.has(p))) continue;
+
+      // Check extension
+      const ext = entry.path.split(".").pop()?.toLowerCase() || "";
+      const basename = parts[parts.length - 1].toLowerCase();
+      if (SOURCE_EXTENSIONS.has(ext) || basename === "dockerfile") {
+        source++;
+      }
+    }
+
+    return { total, source };
+  } catch {
+    return { total: 0, source: 0 };
+  }
+}
+
+// In-memory store for file counts (keyed by slug)
+const repoFileCounts = new Map<string, { total: number; source: number }>();
+
 // Simple in-memory rate limiter (per-worker instance)
 const recentDispatches = new Map<string, number>();
 const RATE_LIMIT_MS = 60_000; // 1 dispatch per repo per minute
@@ -203,6 +269,7 @@ async function handleStatus(
       steps_completed: completedSteps,
       steps_total: job.steps.length,
       elapsed_seconds: elapsed,
+      file_counts: repoFileCounts.get(slug) || null,
     },
     { headers },
   );
@@ -310,6 +377,12 @@ export default {
       );
     }
 
+    // Count source files in the target repo (non-blocking — we proceed even if it fails)
+    const owner = match[1];
+    const repo = match[2];
+    const fileCounts = await countRepoFiles(owner, repo, env.GITHUB_PAT, branch || undefined);
+    repoFileCounts.set(slug, fileCounts);
+
     // Dispatch workflow
     const dispatchUrl = `https://api.github.com/repos/${env.REPO_OWNER}/${env.REPO_NAME}/actions/workflows/${env.WORKFLOW_FILE}/dispatches`;
 
@@ -366,6 +439,7 @@ export default {
         slug,
         result_url: resultUrl,
         message: "Build dispatched. Documentation will be available shortly.",
+        file_counts: fileCounts.source > 0 ? fileCounts : undefined,
       },
       { status: 200, headers }
     );
