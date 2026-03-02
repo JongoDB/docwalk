@@ -1,0 +1,44 @@
+# Build and publish the DocWalk runner Docker image to GHCR.
+#
+# Triggers on changes to deps or Dockerfile. The image is used by
+# try-docwalk.yml to skip ~90s of setup (Node, Python, Zensical, npm ci).
+
+name: Build Runner Image
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - Dockerfile.runner
+      - package-lock.json
+      - requirements.txt
+      - dist/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.runner
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/docwalk-runner:latest
+            ghcr.io/${{ github.repository_owner }}/docwalk-runner:${{ github.sha }}

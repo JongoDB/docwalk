@@ -1,0 +1,11 @@
+node_modules
+.docwalk
+docwalk-output
+docs-*
+.git
+.github
+worker
+infra
+*.md
+*.html
+.env*

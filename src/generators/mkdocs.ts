@@ -502,6 +502,7 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
   }
 
   // ── 2b. Build Q&A index if enabled ──────────────────────────────────
+  let qaWidgetAssets: { extraCss: string[]; extraJs: string[] } | undefined;
   if (config.analysis.qa_widget) {
     // Provide sensible defaults if qa_config not explicitly set
     if (!config.analysis.qa_config) {
@@ -553,7 +554,7 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
 
       // Inject widget assets
       const { injectQAWidget } = await import("./qa-widget/inject.js");
-      await injectQAWidget(outputDir, config.analysis.qa_config);
+      qaWidgetAssets = await injectQAWidget(outputDir, config.analysis.qa_config);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       onProgress?.(`Warning: Q&A index build failed: ${msg}`);
@@ -589,7 +590,7 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
   onProgress?.("Generating mkdocs.yml...");
   const audienceSeparation = resolveAudienceSeparation(config, manifest);
   const navigation = buildNavigation(pages, audienceSeparation);
-  const mkdocsYml = generateMkdocsConfig(manifest, config, navigation);
+  const mkdocsYml = generateMkdocsConfig(manifest, config, navigation, qaWidgetAssets);
   await writeFile(path.join(outputDir, "mkdocs.yml"), mkdocsYml);
 
   // ── Post-build hooks ───────────────────────────────────────────────────
@@ -779,7 +780,8 @@ function buildTabbedNavigation(pages: GeneratedPage[]): NavigationItem[] {
 function generateMkdocsConfig(
   manifest: AnalysisManifest,
   config: DocWalkConfig,
-  navigation: NavigationItem[]
+  navigation: NavigationItem[],
+  qaWidgetAssets?: { extraCss: string[]; extraJs: string[] }
 ): string {
   const siteName = resolveProjectName(manifest);
   const theme = config.theme;
@@ -868,6 +870,9 @@ function generateMkdocsConfig(
   if (theme.custom_css) {
     extraCss.push(...theme.custom_css);
   }
+  if (qaWidgetAssets) {
+    extraCss.push(...qaWidgetAssets.extraCss);
+  }
   const extraCssYaml = extraCss.length > 0
     ? `\nextra_css:\n${extraCss.map((c) => `  - ${c}`).join("\n")}\n`
     : "";
@@ -879,6 +884,9 @@ function generateMkdocsConfig(
   }
   if (theme.custom_js) {
     extraJs.push(...theme.custom_js);
+  }
+  if (qaWidgetAssets) {
+    extraJs.push(...qaWidgetAssets.extraJs);
   }
   const extraJsYaml = extraJs.length > 0
     ? `\nextra_javascript:\n${extraJs.map((j) => `  - ${j}`).join("\n")}\n`

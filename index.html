@@ -2783,8 +2783,10 @@
       let buildConfirmedComplete = false;
 
       const stepLabels = {
+        'Initialize containers': 'Starting build environment...',
         'Set up job': 'Setting up build environment...',
         'Checkout docwalk source': 'Preparing DocWalk...',
+        'Link pre-installed dependencies': 'Loading cached dependencies...',
         'Checkout gh-pages': 'Preparing deployment target...',
         'Parse repo URL': 'Parsing repository...',
         'Clone target repo': 'Cloning repository...',
@@ -2796,6 +2798,7 @@
         'Configure AI provider': 'Configuring AI engine...',
         'Generate documentation': 'AI is analyzing & writing docs...',
         'Build documentation site': 'Building documentation site...',
+        'Clean docwalk artifacts from site': 'Cleaning build artifacts...',
         'Deploy to gh-pages': 'Deploying to GitHub Pages...',
         'Prune old results': 'Cleaning up...',
         'Output result URL': 'Finishing up...',
@@ -2833,9 +2836,9 @@
       let latestSourceFiles = sourceFiles;
 
       // Estimate total build time based on file count.
-      // Baseline: ~90s for setup + ~0.15s per source file (12 Groq models in parallel).
+      // Baseline: ~20s container setup + ~0.15s per source file (12 Groq models in parallel).
       const estimatedTotalSec = sourceFiles > 0
-        ? Math.round(90 + sourceFiles * 0.15)
+        ? Math.round(20 + sourceFiles * 0.15)
         : 0;
 
       function formatEta(elapsedSec, pct) {

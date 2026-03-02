@@ -3,6 +3,9 @@
 # Triggered via workflow_dispatch. Clones a public repo,
 # runs DocWalk analysis + generation, builds with MkDocs,
 # and publishes to gh-pages under /try/{slug}/.
+#
+# Uses a pre-built container image with Node, Python, Zensical,
+# and npm deps already installed (~5s startup vs ~90s).
 
 name: Try DocWalk
 
@@ -31,6 +34,7 @@ on:
 
 permissions:
   contents: write
+  packages: read
 
 concurrency:
   group: try-${{ github.event.inputs.repo_url }}
@@ -39,6 +43,11 @@ concurrency:
 jobs:
   generate:
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/jongodb/docwalk-runner:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     timeout-minutes: 10
     steps:
       - name: Checkout docwalk source
@@ -46,6 +55,10 @@ jobs:
         with:
           ref: master
           path: docwalk-src
+
+      - name: Link pre-installed dependencies
+        run: |
+          cp -r /docwalk-deps/node_modules docwalk-src/node_modules
 
       - name: Checkout gh-pages
         uses: actions/checkout@v4
@@ -75,26 +88,6 @@ jobs:
             git clone --depth 1 "$REPO_URL" target-repo
           fi
           cd target-repo && git fetch --tags --depth 1
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: docwalk-src/package-lock.json
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-
-      - name: Install docwalk dependencies
-        working-directory: docwalk-src
-        run: npm ci
-
-      - name: Install Zensical
-        run: pip install zensical
 
       - name: Initialize DocWalk config
         working-directory: target-repo

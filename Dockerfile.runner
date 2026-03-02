@@ -1,0 +1,31 @@
+# DocWalk Runner — pre-built image for trydocwalk CI
+#
+# Contains Node 20, Python 3.12, Zensical, and DocWalk npm deps.
+# Used by try-docwalk.yml as a container image to skip ~90s of setup.
+#
+# The workflow still checks out fresh source from master for latest code,
+# but deps are already installed in the image (the slow part).
+#
+# Rebuild triggers: package-lock.json, requirements.txt, Dockerfile.runner
+
+FROM node:20-slim
+
+# Install Python 3 + pip + git (needed for repo operations)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      python3 python3-pip python3-venv git && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Zensical (MkDocs + Material theme)
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --break-system-packages -r /tmp/requirements.txt && \
+    rm /tmp/requirements.txt
+
+# Pre-install DocWalk npm dependencies into a reusable location.
+# The workflow copies fresh source here but node_modules persists.
+WORKDIR /docwalk-deps
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-scripts && \
+    npm cache clean --force
+
+WORKDIR /workspace

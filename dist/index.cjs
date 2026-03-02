@@ -13495,6 +13495,7 @@ async function generateDocs(options) {
     await (0, import_promises6.writeFile)(pagePath, page.content);
     onProgress?.(`Written: ${page.path}`);
   }
+  let qaWidgetAssets;
   if (config.analysis.qa_widget) {
     if (!config.analysis.qa_config) {
       config.analysis.qa_config = {
@@ -13538,7 +13539,7 @@ async function generateDocs(options) {
       );
       onProgress?.(`Q&A index built: ${qaIndex.chunkCount} chunks from ${qaIndex.pageCount} pages`);
       const { injectQAWidget: injectQAWidget2 } = await Promise.resolve().then(() => (init_inject(), inject_exports));
-      await injectQAWidget2(outputDir, config.analysis.qa_config);
+      qaWidgetAssets = await injectQAWidget2(outputDir, config.analysis.qa_config);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       onProgress?.(`Warning: Q&A index build failed: ${msg}`);
@@ -13566,7 +13567,7 @@ async function generateDocs(options) {
   onProgress?.("Generating mkdocs.yml...");
   const audienceSeparation = resolveAudienceSeparation(config, manifest);
   const navigation = buildNavigation(pages, audienceSeparation);
-  const mkdocsYml = generateMkdocsConfig(manifest, config, navigation);
+  const mkdocsYml = generateMkdocsConfig(manifest, config, navigation, qaWidgetAssets);
   await (0, import_promises6.writeFile)(import_path17.default.join(outputDir, "mkdocs.yml"), mkdocsYml);
   await executeHooks("post_build", hooks, { cwd: outputDir });
   onProgress?.(`Documentation generated: ${pages.length} pages`);
@@ -13692,7 +13693,7 @@ function buildTabbedNavigation(pages) {
   }
   return [userDocs, devDocs];
 }
-function generateMkdocsConfig(manifest, config, navigation) {
+function generateMkdocsConfig(manifest, config, navigation, qaWidgetAssets) {
   const siteName = resolveProjectName(manifest);
   const theme = config.theme;
   const preset = resolvePreset(theme.preset ?? "developer");
@@ -13763,6 +13764,9 @@ function generateMkdocsConfig(manifest, config, navigation) {
   if (theme.custom_css) {
     extraCss.push(...theme.custom_css);
   }
+  if (qaWidgetAssets) {
+    extraCss.push(...qaWidgetAssets.extraCss);
+  }
   const extraCssYaml = extraCss.length > 0 ? `
 extra_css:
 ${extraCss.map((c) => `  - ${c}`).join("\n")}
@@ -13773,6 +13777,9 @@ ${extraCss.map((c) => `  - ${c}`).join("\n")}
   }
   if (theme.custom_js) {
     extraJs.push(...theme.custom_js);
+  }
+  if (qaWidgetAssets) {
+    extraJs.push(...qaWidgetAssets.extraJs);
   }
   const extraJsYaml = extraJs.length > 0 ? `
 extra_javascript:
