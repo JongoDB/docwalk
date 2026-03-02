@@ -188,11 +188,11 @@ export type MultiFileBatchResult = Record<string, string>;
 /**
  * Build a prompt that summarizes multiple files in a single API call.
  * Reduces request count by N× at the cost of larger prompts.
- * Each file gets 30 lines of source to keep total prompt under token limits.
+ * Each file gets 50 lines of source (4 files × 50 lines fits under TPM limits).
  */
 export function buildMultiFileBatchPrompt(entries: MultiFileBatchEntry[]): string {
   const fileSections = entries.map((e) => {
-    const truncated = e.content.split("\n").slice(0, 30).join("\n");
+    const truncated = e.content.split("\n").slice(0, 50).join("\n");
     return `## ${e.module.filePath} (${e.module.language}, ${e.module.lineCount} lines)
 \`\`\`
 ${truncated}

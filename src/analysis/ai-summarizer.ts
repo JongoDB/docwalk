@@ -252,8 +252,9 @@ export async function summarizeModules(
   const systemPrompt = buildBatchSystemPrompt();
 
   // Number of files to pack into each API request.
-  // Rate-limited providers batch 8 files/request to minimize RPM usage.
-  const filesPerRequest = isRateLimited ? 8 : 1;
+  // Rate-limited providers batch 4 files/request to stay under TPM limits.
+  // Groq free tier: 30 RPM, 30k TPM — 4 files ≈ 2k tokens/req.
+  const filesPerRequest = isRateLimited ? 4 : 1;
 
   let progressCount = 0;
 
@@ -296,7 +297,7 @@ export async function summarizeModules(
 
       const response = await withRetry(
         () => (provider as AIProvider).generate(prompt, {
-          maxTokens: 1024,
+          maxTokens: 512,
           temperature: 0.2,
           systemPrompt,
         })
