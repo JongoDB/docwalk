@@ -84,8 +84,9 @@ jobs:
           # Copy marketing site
           cp docwalk/index.html deploy/index.html
 
-          # Copy screenshot assets
+          # Copy assets (favicon, screenshots)
           mkdir -p deploy/assets/screenshots
+          cp -f docwalk/assets/favicon.svg deploy/assets/favicon.svg
           if [ -d docwalk/assets/screenshots ]; then
             cp -r docwalk/assets/screenshots/* deploy/assets/screenshots/
           fi
