@@ -4,6 +4,12 @@
  * AI-driven page structure suggestions. Analyzes the repo manifest
  * and suggests which pages to generate and how to organize navigation.
  * Falls back to the fixed page list when AI is unavailable.
+ *
+ * When an AIProvider is available, sends the file tree, README, and
+ * module summaries to the LLM and parses an XML wiki structure back
+ * — similar to DeepWiki's approach where the model decides what pages
+ * to create, which files belong to each page, importance levels, and
+ * cross-page relationships.
  */
 
 import type { AIProvider } from "./providers/base.js";
@@ -21,121 +27,311 @@ export interface PageSuggestion {
   navGroup: string;
   /** Navigation order */
   navOrder: number;
-  /** Which modules this page should cover */
+  /** Which modules (file paths) this page should cover */
   relatedModules: string[];
+  /** Importance level for ordering and display */
+  importance: "high" | "medium" | "low";
+  /** IDs of related pages for cross-linking */
+  relatedPages: string[];
+}
+
+export interface SectionSuggestion {
+  /** Unique section identifier */
+  id: string;
+  /** Human-readable section title */
+  title: string;
+  /** Page IDs belonging to this section */
+  pages: string[];
 }
 
 export interface StructurePlan {
   /** Suggested conceptual pages beyond the default set */
   conceptPages: PageSuggestion[];
+  /** Suggested navigation sections grouping pages */
+  sections: SectionSuggestion[];
   /** Whether to use audience separation */
   audienceSplit: boolean;
   /** Suggested navigation groups */
   navGroups: string[];
+  /** Whether this is a comprehensive (8-12 page) plan vs compact (4-6) */
+  isComprehensive: boolean;
+}
+
+// ─── LLM-driven structure analysis ─────────────────────────────────────────
+
+/**
+ * Build a flat file tree string from the manifest modules.
+ */
+function buildFileTree(manifest: AnalysisManifest): string {
+  return manifest.modules
+    .map((m) => m.filePath)
+    .sort()
+    .join("\n");
 }
 
 /**
+ * Find README content from the manifest modules.
+ * Looks for any module whose path contains "readme" (case-insensitive)
+ * and returns its AI summary or module doc summary.
+ */
+function findReadmeContent(manifest: AnalysisManifest): string | undefined {
+  // Check projectMeta first
+  if (manifest.projectMeta.readmeDescription) {
+    return manifest.projectMeta.readmeDescription;
+  }
+
+  const readmeModule = manifest.modules.find((m) =>
+    m.filePath.toLowerCase().includes("readme")
+  );
+  if (!readmeModule) return undefined;
+  return readmeModule.aiSummary || readmeModule.moduleDoc?.summary;
+}
+
+/**
+ * Build summaries for the top N most-connected modules.
+ * Connection count = number of dependency edges involving the module.
+ */
+function buildModuleSummaries(manifest: AnalysisManifest, topN: number = 20): string {
+  const { dependencyGraph, modules } = manifest;
+
+  // Count connections per file path
+  const connectionCount = new Map<string, number>();
+  for (const edge of dependencyGraph.edges) {
+    connectionCount.set(edge.from, (connectionCount.get(edge.from) || 0) + 1);
+    connectionCount.set(edge.to, (connectionCount.get(edge.to) || 0) + 1);
+  }
+
+  // Sort modules by connection count descending, take topN
+  const ranked = modules
+    .map((m) => ({ module: m, connections: connectionCount.get(m.filePath) || 0 }))
+    .sort((a, b) => b.connections - a.connections)
+    .slice(0, topN);
+
+  return ranked
+    .map((r) => {
+      const summary = r.module.aiSummary || r.module.moduleDoc?.summary || "(no summary)";
+      return `- ${r.module.filePath} (${r.connections} connections): ${summary}`;
+    })
+    .join("\n");
+}
+
+/**
+ * Build the LLM prompt for wiki structure generation.
+ */
+function buildStructurePrompt(
+  manifest: AnalysisManifest,
+  fileTree: string,
+  readmeContent: string | undefined,
+  moduleSummaries: string,
+  comprehensive: boolean
+): string {
+  const languages = manifest.projectMeta.languages
+    .map((l) => `${l.name} (${l.percentage}%)`)
+    .join(", ");
+
+  const pageRange = comprehensive ? "8-12" : "4-6";
+
+  return `Analyze this repository and create a wiki structure.
+
+FILE TREE:
+${fileTree}
+
+README:
+${readmeContent || "No README found"}
+
+PROJECT: ${manifest.projectMeta.name}
+LANGUAGES: ${languages}
+FILES: ${manifest.stats.totalFiles}
+
+MODULE SUMMARIES (most connected):
+${moduleSummaries}
+
+Create a structured wiki with ${pageRange} pages.
+Each page should focus on a specific aspect that would benefit from detailed documentation:
+- Architecture overviews
+- Data flow descriptions
+- Component relationships
+- Process workflows
+- Key subsystems
+
+Return ONLY valid XML with no markdown code blocks:
+
+<wiki_structure>
+  <pages>
+    <page id="page-1">
+      <title>Page Title</title>
+      <description>What this page covers</description>
+      <importance>high|medium|low</importance>
+      <relevant_files>
+        <file_path>src/path/to/file.ts</file_path>
+      </relevant_files>
+      <related_pages>
+        <related>page-2</related>
+      </related_pages>
+    </page>
+  </pages>
+</wiki_structure>
+
+RULES:
+1. Each page must have at least 3 relevant_files from the file tree
+2. Pages should cover distinct aspects — no overlap
+3. Include at least one architecture/overview page
+4. Every important file should be assigned to at least one page
+5. Order pages from most important to least`;
+}
+
+/**
+ * Parse the LLM's XML response into PageSuggestion objects.
+ * Uses regex extraction rather than a full XML parser.
+ */
+function parseStructureXml(xml: string): PageSuggestion[] {
+  // Extract the <wiki_structure>...</wiki_structure> block
+  const structureMatch = xml.match(/<wiki_structure>([\s\S]*?)<\/wiki_structure>/);
+  if (!structureMatch) return [];
+
+  const structureBody = structureMatch[1];
+
+  // Extract each <page> element
+  const pageRegex = /<page\s+id="([^"]*)">([\s\S]*?)<\/page>/g;
+  const pages: PageSuggestion[] = [];
+  let pageMatch: RegExpExecArray | null;
+  let index = 0;
+
+  while ((pageMatch = pageRegex.exec(structureBody)) !== null) {
+    const id = pageMatch[1];
+    const body = pageMatch[2];
+
+    // Extract individual fields
+    const title = body.match(/<title>([\s\S]*?)<\/title>/)?.[1]?.trim() || id;
+    const description = body.match(/<description>([\s\S]*?)<\/description>/)?.[1]?.trim() || "";
+    const importance = body.match(/<importance>([\s\S]*?)<\/importance>/)?.[1]?.trim() as
+      | "high"
+      | "medium"
+      | "low"
+      | undefined;
+
+    // Extract file paths
+    const filePaths: string[] = [];
+    const filePathRegex = /<file_path>([\s\S]*?)<\/file_path>/g;
+    let fpMatch: RegExpExecArray | null;
+    while ((fpMatch = filePathRegex.exec(body)) !== null) {
+      filePaths.push(fpMatch[1].trim());
+    }
+
+    // Extract related page IDs
+    const relatedPages: string[] = [];
+    const relatedRegex = /<related>([\s\S]*?)<\/related>/g;
+    let relMatch: RegExpExecArray | null;
+    while ((relMatch = relatedRegex.exec(body)) !== null) {
+      relatedPages.push(relMatch[1].trim());
+    }
+
+    pages.push({
+      id,
+      title,
+      description,
+      navGroup: "Concepts",
+      navOrder: 20 + index,
+      relatedModules: filePaths,
+      importance: importance && ["high", "medium", "low"].includes(importance) ? importance : "medium",
+      relatedPages,
+    });
+
+    index++;
+  }
+
+  return pages;
+}
+
+// ─── Static fallback (no AI provider) ──────────────────────────────────────
+
+/**
+ * Build a structure plan using only static analysis when no AI is available.
+ */
+function buildStaticPlan(manifest: AnalysisManifest): StructurePlan {
+  return {
+    conceptPages: [],
+    sections: [],
+    audienceSplit: false,
+    navGroups: [],
+    isComprehensive: false,
+  };
+}
+
+// ─── Main entry point ──────────────────────────────────────────────────────
+
+/**
  * Analyze the manifest and suggest a page structure.
- * When AI is unavailable, returns an empty plan (uses default pages).
+ *
+ * When an AIProvider is supplied, sends the file tree, README, and
+ * top module summaries to the LLM, which returns an XML wiki structure.
+ *
+ * When no provider is available (or on LLM/parse failure), falls back
+ * to an empty plan so the default page set is used.
  */
 export async function analyzeStructure(
   manifest: AnalysisManifest,
-  provider?: AIProvider
+  provider?: AIProvider,
+  comprehensive?: boolean
 ): Promise<StructurePlan> {
   if (!provider) {
-    return { conceptPages: [], audienceSplit: false, navGroups: [] };
+    return buildStaticPlan(manifest);
   }
-
-  // Build a summary of the codebase for the LLM
-  const modulesBySection: Record<string, string[]> = {};
-  for (const mod of manifest.modules) {
-    const section = detectLogicalSection(mod.filePath);
-    if (!modulesBySection[section]) modulesBySection[section] = [];
-    modulesBySection[section].push(mod.filePath);
-  }
-
-  const sectionSummary = Object.entries(modulesBySection)
-    .map(([section, files]) => `${section}: ${files.length} files (${files.slice(0, 3).join(", ")}${files.length > 3 ? `, +${files.length - 3} more` : ""})`)
-    .join("\n");
-
-  // Count graph clusters
-  const { dependencyGraph } = manifest;
-  const clusters = new Map<string, number>();
-  for (const node of dependencyGraph.nodes) {
-    const parts = node.split("/");
-    const dir = parts.length > 2 ? parts.slice(0, 2).join("/") : parts[0];
-    clusters.set(dir, (clusters.get(dir) || 0) + 1);
-  }
-
-  const clusterSummary = [...clusters.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
-    .map(([dir, count]) => `${dir}: ${count} files`)
-    .join("\n");
-
-  const prompt = `Analyze this codebase and suggest additional conceptual documentation pages beyond the standard set (Overview, Getting Started, Architecture, API Reference).
-
-PROJECT: ${manifest.projectMeta.name}
-LANGUAGES: ${manifest.projectMeta.languages.map((l) => `${l.name} (${l.percentage}%)`).join(", ")}
-TOTAL FILES: ${manifest.stats.totalFiles}
-TOTAL SYMBOLS: ${manifest.stats.totalSymbols}
-
-LOGICAL SECTIONS:
-${sectionSummary}
-
-DEPENDENCY CLUSTERS:
-${clusterSummary}
-
-Return a JSON array of page suggestions. Each item should have:
-- "id": lowercase-kebab-case identifier
-- "title": human-readable page title
-- "description": what this page should cover (1 sentence)
-- "navGroup": which navigation group this belongs to
-- "relatedModules": array of file paths this page relates to (max 10)
-
-Suggest 2-6 conceptual pages based on patterns you see (e.g., "Authentication Flow", "Data Pipeline", "Event System", "Plugin Architecture"). Only suggest pages where there's enough code to warrant a dedicated page.
-
-Return ONLY valid JSON, no explanation.`;
 
   try {
+    // 1. Build context for the LLM
+    const fileTree = buildFileTree(manifest);
+    const readmeContent = findReadmeContent(manifest);
+    const moduleSummaries = buildModuleSummaries(manifest, 20);
+    const isComprehensive = comprehensive ?? false;
+
+    // 2. Build and send prompt
+    const prompt = buildStructurePrompt(
+      manifest,
+      fileTree,
+      readmeContent,
+      moduleSummaries,
+      isComprehensive
+    );
+
     const response = await provider.generate(prompt, {
-      maxTokens: 1024,
-      temperature: 0.2,
-      systemPrompt: "You are a documentation architect. Return only valid JSON.",
+      maxTokens: 2048,
+      temperature: 0.3,
+      systemPrompt:
+        "You are a documentation architect. Analyze codebases and return wiki structures as valid XML. Return ONLY XML — no explanation, no markdown code blocks.",
     });
 
-    // Parse the JSON response
-    const cleaned = response
-      .replace(/```json?\n?/g, "")
-      .replace(/```/g, "")
-      .trim();
+    // 3. Parse the XML response
+    const conceptPages = parseStructureXml(response);
 
-    const suggestions: Array<{
-      id: string;
-      title: string;
-      description: string;
-      navGroup: string;
-      relatedModules: string[];
-    }> = JSON.parse(cleaned);
+    // If parsing produced no pages, fall back to static plan
+    if (conceptPages.length === 0) {
+      return buildStaticPlan(manifest);
+    }
 
-    const conceptPages: PageSuggestion[] = suggestions.map((s, i) => ({
-      id: s.id,
-      title: s.title,
-      description: s.description,
-      navGroup: s.navGroup || "Concepts",
-      navOrder: 20 + i,
-      relatedModules: s.relatedModules || [],
+    // 4. Detect audience split (CLI/commands → split into user vs developer docs)
+    const audienceSplit = manifest.modules.some(
+      (m) => m.filePath.includes("cli/") || m.filePath.includes("commands/")
+    );
+
+    // 5. Build sections from navGroups
+    const navGroups = [...new Set(conceptPages.map((p) => p.navGroup))];
+
+    const sections: SectionSuggestion[] = navGroups.map((group, i) => ({
+      id: `section-${i + 1}`,
+      title: group,
+      pages: conceptPages.filter((p) => p.navGroup === group).map((p) => p.id),
     }));
 
     return {
       conceptPages,
-      audienceSplit: manifest.modules.some(
-        (m) => m.filePath.includes("cli/") || m.filePath.includes("commands/")
-      ),
-      navGroups: [...new Set(conceptPages.map((p) => p.navGroup))],
+      sections,
+      audienceSplit,
+      navGroups,
+      isComprehensive,
     };
   } catch {
-    // AI failure — return empty plan
-    return { conceptPages: [], audienceSplit: false, navGroups: [] };
+    // AI failure — return empty plan so default pages are used
+    return buildStaticPlan(manifest);
   }
 }

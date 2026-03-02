@@ -31,6 +31,7 @@ interface GenerateOptions {
   tryMode?: boolean;
   theme?: string;
   layout?: string;
+  depth?: string;
 }
 
 export async function generateCommand(options: GenerateOptions): Promise<void> {
@@ -83,6 +84,10 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
     config.theme.layout = options.layout as "tabs" | "sidebar" | "tabs-sticky";
     log("info", `Layout: ${chalk.bold(options.layout)}`);
   }
+  if (options.depth) {
+    config.analysis.doc_depth = options.depth as "comprehensive" | "concise";
+    log("info", `Documentation depth: ${chalk.bold(options.depth)}`);
+  }
   if (options.ai) {
     config.analysis.ai_summaries = true;
     config.analysis.ai_narrative = true;
@@ -108,7 +113,7 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
   // ── Interactive prompts (TTY only, no flags, not try-mode) ────────────
   const isInteractive = process.stdout.isTTY && !options.tryMode;
 
-  const hasAnyFlag = !!(options.theme || options.layout || options.ai);
+  const hasAnyFlag = !!(options.theme || options.layout || options.ai || options.depth);
 
   if (isInteractive && !hasAnyFlag) {
     blank();
@@ -147,6 +152,21 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
       },
     ]);
     config.theme.layout = chosenLayout;
+
+    // Documentation depth
+    const { depth: chosenDepth } = await inquirer.prompt([
+      {
+        type: "list",
+        name: "depth",
+        message: "Documentation depth:",
+        default: config.analysis.doc_depth || "comprehensive",
+        choices: [
+          { name: "Comprehensive — detailed wiki with 8-12 topic pages", value: "comprehensive" },
+          { name: "Concise       — essential pages only (4-6 pages, faster)", value: "concise" },
+        ],
+      },
+    ]);
+    config.analysis.doc_depth = chosenDepth;
 
     // AI setup
     if (!config.analysis.ai_summaries) {

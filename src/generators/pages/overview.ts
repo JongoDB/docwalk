@@ -3,7 +3,7 @@ import type { DocWalkConfig } from "../../config/schema.js";
 import type { AnalysisManifest, GeneratedPage } from "../../analysis/types.js";
 import type { AIProvider } from "../../analysis/providers/base.js";
 import { getLanguageDisplayName, type LanguageId } from "../../analysis/language-detect.js";
-import { resolveProjectName, groupModulesLogically } from "../utils.js";
+import { resolveProjectName, groupModulesLogically, shouldGenerateModulePage } from "../utils.js";
 import { generateOverviewNarrative, renderCitations } from "../narrative-engine.js";
 
 export function generateOverviewPage(manifest: AnalysisManifest, config: DocWalkConfig): GeneratedPage {
@@ -119,8 +119,7 @@ export function generateOverviewPage(manifest: AnalysisManifest, config: DocWalk
   const sectionCards = Object.entries(modulesByGroup)
     .sort(([, a], [, b]) => b.length - a.length)
     .map(([section, modules]) => {
-      const topModule = modules[0];
-      const slug = topModule.filePath.replace(/\.[^.]+$/, "");
+      const linkableModule = modules.find((m) => shouldGenerateModulePage(m));
       // Filter out __init__.py and bare index files from the key files display
       const meaningfulFiles = modules.filter((m) => {
         const base = path.basename(m.filePath);
@@ -129,7 +128,10 @@ export function generateOverviewPage(manifest: AnalysisManifest, config: DocWalk
       const displayFiles = meaningfulFiles.length > 0 ? meaningfulFiles : modules;
       const keyFiles = displayFiles.map((m) => `\`${path.basename(m.filePath)}\``).slice(0, 4).join(", ");
       const extra = modules.length > 4 ? ` +${modules.length - 4} more` : "";
-      return `-   :material-folder-outline:{ .lg .middle } **[${section}](api/${slug}.md)**
+      const title = linkableModule
+        ? `[${section}](api/${linkableModule.filePath.replace(/\.[^.]+$/, "")}.md)`
+        : section;
+      return `-   :material-folder-outline:{ .lg .middle } **${title}**
 
     ---
 
@@ -172,6 +174,8 @@ description: Technical documentation for ${projectName}
 # ${projectName}
 
 ${projectDescription}
+
+<!-- NARRATIVE_INSERT_POINT -->
 
 ---
 
@@ -249,25 +253,22 @@ export async function generateOverviewPageNarrative(
     const repoUrl = config.source.repo.includes("/") ? config.source.repo : undefined;
     const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, config.source.branch);
 
-    // Insert narrative prose after the title, before the template content
+    // Insert narrative prose after the title, replacing the project description
     const projectName = resolveProjectName(manifest);
-    const narrativeContent = `---
-title: ${projectName} Documentation
-description: Technical documentation for ${projectName}
----
+    const baseContent = basePage.content;
+    const marker = "<!-- NARRATIVE_INSERT_POINT -->";
+    const markerIndex = baseContent.indexOf(marker);
 
-# ${projectName}
-
-${prose}
-
----
-
-${basePage.content.split("---\n").slice(2).join("---\n")}`;
-
-    return {
-      ...basePage,
-      content: narrativeContent,
-    };
+    if (markerIndex !== -1) {
+      // Everything before the title heading stays (frontmatter)
+      const titleMatch = baseContent.indexOf(`# ${projectName}`);
+      const beforeTitle = baseContent.substring(0, titleMatch);
+      const afterMarker = baseContent.substring(markerIndex + marker.length);
+      return { ...basePage, content: `${beforeTitle}# ${projectName}\n\n${prose}\n\n${afterMarker}` };
+    } else {
+      // Fallback: insert prose right after the title heading
+      return { ...basePage, content: basePage.content.replace(`# ${projectName}`, `# ${projectName}\n\n${prose}`) };
+    }
   } catch {
     // Fallback to template-based page on AI failure
     return basePage;

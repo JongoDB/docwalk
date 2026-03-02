@@ -219,16 +219,40 @@ MERMAID SYNTAX RULES (follow exactly):
       temperature: 0.2,
     });
 
-    // Extract just the Mermaid code
+    // Extract and validate the Mermaid code
     const mermaidCode = extractMermaidCode(result);
-    if (mermaidCode && mermaidCode.startsWith("sequenceDiagram")) {
+    const validation = validateMermaid(mermaidCode);
+
+    if (mermaidCode && validation.fixed.startsWith("sequenceDiagram")) {
+      // If fixable errors exist, use the fixed version
+      const finalCode = validation.errors.length > 0 ? validation.fixed : mermaidCode;
       return {
         type: "sequence",
         title: targetModule
           ? `Sequence: ${targetModule.filePath}`
           : "Sequence Diagram",
-        mermaidCode,
+        mermaidCode: finalCode,
       };
+    }
+
+    // Unfixable (e.g. wrong diagram type) — retry once with error feedback
+    if (validation.errors.length > 0) {
+      const retryPrompt = `${prompt}\n\nYour previous attempt had these errors:\n${validation.errors.map(e => `- ${e}`).join("\n")}\n\nPlease fix these issues and regenerate the diagram.`;
+      const retryResult = await provider.generate(retryPrompt, {
+        maxTokens: 1024,
+        temperature: 0.2,
+      });
+      const retryCode = extractMermaidCode(retryResult);
+      const retryValidation = validateMermaid(retryCode);
+      if (retryCode && retryValidation.fixed.startsWith("sequenceDiagram")) {
+        return {
+          type: "sequence",
+          title: targetModule
+            ? `Sequence: ${targetModule.filePath}`
+            : "Sequence Diagram",
+          mermaidCode: retryValidation.fixed,
+        };
+      }
     }
   } catch {
     // AI failure — return nothing
@@ -290,14 +314,38 @@ MERMAID SYNTAX RULES (follow exactly):
     });
 
     const mermaidCode = extractMermaidCode(result);
-    if (mermaidCode && (mermaidCode.startsWith("flowchart") || mermaidCode.startsWith("graph"))) {
+    const validation = validateMermaid(mermaidCode);
+
+    if (mermaidCode && (validation.fixed.startsWith("flowchart") || validation.fixed.startsWith("graph"))) {
+      // If fixable errors exist, use the fixed version
+      const finalCode = validation.errors.length > 0 ? validation.fixed : mermaidCode;
       return {
         type: "flowchart",
         title: targetModule
           ? `Flow: ${targetModule.filePath}`
           : "Processing Flow",
-        mermaidCode,
+        mermaidCode: finalCode,
       };
+    }
+
+    // Unfixable (e.g. wrong diagram type) — retry once with error feedback
+    if (validation.errors.length > 0) {
+      const retryPrompt = `${prompt}\n\nYour previous attempt had these errors:\n${validation.errors.map(e => `- ${e}`).join("\n")}\n\nPlease fix these issues and regenerate the diagram.`;
+      const retryResult = await provider.generate(retryPrompt, {
+        maxTokens: 1024,
+        temperature: 0.2,
+      });
+      const retryCode = extractMermaidCode(retryResult);
+      const retryValidation = validateMermaid(retryCode);
+      if (retryCode && (retryValidation.fixed.startsWith("flowchart") || retryValidation.fixed.startsWith("graph"))) {
+        return {
+          type: "flowchart",
+          title: targetModule
+            ? `Flow: ${targetModule.filePath}`
+            : "Processing Flow",
+          mermaidCode: retryValidation.fixed,
+        };
+      }
     }
   } catch {
     // AI failure — return nothing
@@ -309,28 +357,103 @@ MERMAID SYNTAX RULES (follow exactly):
 const MERMAID_BLOCK_REGEX = /```(?:mermaid)?\n?([\s\S]*?)```/;
 
 /**
+ * Validate Mermaid syntax and attempt auto-fix for common LLM mistakes.
+ *
+ * Checks for: valid diagram type, balanced subgraphs, special characters
+ * in unquoted labels, LR orientation (should be TD), and excessive node count.
+ *
+ * Returns a `fixed` string with auto-corrections applied where possible.
+ */
+export function validateMermaid(code: string): { valid: boolean; errors: string[]; fixed: string } {
+  const errors: string[] = [];
+  let fixed = code;
+
+  // 1. Check valid diagram type
+  const firstLine = code.trim().split("\n")[0].trim();
+  const validTypes = ["flowchart", "graph", "sequenceDiagram", "classDiagram", "stateDiagram", "erDiagram", "gantt", "pie", "mindmap", "timeline"];
+  if (!validTypes.some(t => firstLine.startsWith(t))) {
+    errors.push(`Invalid diagram type: ${firstLine}`);
+  }
+
+  // 2. Check balanced subgraphs
+  const subgraphCount = (code.match(/\bsubgraph\b/g) || []).length;
+  // Count 'end' on its own line (not part of other words like 'extend', 'backend')
+  const endCount = (code.match(/^\s*end\s*$/gm) || []).length;
+  if (subgraphCount > endCount) {
+    errors.push(`Unbalanced subgraphs: ${subgraphCount} subgraph vs ${endCount} end`);
+    for (let i = 0; i < subgraphCount - endCount; i++) {
+      fixed += "\n    end";
+    }
+  }
+
+  // 3. Check for special characters in unquoted labels
+  // Pattern: NodeId[LabelWithoutQuotes] where label has problematic chars
+  const unquotedLabelRegex = /([A-Za-z0-9_]+)\[([^\]"]+)\]/g;
+  let match;
+  const fixedParts: Array<{original: string; replacement: string}> = [];
+  while ((match = unquotedLabelRegex.exec(code)) !== null) {
+    const label = match[2];
+    if (/[(){}:;'<>]/.test(label)) {
+      errors.push(`Special characters in unquoted label: "${label}"`);
+      fixedParts.push({
+        original: match[0],
+        replacement: `${match[1]}["${label.replace(/"/g, "'")}"]`
+      });
+    }
+  }
+  for (const { original, replacement } of fixedParts) {
+    fixed = fixed.replace(original, replacement);
+  }
+
+  // 4. Check for LR orientation (we want TD only)
+  if (/flowchart\s+LR/i.test(code)) {
+    errors.push("Using LR orientation instead of TD");
+    fixed = fixed.replace(/flowchart\s+LR/gi, "flowchart TD");
+  }
+
+  // 5. Check node count (warn if >20)
+  if (firstLine.startsWith("flowchart") || firstLine.startsWith("graph")) {
+    const nodeDefinitions = code.match(/[A-Za-z0-9_]+[\[({]/g) || [];
+    const uniqueNodes = new Set(nodeDefinitions.map(n => n.replace(/[\[({]$/, "")));
+    if (uniqueNodes.size > 20) {
+      errors.push(`Too many nodes (${uniqueNodes.size}), may render poorly`);
+    }
+  }
+
+  return { valid: errors.length === 0, errors, fixed };
+}
+
+/**
  * Extract a single Mermaid code block from text.
  * Shared utility used by diagram generators and narrative engine.
+ * Runs validation and returns the auto-fixed version if there are fixable errors.
  */
 export function extractMermaidCode(text: string): string {
+  let code: string;
   const codeBlockMatch = text.match(MERMAID_BLOCK_REGEX);
   if (codeBlockMatch) {
-    return codeBlockMatch[1].trim();
+    code = codeBlockMatch[1].trim();
+  } else {
+    // Otherwise assume the entire response is Mermaid code
+    code = text.trim();
   }
-  // Otherwise assume the entire response is Mermaid code
-  return text.trim();
+
+  const { fixed } = validateMermaid(code);
+  return fixed;
 }
 
 /**
  * Extract all Mermaid code blocks from text.
- * Returns an array of trimmed code strings.
+ * Returns an array of trimmed, validated code strings with auto-fixes applied.
  */
 export function extractAllMermaidBlocks(text: string): string[] {
   const blocks: string[] = [];
   const globalRegex = new RegExp(MERMAID_BLOCK_REGEX.source, "g");
   let match;
   while ((match = globalRegex.exec(text)) !== null) {
-    blocks.push(match[1].trim());
+    const code = match[1].trim();
+    const { fixed } = validateMermaid(code);
+    blocks.push(fixed);
   }
   return blocks;
 }

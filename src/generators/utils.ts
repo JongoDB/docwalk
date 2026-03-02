@@ -43,6 +43,8 @@ export interface RenderSymbolOptions {
   branch?: string;
   sourceLinks?: boolean;
   symbolPageMap?: Map<string, string>;
+  /** Current page path (e.g. "api/src/analysis/engine.md") for computing relative links */
+  currentPagePath?: string;
 }
 
 // ─── Module Grouping ────────────────────────────────────────────────────────
@@ -398,7 +400,7 @@ export function buildSymbolPageMap(modules: ModuleInfo[]): Map<string, string> {
 // ─── Symbol Rendering ───────────────────────────────────────────────────────
 
 /** Replace type names with links to their pages if found in the symbol map */
-export function renderTypeWithLinks(typeStr: string, symbolPageMap?: Map<string, string>): string {
+export function renderTypeWithLinks(typeStr: string, symbolPageMap?: Map<string, string>, currentPagePath?: string): string {
   if (!symbolPageMap || symbolPageMap.size === 0) return `\`${typeStr}\``;
 
   let result = typeStr;
@@ -407,7 +409,16 @@ export function renderTypeWithLinks(typeStr: string, symbolPageMap?: Map<string,
     const regex = new RegExp(`\\b${symName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
     if (regex.test(result)) {
       const symAnchor = symName.toLowerCase().replace(/[^a-z0-9-_]/g, "");
-      result = result.replace(regex, `[${symName}](../${pagePath}#${symAnchor})`);
+      let relativePath: string;
+      if (currentPagePath) {
+        relativePath = path.posix.relative(
+          path.posix.dirname(currentPagePath),
+          pagePath
+        );
+      } else {
+        relativePath = `../${pagePath}`;
+      }
+      result = result.replace(regex, `[${symName}](${relativePath}#${symAnchor})`);
       break; // Link the first match only to keep it readable
     }
   }
@@ -506,7 +517,7 @@ export function renderSymbol(sym: Symbol, langTag: string, opts?: RenderSymbolOp
         const docDesc = sym.docs?.params?.[param.name] || param.description || "";
         const opt = param.optional ? "?" : "";
         const def = param.defaultValue ? `\`${param.defaultValue}\`` : "";
-        const typeStr = renderTypeWithLinks(param.type || "unknown", opts?.symbolPageMap);
+        const typeStr = renderTypeWithLinks(param.type || "unknown", opts?.symbolPageMap, opts?.currentPagePath);
         md += `    | \`${param.name}${opt}\` | ${typeStr} | ${def} | ${docDesc} |\n`;
       }
       md += "\n";
@@ -518,7 +529,7 @@ export function renderSymbol(sym: Symbol, langTag: string, opts?: RenderSymbolOp
         const docDesc = sym.docs?.params?.[param.name] || param.description || "";
         const opt = param.optional ? "?" : "";
         const def = param.defaultValue ? `\`${param.defaultValue}\`` : "";
-        const typeStr = renderTypeWithLinks(param.type || "unknown", opts?.symbolPageMap);
+        const typeStr = renderTypeWithLinks(param.type || "unknown", opts?.symbolPageMap, opts?.currentPagePath);
         md += `| \`${param.name}${opt}\` | ${typeStr} | ${def} | ${docDesc} |\n`;
       }
       md += "\n";
@@ -535,7 +546,7 @@ export function renderSymbol(sym: Symbol, langTag: string, opts?: RenderSymbolOp
 
   // Return type
   if (sym.returns?.type || sym.docs?.returns) {
-    const retType = sym.returns?.type ? renderTypeWithLinks(sym.returns.type, opts?.symbolPageMap) : "";
+    const retType = sym.returns?.type ? renderTypeWithLinks(sym.returns.type, opts?.symbolPageMap, opts?.currentPagePath) : "";
     md += `**Returns:** ${retType} ${sym.docs?.returns || ""}\n\n`;
   }
 

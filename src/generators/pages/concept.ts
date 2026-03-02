@@ -3,6 +3,7 @@
  *
  * Generates AI-driven conceptual pages suggested by the structure advisor.
  * These are pages like "Authentication Flow", "Data Pipeline", etc.
+ * Uses the shared prompt builder for DeepWiki-quality output.
  */
 
 import type { AnalysisManifest, GeneratedPage } from "../../analysis/types.js";
@@ -10,6 +11,7 @@ import type { AIProvider } from "../../analysis/providers/base.js";
 import type { PageSuggestion } from "../../analysis/structure-advisor.js";
 import { buildContext } from "../../analysis/context-builder.js";
 import { renderCitations } from "../narrative-engine.js";
+import { buildPagePrompt, buildPageSystemPrompt } from "../prompt-builder.js";
 
 /**
  * Generate a concept page from an AI structure suggestion.
@@ -34,31 +36,49 @@ export async function generateConceptPage(
     readFile,
   });
 
-  const contextText = contextChunks
-    .map((c) => `--- ${c.filePath} ---\n${c.content}`)
-    .join("\n\n");
+  const relatedFileList = suggestion.relatedModules
+    .map((f) => `- \`${f}\``)
+    .join("\n");
 
-  const prompt = `Write a documentation page about "${suggestion.title}" for the ${manifest.projectMeta.name} project.
-
+  const pageInstructions = `CONCEPT: ${suggestion.title}
 DESCRIPTION: ${suggestion.description}
 
-RELATED FILES: ${suggestion.relatedModules.join(", ")}
+RELATED FILES:
+${relatedFileList}
 
-SOURCE CODE CONTEXT:
-${contextText}
+Write a comprehensive documentation page about this concept following this structure:
 
-INSTRUCTIONS:
-1. Write a comprehensive page explaining this concept/feature
-2. Reference specific code using [file:line] notation
-3. Include code examples where helpful
-4. Explain how this fits into the overall architecture
-5. Write 4-8 paragraphs in Markdown format with proper headings`;
+1. **Overview** (1-2 paragraphs): What this concept/feature is and why it matters in the project. State the problem it solves.
+
+2. **How It Works**: Explain the key mechanisms, algorithms, or patterns. Reference specific functions, classes, and types from the source code. Include a Mermaid diagram if the concept involves multiple interacting components.
+
+3. **Key Components**: For each major piece involved, describe its role:
+| Component | File | Purpose |
+|-----------|------|---------|
+
+4. **Usage Examples**: Show concrete code examples demonstrating how developers interact with this feature. Use actual exported APIs from the source.
+
+5. **Integration Points**: How this concept connects to other parts of the system. What depends on it, and what it depends on.
+
+Do NOT include a title heading (# heading) — it will be added by the template.
+NEVER say "This module provides..." or "This file contains..." — describe the concept directly.
+Write for developers who need to understand or modify this feature.`;
 
   try {
+    const prompt = buildPagePrompt({
+      title: suggestion.title,
+      projectName: manifest.projectMeta.name,
+      contextChunks,
+      pageInstructions,
+      sourceFiles: contextChunks.map((c) => c.filePath),
+      repoUrl,
+      branch,
+    });
+
     let prose = await provider.generate(prompt, {
       maxTokens: 2048,
       temperature: 0.3,
-      systemPrompt: "You are a technical documentation writer. Be thorough and reference specific code.",
+      systemPrompt: buildPageSystemPrompt(),
     });
 
     // Process citations
@@ -68,7 +88,8 @@ INSTRUCTIONS:
     while ((match = citationRegex.exec(prose)) !== null) {
       citations.push({ text: match[0], filePath: match[1], line: parseInt(match[2], 10) });
     }
-    prose = renderCitations(prose, citations, repoUrl, branch);
+    const currentPagePath = `concepts/${suggestion.id}.md`;
+    prose = renderCitations(prose, citations, repoUrl, branch, currentPagePath);
 
     const content = `---
 title: "${suggestion.title}"

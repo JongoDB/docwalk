@@ -68,6 +68,14 @@ export const SourceSchema = z.object({
       "coverage/**",
       ".docwalk/**",
       "docwalk-output/**",
+      "docwalk.config.yml",
+      "docwalk.config.yaml",
+      "docwalk.config.js",
+      "docwalk.config.ts",
+      ".docwalkrc",
+      ".docwalkrc.yml",
+      ".docwalkrc.yaml",
+      ".docwalkrc.json",
       "site/**",
       "**/*.d.ts",
       "**/*.min.js",
@@ -168,6 +176,9 @@ export const AnalysisSchema = z.object({
 
   /** Enable AI-driven dynamic page structure suggestions */
   ai_structure: z.boolean().default(false),
+
+  /** Documentation depth: comprehensive (8-12 topic pages) or concise (4-6 essential pages) */
+  doc_depth: z.enum(["comprehensive", "concise"]).default("comprehensive"),
 
   /** Enable monorepo workspace package resolution for dependency graphs */
   monorepo: z.boolean().default(true),

@@ -33,11 +33,13 @@ export function generateModulePage(mod: ModuleInfo, group: string, ctx?: ModuleP
   const branch = config?.source.branch ?? "main";
   const sourceLinksEnabled = config?.analysis.source_links !== false && isGitHubRepo;
 
+  const currentPagePath = `api/${slug}.md`;
   const renderOpts: RenderSymbolOptions = {
     repoUrl,
     branch,
     sourceLinks: sourceLinksEnabled,
     symbolPageMap: ctx?.symbolPageMap,
+    currentPagePath,
   };
 
   let content = `---
@@ -88,7 +90,12 @@ ${description}
         content += `- [\`${rf}\`](${baseUrl}${rf})\n`;
       } else {
         const rfSlug = rf.replace(/\.[^.]+$/, "");
-        content += `- [\`${rf}\`](${rfSlug}.md)\n`;
+        const currentSlug = mod.filePath.replace(/\.[^.]+$/, "");
+        const relPath = path.posix.relative(
+          path.posix.dirname(currentSlug),
+          rfSlug
+        ) + ".md";
+        content += `- [\`${rf}\`](${relPath})\n`;
       }
     }
     content += `\n</details>\n\n`;
@@ -205,7 +212,12 @@ ${description}
       content += `This module is imported by **${referencedBy.length}** other module${referencedBy.length > 1 ? "s" : ""}:\n\n`;
       for (const ref of referencedBy.sort()) {
         const refSlug = ref.replace(/\.[^.]+$/, "");
-        content += `- [\`${ref}\`](/api/${refSlug}.md)\n`;
+        const currentSlug = mod.filePath.replace(/\.[^.]+$/, "");
+      const relativePath = path.posix.relative(
+        path.posix.dirname(currentSlug),
+        refSlug
+      ) + ".md";
+      content += `- [\`${ref}\`](${relativePath})\n`;
       }
       content += "\n";
     }
@@ -277,7 +289,8 @@ export async function generateModulePageNarrative(
     });
 
     const repoUrl = ctx.config.source.repo.includes("/") ? ctx.config.source.repo : undefined;
-    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, ctx.config.source.branch);
+    const currentPagePath = `api/${mod.filePath.replace(/\.[^.]+$/, "")}.md`;
+    const prose = renderCitations(narrative.prose, narrative.citations, repoUrl, ctx.config.source.branch, currentPagePath);
 
     // Insert narrative prose after the module metadata table
     const insertPoint = basePage.content.indexOf("---\n\n## Exports");

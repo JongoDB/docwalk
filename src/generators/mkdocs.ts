@@ -249,7 +249,8 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
     try {
       onProgress?.("Analyzing codebase structure...");
       const { analyzeStructure } = await import("../analysis/structure-advisor.js");
-      structurePlan = await analyzeStructure(manifest, aiProvider);
+      const isComprehensive = config.analysis.doc_depth !== "concise";
+      structurePlan = await analyzeStructure(manifest, aiProvider, isComprehensive);
     } catch {
       // Structure analysis failure is non-fatal
     }
@@ -322,7 +323,8 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
   // Identify top modules for narrative generation
   const narrativeModulePaths = new Set<string>();
   if (useNarrative && aiProvider) {
-    const maxNarrative = config.analysis.ai_narrative_top_n ?? 10;
+    const isConcise = config.analysis.doc_depth === "concise";
+    const maxNarrative = isConcise ? 5 : (config.analysis.ai_narrative_top_n ?? 10);
     const connectionCounts = new Map<string, number>();
     for (const edge of manifest.dependencyGraph.edges) {
       connectionCounts.set(edge.from, (connectionCounts.get(edge.from) ?? 0) + 1);
@@ -396,8 +398,8 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
     pages.push(changelogPage);
   }
 
-  // ── End-user documentation pages ──────────────────────────────────────
-  if (config.analysis.user_docs !== false) {
+  // ── End-user documentation pages (skip in concise mode) ──────────────
+  if (config.analysis.user_docs !== false && config.analysis.doc_depth !== "concise") {
     onProgress?.("Generating end-user documentation...");
     const userDocsConfig = config.analysis.user_docs_config;
     const { generateUserGuidePage, generateUserGettingStartedPage, generateFeaturesPage,

@@ -7,11 +7,13 @@
  * instead of template strings.
  */
 
+import path from "path";
 import type { AIProvider } from "../analysis/providers/base.js";
 import type { AnalysisManifest, ModuleInfo, Citation, DiagramSuggestion } from "../analysis/types.js";
 import { buildContext, type ContextChunk } from "../analysis/context-builder.js";
 import { estimateTokens } from "./utils.js";
 import { extractAllMermaidBlocks } from "./diagrams.js";
+import { buildPagePrompt, buildPageSystemPrompt } from "./prompt-builder.js";
 
 export interface NarrativeResult {
   /** LLM-generated prose content */
@@ -47,15 +49,12 @@ export async function generateOverviewNarrative(
     readFile,
   });
 
-  const contextText = formatContextChunks(contextChunks);
   const moduleList = manifest.modules
     .map((m) => `- ${m.filePath} (${m.language}, ${m.symbols.length} symbols)`)
     .slice(0, 30)
     .join("\n");
 
-  const prompt = `You are an expert technical writer creating the overview page for a documentation site.
-
-PROJECT: ${manifest.projectMeta.name}
+  const pageInstructions = `PROJECT: ${manifest.projectMeta.name}
 LANGUAGES: ${manifest.projectMeta.languages.map((l) => `${l.name} (${l.percentage}%)`).join(", ")}
 TOTAL FILES: ${manifest.stats.totalFiles}
 TOTAL SYMBOLS: ${manifest.stats.totalSymbols}
@@ -63,19 +62,11 @@ TOTAL SYMBOLS: ${manifest.stats.totalSymbols}
 KEY MODULES:
 ${moduleList}
 
-SOURCE CODE CONTEXT:
-${contextText}
-
 Write a comprehensive technical overview following this structure:
 
 1. **Introduction** (1-2 paragraphs): What the project does, who it's for, and the core problem it solves. Reference the main entry point and key modules.
 
-2. **Architecture Overview**: Describe the major layers/components and how they interact. Include a Mermaid diagram showing the high-level architecture:
-\`\`\`mermaid
-flowchart TD
-    A[Component] --> B[Component]
-\`\`\`
-Use \`flowchart TD\` (top-down), keep nodes to 3-4 words max, maximum 12 nodes.
+2. **Architecture Overview**: Describe the major layers/components and how they interact. Include a Mermaid diagram showing the high-level architecture.
 
 3. **Core Components**: For each major component/layer, explain its purpose and key design decisions. Use tables to summarize modules:
 | Module | Purpose |
@@ -85,17 +76,21 @@ Use \`flowchart TD\` (top-down), keep nodes to 3-4 words max, maximum 12 nodes.
 
 5. **Key Design Decisions**: Trade-offs made, patterns used (e.g., provider pattern, plugin architecture), and why.
 
-RULES:
-- Cite sources with [file:line] notation (e.g., [src/engine.ts:42]) for every significant claim
-- Reference actual function, class, and type names from the code — never invent names
-- Use Markdown: ## headings, tables, code blocks, bold for emphasis
-- Do NOT use marketing language. Be technical and precise.
-- Do NOT include a title heading (# Overview) — it will be added by the template`;
+Do NOT include a title heading (# Overview) — it will be added by the template.`;
+
+  const prompt = buildPagePrompt({
+    title: "Overview",
+    projectName: manifest.projectMeta.name,
+    contextChunks,
+    pageInstructions,
+    sourceFiles: contextChunks.map((c) => c.filePath),
+    repoUrl: manifest.projectMeta.repository,
+  });
 
   const prose = await provider.generate(prompt, {
     maxTokens: 2048,
     temperature: 0.3,
-    systemPrompt: "You are a technical documentation writer. Write clear, precise, developer-focused documentation.",
+    systemPrompt: buildPageSystemPrompt(),
   });
 
   const citations = extractCitations(prose);
@@ -112,15 +107,23 @@ export async function generateGettingStartedNarrative(
 ): Promise<NarrativeResult> {
   const { provider, manifest, readFile, contextBudget = 6000 } = options;
 
-  // Focus context on entry points and config files
+  // Focus context on entry points, config files, and project setup files
+  const relevantPatterns = [
+    "index.", "main.", "app.",
+    "readme", "README",
+    "Dockerfile", "docker-compose",
+    "package.json", "pyproject.toml", "go.mod", "Cargo.toml",
+    "Makefile", "setup.py", "setup.cfg",
+  ];
+
   const entryModules = manifest.modules.filter(
-    (m) => m.filePath.includes("index.") || m.filePath.includes("main.") || m.filePath.includes("app.")
+    (m) => relevantPatterns.some((pattern) => m.filePath.toLowerCase().includes(pattern.toLowerCase()))
   );
 
   const contextChunks: ContextChunk[] = [];
   let usedTokens = 0;
 
-  for (const mod of entryModules.slice(0, 5)) {
+  for (const mod of entryModules.slice(0, 8)) {
     try {
       const content = await readFile(mod.filePath);
       const tokens = estimateTokens(content);
@@ -140,17 +143,19 @@ export async function generateGettingStartedNarrative(
     }
   }
 
-  const contextText = formatContextChunks(contextChunks);
+  const projectMeta = manifest.projectMeta;
+  const projectContext = [
+    `PROJECT: ${projectMeta.name}`,
+    `LANGUAGES: ${projectMeta.languages.map((l) => l.name).join(", ")}`,
+    `PACKAGE MANAGER: ${projectMeta.packageManager || "unknown"}`,
+    `ENTRY POINTS: ${projectMeta.entryPoints.join(", ")}`,
+    projectMeta.projectType ? `PROJECT TYPE: ${projectMeta.projectType}` : null,
+    projectMeta.framework ? `FRAMEWORK: ${projectMeta.framework}` : null,
+    projectMeta.description ? `DESCRIPTION: ${projectMeta.description}` : null,
+    projectMeta.readmeDescription ? `README SUMMARY: ${projectMeta.readmeDescription}` : null,
+  ].filter(Boolean).join("\n");
 
-  const prompt = `You are writing a Getting Started guide for developers.
-
-PROJECT: ${manifest.projectMeta.name}
-LANGUAGES: ${manifest.projectMeta.languages.map((l) => l.name).join(", ")}
-PACKAGE MANAGER: ${manifest.projectMeta.packageManager || "unknown"}
-ENTRY POINTS: ${manifest.projectMeta.entryPoints.join(", ")}
-
-SOURCE CODE CONTEXT:
-${contextText}
+  const pageInstructions = `${projectContext}
 
 Write a practical getting-started guide following this structure:
 
@@ -169,17 +174,22 @@ Brief orientation: what the main directories contain and where to look first.
 ## Next Steps
 Point to specific modules or features to explore after the basics.
 
-RULES:
-- Every section must help the reader DO something concrete
-- Use code blocks with the correct language tag for all commands and code
-- Cite sources with [file:line] notation
-- Reference actual file paths, function names, and config options from the code
-- Keep it concise — developers want to get started, not read an essay`;
+Every section must help the reader DO something concrete.
+Keep it concise — developers want to get started, not read an essay.`;
+
+  const prompt = buildPagePrompt({
+    title: "Getting Started",
+    projectName: projectMeta.name,
+    contextChunks,
+    pageInstructions,
+    sourceFiles: contextChunks.map((c) => c.filePath),
+    repoUrl: projectMeta.repository,
+  });
 
   const prose = await provider.generate(prompt, {
     maxTokens: 2048,
     temperature: 0.3,
-    systemPrompt: "You are a technical documentation writer. Write clear, practical, step-by-step guides.",
+    systemPrompt: buildPageSystemPrompt(),
   });
 
   const citations = extractCitations(prose);
@@ -203,8 +213,6 @@ export async function generateModuleNarrative(
     readFile,
   });
 
-  const contextText = formatContextChunks(contextChunks);
-
   const symbolList = module.symbols
     .filter((s) => s.exported)
     .map((s) => `- ${s.kind} ${s.name}${s.signature ? `: ${s.signature}` : ""}`)
@@ -219,18 +227,13 @@ export async function generateModuleNarrative(
   const imports = module.imports.map((imp) => imp.source).slice(0, 10);
   const hasManyDeps = imports.length >= 3 || depCount >= 3;
 
-  const prompt = `You are an expert technical writer documenting a specific module.
-
-FILE: ${module.filePath}
+  const pageInstructions = `FILE: ${module.filePath}
 LANGUAGE: ${module.language}
 IMPORTS: ${imports.join(", ") || "(none)"}
 IMPORTED BY: ${depCount} modules${usedBy.length > 0 ? ` (${usedBy.join(", ")})` : ""}
 
 EXPORTED SYMBOLS:
 ${symbolList || "(none)"}
-
-RELATED SOURCE CODE:
-${contextText}
 
 Write a clear, developer-focused module description following this structure:
 
@@ -242,25 +245,27 @@ Write a clear, developer-focused module description following this structure:
 
 4. **Key implementation details**: Important trade-offs, error handling strategies, or performance considerations that a developer modifying this code should know.
 ${hasManyDeps ? `
-5. **Dependency diagram**: Include a small Mermaid diagram showing this module's key relationships:
-\`\`\`mermaid
-flowchart TD
-    A[caller] --> B[this module] --> C[dependency]
-\`\`\`
-Keep to 5-8 nodes max, use \`flowchart TD\` orientation.` : ""}
+5. **Dependency diagram**: Include a small Mermaid diagram showing this module's key relationships.
+Keep to 5-8 nodes max.` : ""}
 
-RULES:
-- Cite sources with [file:line] notation (e.g., [${module.filePath}:42]) for EVERY significant claim
-- Be specific — use actual function/class/type names from the code
-- Do NOT include Markdown headings (## or #) — this is inserted into an existing page
-- NEVER say "This module provides..." or "This file contains..." — state the architectural role directly
-- Write 3-5 focused paragraphs with code examples and citations
-- Write for developers who need to understand or modify this code`;
+Do NOT include Markdown headings (## or #) — this is inserted into an existing page.
+NEVER say "This module provides..." or "This file contains..." — state the architectural role directly.
+Write 3-5 focused paragraphs with code examples and citations.
+Write for developers who need to understand or modify this code.`;
+
+  const prompt = buildPagePrompt({
+    title: module.filePath,
+    projectName: manifest.projectMeta.name,
+    contextChunks,
+    pageInstructions,
+    sourceFiles: contextChunks.map((c) => c.filePath),
+    repoUrl: manifest.projectMeta.repository,
+  });
 
   const prose = await provider.generate(prompt, {
     maxTokens: 1536,
     temperature: 0.3,
-    systemPrompt: "You are a technical documentation writer. Be precise and reference specific code.",
+    systemPrompt: buildPageSystemPrompt(),
   });
 
   const citations = extractCitations(prose);
@@ -284,8 +289,6 @@ export async function generateArchitectureNarrative(
     readFile,
   });
 
-  const contextText = formatContextChunks(contextChunks);
-
   // Build a summary of the dependency graph
   const { dependencyGraph } = manifest;
   const connectionCounts = new Map<string, number>();
@@ -299,44 +302,25 @@ export async function generateArchitectureNarrative(
     .map(([file, count]) => `- ${file} (${count} connections)`)
     .join("\n");
 
-  const prompt = `You are an expert software architect writing architecture documentation.
-
-PROJECT: ${manifest.projectMeta.name}
+  const pageInstructions = `PROJECT: ${manifest.projectMeta.name}
 MODULES: ${dependencyGraph.nodes.length}
 DEPENDENCY EDGES: ${dependencyGraph.edges.length}
 
 MOST CONNECTED MODULES:
 ${topModules}
 
-SOURCE CODE CONTEXT:
-${contextText}
-
 Write detailed architecture documentation following this structure:
 
 1. **System Overview** (1-2 paragraphs): High-level description of the system's purpose and architectural style (layered, microservice, pipeline, etc.).
 
-2. **Component Architecture**: Include a Mermaid diagram showing the major components and their relationships:
-\`\`\`mermaid
-flowchart TD
-    subgraph Layer["Layer Name"]
-        A[Component] --> B[Component]
-    end
-\`\`\`
-Use \`flowchart TD\` (top-down), group related components in subgraphs, max 15 nodes. Keep node labels to 3-4 words.
+2. **Component Architecture**: Include a Mermaid diagram showing the major components and their relationships. Group related components in subgraphs.
 
 3. **Component Deep Dive**: For each major component, describe:
    - Its responsibility and public interface
    - Key classes/functions it exposes
    - How it communicates with other components
 
-4. **Data Flow**: How a typical request/operation flows through the system. Include a sequence diagram:
-\`\`\`mermaid
-sequenceDiagram
-    participant A as Component
-    A->>B: method()
-    B-->>A: result
-\`\`\`
-Use solid arrows (->>)  for calls, dashed arrows (-->>)  for returns. Max 6 participants, 15 messages.
+4. **Data Flow**: How a typical request/operation flows through the system. Include a sequence diagram.
 
 5. **Key Patterns**: Architectural patterns used (dependency injection, plugin registry, event bus, etc.) and why they were chosen.
 
@@ -344,16 +328,21 @@ Use solid arrows (->>)  for calls, dashed arrows (-->>)  for returns. Max 6 part
 | Module | Connections | Role |
 |--------|:-----------:|------|
 
-RULES:
-- Cite sources with [file:line] notation for every claim
-- Reference actual code: class names, function names, file paths
-- All Mermaid diagrams must use top-down orientation (\`flowchart TD\`, never LR)
-- Do NOT include a title heading — it will be added by the template`;
+Do NOT include a title heading — it will be added by the template.`;
+
+  const prompt = buildPagePrompt({
+    title: "Architecture",
+    projectName: manifest.projectMeta.name,
+    contextChunks,
+    pageInstructions,
+    sourceFiles: contextChunks.map((c) => c.filePath),
+    repoUrl: manifest.projectMeta.repository,
+  });
 
   const prose = await provider.generate(prompt, {
     maxTokens: 2048,
     temperature: 0.3,
-    systemPrompt: "You are a software architect documenting a system. Be thorough and precise.",
+    systemPrompt: buildPageSystemPrompt(),
   });
 
   const citations = extractCitations(prose);
@@ -420,7 +409,8 @@ export function renderCitations(
   prose: string,
   citations: Citation[],
   repoUrl?: string,
-  branch?: string
+  branch?: string,
+  currentPagePath?: string
 ): string {
   let result = prose;
 
@@ -430,9 +420,20 @@ export function renderCitations(
     if (seen.has(citation.text)) continue;
     seen.add(citation.text);
 
-    const linkTarget = repoUrl
-      ? `https://github.com/${repoUrl}/blob/${branch || "main"}/${citation.filePath}#L${citation.line}`
-      : `api/${citation.filePath.replace(/\.[^.]+$/, "")}.md`;
+    let linkTarget: string;
+    if (repoUrl) {
+      linkTarget = `https://github.com/${repoUrl}/blob/${branch || "main"}/${citation.filePath}#L${citation.line}`;
+    } else {
+      const targetPage = `api/${citation.filePath.replace(/\.[^.]+$/, "")}.md`;
+      if (currentPagePath) {
+        linkTarget = path.posix.relative(
+          path.posix.dirname(currentPagePath),
+          targetPage
+        );
+      } else {
+        linkTarget = targetPage;
+      }
+    }
 
     result = result.replaceAll(
       citation.text,
