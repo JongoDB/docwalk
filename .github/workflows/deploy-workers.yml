@@ -1,0 +1,69 @@
+# Deploy Cloudflare Workers when their source changes
+#
+# Two workers:
+#   docwalk-try     — try-docwalk dispatch proxy + progress status
+#   docwalk-ai-proxy — AI proxy (forwards requests to Groq)
+
+name: Deploy Workers
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'worker/src/**'
+      - 'worker/wrangler.toml'
+      - 'worker/ai-proxy/src/**'
+      - 'worker/ai-proxy/wrangler.toml'
+      - '.github/workflows/deploy-workers.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-workers
+  cancel-in-progress: true
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      try-worker: ${{ steps.changes.outputs.try-worker }}
+      ai-proxy: ${{ steps.changes.outputs.ai-proxy }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            try-worker:
+              - 'worker/src/**'
+              - 'worker/wrangler.toml'
+            ai-proxy:
+              - 'worker/ai-proxy/src/**'
+              - 'worker/ai-proxy/wrangler.toml'
+
+  deploy-try-worker:
+    needs: detect
+    if: needs.detect.outputs.try-worker == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy docwalk-try
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: worker
+
+  deploy-ai-proxy:
+    needs: detect
+    if: needs.detect.outputs.ai-proxy == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy docwalk-ai-proxy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: worker/ai-proxy
