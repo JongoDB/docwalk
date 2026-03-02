@@ -153,6 +153,11 @@ async function quickStartTrack(options: InitOptions): Promise<void> {
     analysis: {
       depth: "full",
       ai_summaries: aiResult.enabled,
+      ...(aiResult.enabled && {
+        ai_narrative: true,
+        ai_diagrams: true,
+        insights_ai: true,
+      }),
       ...(aiResult.enabled && aiResult.providerName && {
         ai_provider: {
           name: aiResult.providerName,
@@ -464,6 +469,11 @@ async function customTrack(options: InitOptions): Promise<void> {
     analysis: {
       depth: analysisAnswers.depth,
       ai_summaries: aiResult.enabled,
+      ...(aiResult.enabled && {
+        ai_narrative: true,
+        ai_diagrams: true,
+        insights_ai: true,
+      }),
       ...(aiResult.enabled && aiResult.providerName && {
         ai_provider: {
           name: aiResult.providerName,

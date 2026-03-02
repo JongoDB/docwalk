@@ -162,17 +162,17 @@ export const AnalysisSchema = z.object({
   /** Generate code insights page (static analyzers) */
   insights: z.boolean().default(true),
 
-  /** Enable AI-powered insights (requires license + API key) */
-  insights_ai: z.boolean().default(false),
+  /** Enable AI-powered insights (requires AI provider) */
+  insights_ai: z.boolean().default(true),
 
   /** Enable AI-generated narrative prose on pages (requires AI provider) */
-  ai_narrative: z.boolean().default(false),
+  ai_narrative: z.boolean().default(true),
 
   /** Max number of modules to generate full narrative descriptions for (most-connected first) */
   ai_narrative_top_n: z.number().int().positive().default(10),
 
   /** Enable AI-generated diagrams (sequence, flowcharts) */
-  ai_diagrams: z.boolean().default(false),
+  ai_diagrams: z.boolean().default(true),
 
   /** Enable AI-driven dynamic page structure suggestions */
   ai_structure: z.boolean().default(false),
