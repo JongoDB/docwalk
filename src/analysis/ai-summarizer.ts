@@ -175,6 +175,9 @@ export interface SummarizeOptions {
 
   /** Delay between API calls in milliseconds. */
   delayMs?: number;
+
+  /** Max modules to summarize (excess skipped). Useful for try-mode. */
+  maxModules?: number;
 }
 
 /** Result of the summarization pass. */
@@ -219,6 +222,7 @@ export async function summarizeModules(
     onProgress,
     concurrency = 10,
     delayMs = 0,
+    maxModules,
   } = options;
 
   // Create provider — gracefully bail if no API key
@@ -255,6 +259,14 @@ export async function summarizeModules(
   // Rate-limited providers batch 4 files/request to stay under TPM limits.
   // Groq free tier: 30 RPM, 30k TPM — 4 files ≈ 2k tokens/req.
   const filesPerRequest = isRateLimited ? 4 : 1;
+
+  // Cap modules for try-mode (summarize first N, pass rest through unchanged)
+  let modulesToSummarize = modules;
+  let skippedModules: ModuleInfo[] = [];
+  if (maxModules && modules.length > maxModules) {
+    modulesToSummarize = modules.slice(0, maxModules);
+    skippedModules = modules.slice(maxModules);
+  }
 
   let progressCount = 0;
 
@@ -443,21 +455,20 @@ export async function summarizeModules(
 
   if (isRateLimited && canBatch && filesPerRequest > 1) {
     // Multi-file batching: process sequentially to respect rate limits.
-    // Each batch packs N files into one API call; sequential ensures
-    // we never exceed the provider's RPM window.
     const chunks: ModuleInfo[][] = [];
-    for (let i = 0; i < modules.length; i += filesPerRequest) {
-      chunks.push(modules.slice(i, i + filesPerRequest));
+    for (let i = 0; i < modulesToSummarize.length; i += filesPerRequest) {
+      chunks.push(modulesToSummarize.slice(i, i + filesPerRequest));
     }
     const allResults: ModuleInfo[] = [];
     for (const chunk of chunks) {
       const batchResults = await processMultiFileBatch(chunk);
       allResults.push(...batchResults);
     }
-    updatedModules = allResults;
+    updatedModules = [...allResults, ...skippedModules];
   } else {
     // Single-file: parallel with rate limiter
-    updatedModules = await Promise.all(modules.map(processModule));
+    const summarized = await Promise.all(modulesToSummarize.map(processModule));
+    updatedModules = [...summarized, ...skippedModules];
   }
 
   // Log failure summary if many calls failed

@@ -57,6 +57,9 @@ export interface AnalysisOptions {
 
   /** Hooks configuration for pre/post analyze */
   hooks?: HooksConfig;
+
+  /** Cap AI summarization to this many modules (rest skipped). */
+  maxAiModules?: number;
 }
 
 export async function analyzeCodebase(
@@ -74,6 +77,7 @@ export async function analyzeCodebase(
     previousSummaryCache,
     onAIProgress,
     hooks,
+    maxAiModules,
   } = options;
 
   // ── Pre-analyze hooks ───────────────────────────────────────────────────
@@ -220,7 +224,8 @@ export async function analyzeCodebase(
       previousCache: previousSummaryCache,
       onProgress: onAIProgress,
       concurrency: analysis.concurrency,
-      delayMs: analysis.concurrency && analysis.concurrency <= 4 ? 5000 : 0,
+      delayMs: analysis.concurrency && analysis.concurrency <= 4 ? 3000 : 0,
+      maxModules: maxAiModules,
     });
 
     finalModules = result.modules;

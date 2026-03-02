@@ -206,6 +206,7 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
     analysis: config.analysis,
     repoRoot,
     commitSha,
+    maxAiModules: options.tryMode ? 50 : undefined,
     onProgress: (current, total, file) => {
       scanFileCount = current;
       scanSpinner.text = `[${step}/${totalSteps}] Scanning source files... ${current}/${total}`;
