@@ -66,12 +66,12 @@ export interface GenerateOptions {
 const MERMAID_ZOOM_JS = `/* DocWalk — Mermaid rendering + click-to-zoom */
 (function() {
   var diagrams = [];
-  document.querySelectorAll("pre.mermaid").forEach(function(pre) {
-    var code = pre.querySelector("code");
-    var src = (code || pre).textContent || "";
+  document.querySelectorAll("pre.mermaid, div.mermaid").forEach(function(el) {
+    var code = el.querySelector("code");
+    var src = (code || el).textContent || "";
     if (src.trim()) {
-      diagrams.push({ el: pre, src: src.trim() });
-      pre.className = "dw-mermaid-loading";
+      diagrams.push({ el: el, src: src.trim() });
+      el.className = "dw-mermaid-loading";
     }
   });
   if (!diagrams.length) return;
@@ -911,7 +911,7 @@ markdown_extensions:
       custom_fences:
         - name: mermaid
           class: mermaid
-          format: !!python/name:pymdownx.superfences.fence_code_format
+          format: !!python/name:pymdownx.superfences.fence_div_format
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.tabbed:
