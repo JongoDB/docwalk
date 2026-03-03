@@ -9,8 +9,8 @@
  *   POST /v1/qa/stream      — SSE-streaming Q&A answers from context chunks
  *
  * Rate limit: 100 req/min per IP for generate, 20 req/min for Q&A.
- * Rotates across 12 Groq models for higher throughput (per-model limits are independent).
- * Q&A uses a quality-weighted subset of 7 models for better answers.
+ * Rotates across 7 reliable Groq models for higher throughput.
+ * Q&A pinned to llama-3.3-70b + llama-4-scout for answer quality.
  */
 
 interface Env {
@@ -22,31 +22,23 @@ interface Env {
 
 // All viable Groq text-generation models (12 total).
 // Per-model rate limits are independent → rotating across N models multiplies throughput.
+// Reliable Groq models only — kimi-k2 and gpt-oss frequently return 503/empty.
 const GROQ_MODELS = [
   "meta-llama/llama-4-scout-17b-16e-instruct",   // 30K TPM — best all-rounder
   "groq/compound",                                 // 70K TPM — highest capacity
   "groq/compound-mini",                            // 70K TPM — highest capacity
   "llama-3.3-70b-versatile",                       // 12K TPM — high quality
-  "openai/gpt-oss-120b",                           // 8K  TPM — large model
-  "openai/gpt-oss-20b",                            // 8K  TPM
-  "openai/gpt-oss-safeguard-20b",                  // 8K  TPM
-  "moonshotai/kimi-k2-instruct",                   // 10K TPM
-  "moonshotai/kimi-k2-instruct-0905",              // 10K TPM
   "qwen/qwen3-32b",                                // 6K  TPM
   "meta-llama/llama-4-maverick-17b-128e-instruct", // 6K  TPM
   "llama-3.1-8b-instant",                          // 6K  TPM — fastest inference
 ];
 
-// Q&A-optimized subset: prioritize quality/reasoning for user-facing answers.
-// These models produce better conversational responses with citations.
+// Q&A uses only the best conversational models. User-facing answers
+// need coherent, well-structured prose — small/flaky models produce
+// garbled output. Two models for rate-limit rotation.
 const QA_MODELS = [
-  "meta-llama/llama-4-scout-17b-16e-instruct",
-  "llama-3.3-70b-versatile",
-  "openai/gpt-oss-120b",
-  "groq/compound",
-  "moonshotai/kimi-k2-instruct",
-  "qwen/qwen3-32b",
-  "meta-llama/llama-4-maverick-17b-128e-instruct",
+  "llama-3.3-70b-versatile",                       // Best quality for conversation
+  "meta-llama/llama-4-scout-17b-16e-instruct",     // Good backup
 ];
 
 let modelIndex = 0;
