@@ -252,6 +252,8 @@ async function callGeminiStream(
 /**
  * Transform Gemini's SSE stream into our widget's format.
  * Gemini sends: data: {"candidates":[{"content":{"parts":[{"text":"..."}]}}]}
+ *
+ * Uses start() instead of pull() for Cloudflare Workers compatibility.
  */
 function transformGeminiStream(
   geminiRes: Response,
@@ -262,44 +264,52 @@ function transformGeminiStream(
   const reader = geminiRes.body!.getReader();
   let fullText = "";
 
+  // Buffer across reads — Gemini SSE payloads can split across chunks
+  let buffer = "";
+
   return new ReadableStream({
-    async pull(controller) {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          const citations = extractCitations(chunks, fullText);
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ done: true, citations })}\n\n`)
-          );
-          controller.close();
-          return;
-        }
+    async start(controller) {
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        const text = decoder.decode(value, { stream: true });
-        const lines = text.split("\n");
+          buffer += decoder.decode(value, { stream: true });
 
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          const data = line.slice(6).trim();
-          if (!data) continue;
+          // Process complete lines (terminated by \n)
+          const parts = buffer.split("\n");
+          buffer = parts.pop() || ""; // Keep incomplete line in buffer
 
-          try {
-            const parsed = JSON.parse(data) as {
-              candidates?: Array<{
-                content?: { parts?: Array<{ text?: string }> };
-              }>;
-            };
-            const token = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (token) {
-              fullText += token;
-              controller.enqueue(
-                encoder.encode(`data: ${JSON.stringify({ token })}\n\n`)
-              );
+          for (const line of parts) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith("data: ")) continue;
+            const data = trimmed.slice(6).trim();
+            if (!data) continue;
+
+            try {
+              const parsed = JSON.parse(data) as {
+                candidates?: Array<{
+                  content?: { parts?: Array<{ text?: string }> };
+                }>;
+              };
+              const token = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+              if (token) {
+                fullText += token;
+                controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify({ token })}\n\n`)
+                );
+              }
+            } catch {
+              // Incomplete JSON — will be completed in next read
             }
-          } catch {
-            // Skip malformed lines
           }
         }
+      } finally {
+        const citations = extractCitations(chunks, fullText);
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ done: true, citations })}\n\n`)
+        );
+        controller.close();
       }
     },
     cancel() {
