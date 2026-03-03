@@ -520,7 +520,12 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
     onProgress?.("Building Q&A index...");
     try {
       const { buildQAIndex } = await import("../qa/index.js");
-      const qaProviderName = config.analysis.qa_config.provider || "openai";
+      // If no QA provider is explicitly set, infer from the AI provider.
+      // Groq doesn't have an embedding API, so fall back to bag-of-words.
+      const aiBaseUrl = config.analysis.ai_provider?.base_url || "";
+      const isGroq = aiBaseUrl.includes("groq.com");
+      const qaProviderName = config.analysis.qa_config.provider
+        || (isGroq ? "bag-of-words" : "openai");
       const qaKeyEnv = config.analysis.qa_config.api_key_env
         || config.analysis.ai_provider?.api_key_env
         || "DOCWALK_AI_KEY";
