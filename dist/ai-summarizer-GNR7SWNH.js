@@ -187,6 +187,11 @@ function scoreModuleForDemo(mod) {
   if (/generated|dist\/|\.min\./.test(name)) score -= 20;
   if (/migration|seed/.test(name)) score -= 10;
   if (/\.lock|\.config\.[^/]+$/.test(name)) score -= 10;
+  if (/\b(docs_src|examples?|samples?|tutorials?|snippets?|demos?)\b/.test(name)) score -= 25;
+  if (/\b(vendor|third[_-]?party|external|node_modules)\b/.test(name)) score -= 20;
+  const depth = mod.filePath.split("/").length - 1;
+  if (depth <= 2) score += 6;
+  else if (depth >= 4) score -= 3;
   score += Math.min(mod.imports.length, 8);
   return score;
 }
