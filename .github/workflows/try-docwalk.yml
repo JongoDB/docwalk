@@ -104,7 +104,7 @@ jobs:
         run: |
           node ../docwalk-src/dist/cli/index.js init --no-interactive --repo "$OWNER_REPO" --theme "$THEME" --layout "$LAYOUT"
 
-      - name: Configure AI provider (direct Groq — 12-model pool)
+      - name: Configure AI provider (docwalk-proxy)
         working-directory: target-repo
         run: |
           node -e "
@@ -113,16 +113,14 @@ jobs:
           cfg = cfg.replace('ai_summaries: false', 'ai_summaries: true');
           cfg = cfg.replace(
             /^(analysis:)/m,
-            'analysis:\n  ai_provider:\n    name: openai\n    model: meta-llama/llama-4-scout-17b-16e-instruct\n    api_key_env: GROQ_API_KEY\n    base_url: https://api.groq.com/openai/v1'
+            'analysis:\n  ai_provider:\n    name: docwalk-proxy'
           );
-          cfg = cfg.replace(/concurrency: \d+/, 'concurrency: 12');
+          cfg = cfg.replace(/concurrency: \d+/, 'concurrency: 6');
           fs.writeFileSync('docwalk.config.yml', cfg);
           "
 
       - name: Generate documentation
         working-directory: target-repo
-        env:
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: node ../docwalk-src/dist/cli/index.js generate -v --ai --try-mode
 
       - name: Build documentation site
