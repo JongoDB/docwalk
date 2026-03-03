@@ -127,9 +127,16 @@ jobs:
         working-directory: target-repo/docwalk-output
         run: zensical build
 
-      - name: Clean docwalk artifacts from site
+      - name: Clean docwalk artifacts + ensure Q&A assets in site
         run: |
-          cd target-repo/docwalk-output/site
+          cd target-repo/docwalk-output
+          # Copy Q&A index files that MkDocs doesn't include automatically
+          if [ -d docs/_docwalk ]; then
+            mkdir -p site/_docwalk
+            cp -f docs/_docwalk/qa-search.json site/_docwalk/ 2>/dev/null || true
+            cp -f docs/_docwalk/qa-index.json site/_docwalk/ 2>/dev/null || true
+          fi
+          cd site
           rm -f docwalk.config.yml docwalk.config.yaml .docwalkrc* 2>/dev/null || true
           rm -rf .docwalk 2>/dev/null || true
 
@@ -246,9 +253,16 @@ jobs:
         working-directory: target-repo/docwalk-output
         run: zensical build
 
-      - name: Clean docwalk artifacts from site
+      - name: Clean docwalk artifacts + ensure Q&A assets in site
         run: |
-          cd target-repo/docwalk-output/site
+          cd target-repo/docwalk-output
+          # Copy Q&A index files that MkDocs doesn't include automatically
+          if [ -d docs/_docwalk ]; then
+            mkdir -p site/_docwalk
+            cp -f docs/_docwalk/qa-search.json site/_docwalk/ 2>/dev/null || true
+            cp -f docs/_docwalk/qa-index.json site/_docwalk/ 2>/dev/null || true
+          fi
+          cd site
           rm -f docwalk.config.yml docwalk.config.yaml .docwalkrc* 2>/dev/null || true
           rm -rf .docwalk 2>/dev/null || true
 
