@@ -1,0 +1,54 @@
+/* Startup Preset — Vibrant, modern, energetic */
+:root {
+  --md-primary-fg-color: #7c3aed;
+  --md-primary-fg-color--light: #a78bfa;
+  --md-primary-fg-color--dark: #5b21b6;
+  --md-accent-fg-color: #f59e0b;
+  --md-accent-fg-color--transparent: rgba(245, 158, 11, 0.1);
+}
+
+.md-header {
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+}
+
+.md-tabs {
+  background-color: #6d28d9;
+}
+
+.md-typeset h1 {
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.md-typeset a {
+  color: #7c3aed;
+}
+
+.md-typeset a:hover {
+  color: #f59e0b;
+}
+
+.md-typeset code {
+  border-radius: 6px;
+  font-variant-ligatures: common-ligatures;
+}
+
+.md-typeset .admonition,
+.md-typeset details {
+  border-radius: 8px;
+  border-left-width: 4px;
+}
+
+.md-typeset .admonition.note,
+.md-typeset details.note {
+  border-color: #7c3aed;
+}
+
+.md-content {
+  max-width: 54rem;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #a78bfa;
+  --md-accent-fg-color: #fbbf24;
+}

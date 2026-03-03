@@ -1,0 +1,4 @@
+
+#docwalk-qa-widget { position: fixed; bottom: 20px; right: 20px; z-index: 9999; }
+#dw-qa-toggle { width: 56px; height: 56px; border-radius: 50%; background: #5de4c7; color: #0a0a0c; border: none; cursor: pointer; }
+#dw-qa-panel { width: 400px; height: 520px; background: #16161a; border: 1px solid #2a2a32; border-radius: 12px; }
