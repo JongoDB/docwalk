@@ -4055,7 +4055,7 @@ async function analyzeCodebase(options) {
   let finalModules = allModules;
   let summaryCache = previousSummaryCache || [];
   if (analysis.ai_summaries && analysis.ai_provider) {
-    const { summarizeModules } = await import("./ai-summarizer-7UXV76LA.js");
+    const { summarizeModules } = await import("./ai-summarizer-X3HLQY2V.js");
     const result = await summarizeModules({
       providerConfig: analysis.ai_provider,
       modules: allModules,

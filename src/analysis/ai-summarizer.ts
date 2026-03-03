@@ -753,9 +753,11 @@ export async function summarizeModules(
 
       remaining = remaining.slice(consumed);
 
-      // Tiny pause between waves to avoid slamming rate limits
+      // Pause between waves to let Groq's per-minute TPM window clear.
+      // 7 models × 3-5 files each = ~25 files per wave ≈ 12k tokens.
+      // Groq resets TPM on a rolling 60s window, so 1.5s gives breathing room.
       if (remaining.length > 0) {
-        await new Promise((r) => setTimeout(r, 500));
+        await new Promise((r) => setTimeout(r, 1500));
       }
     }
 
@@ -788,8 +790,8 @@ export async function summarizeModules(
     onProgress?.(progressCount, modules.length,
       `Retrying ${failedModules.length} failed modules...`);
 
-    // Brief pause before retry
-    await new Promise((r) => setTimeout(r, pool ? 500 : 3000));
+    // Pause before retry to let rate-limit windows fully reset
+    await new Promise((r) => setTimeout(r, 3000));
 
     // Reset counters for retry pass
     const retryFailed = failed;

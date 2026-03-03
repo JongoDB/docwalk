@@ -961,7 +961,7 @@ async function summarizeModules(options) {
       }
       remaining = remaining.slice(consumed);
       if (remaining.length > 0) {
-        await new Promise((r) => setTimeout(r, 500));
+        await new Promise((r) => setTimeout(r, 1500));
       }
     }
     updatedModules = [...allResults, ...skippedModules];
@@ -987,7 +987,7 @@ async function summarizeModules(options) {
       modules.length,
       `Retrying ${failedModules.length} failed modules...`
     );
-    await new Promise((r) => setTimeout(r, pool ? 500 : 3e3));
+    await new Promise((r) => setTimeout(r, 3e3));
     const retryFailed = failed;
     failed = 0;
     progressCount = modules.length - failedModules.length;
