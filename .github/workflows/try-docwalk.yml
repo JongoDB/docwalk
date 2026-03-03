@@ -4,8 +4,11 @@
 # runs DocWalk analysis + generation, builds with MkDocs,
 # and publishes to gh-pages under /try/{slug}/.
 #
-# Uses a pre-built container image with Node, Python, Zensical,
-# and npm deps already installed (~5s startup vs ~90s).
+# Runs on a self-hosted runner (Proxmox LXC) with Node, Python,
+# Zensical, and npm deps pre-installed. Falls back to GH-hosted
+# runner with Docker container if self-hosted is unavailable.
+#
+# Security: Only workflow_dispatch — never enable on PR triggers.
 
 name: Try DocWalk
 
@@ -41,7 +44,127 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  generate:
+  # ── Primary: self-hosted runner (Proxmox LXC) ────────────────────────────
+  generate-self-hosted:
+    runs-on: [self-hosted, docwalk-runner]
+    timeout-minutes: 5
+    steps:
+      - name: Checkout docwalk source
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          path: docwalk-src
+
+      - name: Link pre-installed dependencies
+        run: |
+          if [ -d /opt/docwalk-deps/node_modules ]; then
+            cp -r /opt/docwalk-deps/node_modules docwalk-src/node_modules
+          else
+            cd docwalk-src && npm ci --ignore-scripts
+          fi
+
+      - name: Checkout gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: Parse repo URL
+        id: parse
+        env:
+          REPO_URL: ${{ github.event.inputs.repo_url }}
+        run: |
+          OWNER_REPO=$(echo "$REPO_URL" | sed -E 's|https?://github\.com/||' | sed 's|/$||')
+          SLUG=$(echo "$OWNER_REPO" | tr '/' '-')
+          echo "slug=$SLUG" >> "$GITHUB_OUTPUT"
+          echo "owner_repo=$OWNER_REPO" >> "$GITHUB_OUTPUT"
+
+      - name: Clone target repo
+        env:
+          REPO_URL: ${{ github.event.inputs.repo_url }}
+          BRANCH: ${{ github.event.inputs.branch }}
+        run: |
+          if [ -n "$BRANCH" ]; then
+            git clone --depth 1 --branch "$BRANCH" "$REPO_URL" target-repo || \
+            git clone --depth 1 "$REPO_URL" target-repo
+          else
+            git clone --depth 1 "$REPO_URL" target-repo
+          fi
+          cd target-repo && git fetch --tags --depth 1
+
+      - name: Initialize DocWalk config
+        working-directory: target-repo
+        env:
+          OWNER_REPO: ${{ steps.parse.outputs.owner_repo }}
+          THEME: ${{ github.event.inputs.theme || 'developer' }}
+          LAYOUT: ${{ github.event.inputs.layout || 'tabs' }}
+        run: |
+          node ../docwalk-src/dist/cli/index.js init --no-interactive --repo "$OWNER_REPO" --theme "$THEME" --layout "$LAYOUT"
+
+      - name: Configure AI provider
+        working-directory: target-repo
+        run: |
+          node -e "
+          const fs = require('fs');
+          let cfg = fs.readFileSync('docwalk.config.yml', 'utf8');
+          cfg = cfg.replace('ai_summaries: false', 'ai_summaries: true');
+          cfg = cfg.replace(
+            /^(analysis:)/m,
+            'analysis:\n  ai_provider:\n    name: docwalk-proxy'
+          );
+          cfg = cfg.replace(/concurrency: \d+/, 'concurrency: 12');
+          fs.writeFileSync('docwalk.config.yml', cfg);
+          "
+
+      - name: Generate documentation
+        working-directory: target-repo
+        run: node ../docwalk-src/dist/cli/index.js generate -v --ai --try-mode
+
+      - name: Build documentation site
+        working-directory: target-repo/docwalk-output
+        run: zensical build
+
+      - name: Clean docwalk artifacts from site
+        run: |
+          cd target-repo/docwalk-output/site
+          rm -f docwalk.config.yml docwalk.config.yaml .docwalkrc* 2>/dev/null || true
+          rm -rf .docwalk 2>/dev/null || true
+
+      - name: Deploy to gh-pages
+        env:
+          SLUG: ${{ steps.parse.outputs.slug }}
+        run: |
+          mkdir -p "gh-pages/try/${SLUG}"
+          cp -r target-repo/docwalk-output/site/* "gh-pages/try/${SLUG}/"
+
+          cd gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "try/${SLUG}"
+          git commit -m "try: generate docs for ${SLUG}" || echo "No changes to commit"
+          git pull --rebase origin gh-pages || true
+          git push
+
+      - name: Prune old results
+        run: |
+          cd gh-pages
+          find try/ -mindepth 1 -maxdepth 1 -type d -mtime +7 -exec rm -rf {} + 2>/dev/null || true
+          git add -A
+          git diff --cached --quiet || git commit -m "try: prune results older than 7 days"
+          git pull --rebase origin gh-pages || true
+          git push || true
+
+      - name: Output result URL
+        env:
+          SLUG: ${{ steps.parse.outputs.slug }}
+        run: |
+          echo "Documentation available at:"
+          echo "https://jongodb.github.io/docwalk/try/${SLUG}/"
+
+  # ── Fallback: GH-hosted runner with Docker container ─────────────────────
+  generate-fallback:
+    if: ${{ always() && needs.generate-self-hosted.result == 'skipped' }}
+    needs: generate-self-hosted
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/jongodb/docwalk-runner:latest
@@ -57,8 +180,7 @@ jobs:
           path: docwalk-src
 
       - name: Link pre-installed dependencies
-        run: |
-          cp -r /docwalk-deps/node_modules docwalk-src/node_modules
+        run: cp -r /docwalk-deps/node_modules docwalk-src/node_modules
 
       - name: Checkout gh-pages
         uses: actions/checkout@v4
@@ -145,7 +267,6 @@ jobs:
       - name: Prune old results
         run: |
           cd gh-pages
-          # Remove try/ subdirectories older than 7 days
           find try/ -mindepth 1 -maxdepth 1 -type d -mtime +7 -exec rm -rf {} + 2>/dev/null || true
           git add -A
           git diff --cached --quiet || git commit -m "try: prune results older than 7 days"
