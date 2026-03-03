@@ -6,7 +6,7 @@ import {
 } from "./chunk-XXIUN7XL.js";
 import {
   analyzeCodebase
-} from "./chunk-YVFVLMBB.js";
+} from "./chunk-WYXSSXQI.js";
 import "./chunk-W5SRVZUR.js";
 import "./chunk-LPLYQTRT.js";
 import {
@@ -53,7 +53,7 @@ async function generateCommand(options) {
       blank();
       log("info", "No configuration found \u2014 let's set up DocWalk.");
       blank();
-      const { initCommand } = await import("./init-6YNMJMTI.js");
+      const { initCommand } = await import("./init-IWZYHBF7.js");
       await initCommand({ _skipGenerate: true });
       clearConfigCache();
       try {

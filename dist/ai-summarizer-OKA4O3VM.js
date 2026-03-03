@@ -473,24 +473,47 @@ async function summarizeModules(options) {
       modules.length,
       `Retrying ${failedModules.length} failed modules...`
     );
-    await new Promise((r) => setTimeout(r, 5e3));
+    await new Promise((r) => setTimeout(r, 3e3));
     const retryFailed = failed;
     failed = 0;
     progressCount = modules.length - failedModules.length;
     if (pool) {
       const slots = pool.getSlots();
+      const stillFailing = [];
       for (let i = 0; i < failedModules.length; i++) {
         const mod = failedModules[i];
         const slot = slots[i % slots.length];
         const results = await processMultiFileBatch([mod], slot.provider);
-        for (const result of results) {
-          if (result.aiSummary) {
-            const idx = updatedModules.findIndex((m) => m.filePath === result.filePath);
-            if (idx >= 0) updatedModules[idx] = result;
+        const succeeded = results.some((r) => r.aiSummary);
+        if (succeeded) {
+          for (const result of results) {
+            if (result.aiSummary) {
+              const idx = updatedModules.findIndex((m) => m.filePath === result.filePath);
+              if (idx >= 0) updatedModules[idx] = result;
+            }
           }
+        } else {
+          stillFailing.push(mod);
         }
         if (i < failedModules.length - 1) {
           await new Promise((r) => setTimeout(r, 200));
+        }
+      }
+      if (stillFailing.length > 0 && stillFailing.length < failedModules.length) {
+        await new Promise((r) => setTimeout(r, 2e3));
+        for (let i = 0; i < stillFailing.length; i++) {
+          const mod = stillFailing[i];
+          const slot = slots[(i + Math.floor(slots.length / 2)) % slots.length];
+          const results = await processMultiFileBatch([mod], slot.provider);
+          for (const result of results) {
+            if (result.aiSummary) {
+              const idx = updatedModules.findIndex((m) => m.filePath === result.filePath);
+              if (idx >= 0) updatedModules[idx] = result;
+            }
+          }
+          if (i < stillFailing.length - 1) {
+            await new Promise((r) => setTimeout(r, 300));
+          }
         }
       }
     } else {
