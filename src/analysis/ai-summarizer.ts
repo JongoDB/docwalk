@@ -44,23 +44,17 @@ interface GroqModelSpec {
 const TOKENS_PER_FILE = 500;
 
 const GROQ_MODELS: GroqModelSpec[] = [
-  // Compound models: 70K TPM each — by far the highest capacity.
-  // Groq's compound AI routing models. Cap at 10 files/req to keep prompt size reasonable.
+  // Reliable Groq models only — kimi-k2 and gpt-oss frequently return 503.
+  // Compound models: 70K TPM each — highest capacity and most reliable.
   { id: "groq/compound",                                  rpm: 30, tpm: 70000, filesPerRequest: 10 },
   { id: "groq/compound-mini",                             rpm: 30, tpm: 70000, filesPerRequest: 10 },
-  // Scout: best all-rounder, 30K TPM
+  // Llama models: consistently available
   { id: "meta-llama/llama-4-scout-17b-16e-instruct",     rpm: 30, tpm: 30000, filesPerRequest: 8 },
-  // High-quality large models
   { id: "llama-3.3-70b-versatile",                        rpm: 30, tpm: 12000, filesPerRequest: 6 },
-  { id: "moonshotai/kimi-k2-instruct",                    rpm: 60, tpm: 10000, filesPerRequest: 5 },
-  { id: "moonshotai/kimi-k2-instruct-0905",               rpm: 60, tpm: 10000, filesPerRequest: 5 },
-  { id: "openai/gpt-oss-120b",                            rpm: 30, tpm: 8000,  filesPerRequest: 4 },
-  { id: "openai/gpt-oss-20b",                             rpm: 30, tpm: 8000,  filesPerRequest: 4 },
-  { id: "openai/gpt-oss-safeguard-20b",                   rpm: 30, tpm: 8000,  filesPerRequest: 4 },
-  // Smaller/faster models
-  { id: "qwen/qwen3-32b",                                 rpm: 60, tpm: 6000,  filesPerRequest: 3 },
   { id: "meta-llama/llama-4-maverick-17b-128e-instruct",  rpm: 30, tpm: 6000,  filesPerRequest: 3 },
   { id: "llama-3.1-8b-instant",                           rpm: 30, tpm: 6000,  filesPerRequest: 3 },
+  // Qwen: reliable, decent quality
+  { id: "qwen/qwen3-32b",                                 rpm: 60, tpm: 6000,  filesPerRequest: 3 },
 ];
 
 /** A provider slot in the pool, with its capacity metadata. */
