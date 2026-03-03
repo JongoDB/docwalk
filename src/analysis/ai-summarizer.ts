@@ -79,6 +79,11 @@ class ProviderPool {
     }));
   }
 
+  /** Expose slots for round-robin retry access. */
+  getSlots(): ReadonlyArray<PoolSlot> {
+    return this.slots;
+  }
+
   /**
    * Plan work distribution for a set of modules.
    * Returns assignments: which provider handles which modules, respecting
@@ -753,11 +758,11 @@ export async function summarizeModules(
 
       remaining = remaining.slice(consumed);
 
-      // Pause between waves to let Groq's per-minute TPM window clear.
-      // 7 models × 3-5 files each = ~25 files per wave ≈ 12k tokens.
-      // Groq resets TPM on a rolling 60s window, so 1.5s gives breathing room.
+      // Brief pause between waves — 500ms was optimal in testing.
+      // Longer delays (1.5s) actually hurt because Groq's rolling 60s TPM
+      // window means tokens from earlier waves haven't expired.
       if (remaining.length > 0) {
-        await new Promise((r) => setTimeout(r, 1500));
+        await new Promise((r) => setTimeout(r, 500));
       }
     }
 
@@ -790,8 +795,8 @@ export async function summarizeModules(
     onProgress?.(progressCount, modules.length,
       `Retrying ${failedModules.length} failed modules...`);
 
-    // Pause before retry to let rate-limit windows fully reset
-    await new Promise((r) => setTimeout(r, 3000));
+    // 5s pause before retry — let the per-minute rate-limit window clear
+    await new Promise((r) => setTimeout(r, 5000));
 
     // Reset counters for retry pass
     const retryFailed = failed;
@@ -799,23 +804,24 @@ export async function summarizeModules(
     progressCount = modules.length - failedModules.length;
 
     if (pool) {
-      let remaining = [...failedModules];
-      while (remaining.length > 0) {
-        const assignments = pool.planWave(remaining);
-        const consumed = assignments.reduce((n, a) => n + a.batch.length, 0);
-        const waveResults = await Promise.all(
-          assignments.map(({ provider: p, batch }) => processMultiFileBatch(batch, p))
-        );
-        for (const results of waveResults) {
-          // Replace failed modules in updatedModules with retry results
-          for (const mod of results) {
-            if (mod.aiSummary) {
-              const idx = updatedModules.findIndex((m) => m.filePath === mod.filePath);
-              if (idx >= 0) updatedModules[idx] = mod;
-            }
+      // Retry with single-file requests, round-robin across pool models.
+      // Wave dispatch re-triggers the same burst that caused initial 429s.
+      // Sequential single-file retries are gentler on the TPM window.
+      const slots = pool.getSlots();
+      for (let i = 0; i < failedModules.length; i++) {
+        const mod = failedModules[i];
+        const slot = slots[i % slots.length];
+        const results = await processMultiFileBatch([mod], slot.provider);
+        for (const result of results) {
+          if (result.aiSummary) {
+            const idx = updatedModules.findIndex((m) => m.filePath === result.filePath);
+            if (idx >= 0) updatedModules[idx] = result;
           }
         }
-        remaining = remaining.slice(consumed);
+        // Small stagger between retries
+        if (i < failedModules.length - 1) {
+          await new Promise((r) => setTimeout(r, 200));
+        }
       }
     } else {
       // Sequential retry for proxy/non-pool path

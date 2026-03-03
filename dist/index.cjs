@@ -961,7 +961,7 @@ async function summarizeModules(options) {
       }
       remaining = remaining.slice(consumed);
       if (remaining.length > 0) {
-        await new Promise((r) => setTimeout(r, 1500));
+        await new Promise((r) => setTimeout(r, 500));
       }
     }
     updatedModules = [...allResults, ...skippedModules];
@@ -987,27 +987,25 @@ async function summarizeModules(options) {
       modules.length,
       `Retrying ${failedModules.length} failed modules...`
     );
-    await new Promise((r) => setTimeout(r, 3e3));
+    await new Promise((r) => setTimeout(r, 5e3));
     const retryFailed = failed;
     failed = 0;
     progressCount = modules.length - failedModules.length;
     if (pool) {
-      let remaining = [...failedModules];
-      while (remaining.length > 0) {
-        const assignments = pool.planWave(remaining);
-        const consumed = assignments.reduce((n, a) => n + a.batch.length, 0);
-        const waveResults = await Promise.all(
-          assignments.map(({ provider: p, batch }) => processMultiFileBatch(batch, p))
-        );
-        for (const results of waveResults) {
-          for (const mod of results) {
-            if (mod.aiSummary) {
-              const idx = updatedModules.findIndex((m) => m.filePath === mod.filePath);
-              if (idx >= 0) updatedModules[idx] = mod;
-            }
+      const slots = pool.getSlots();
+      for (let i = 0; i < failedModules.length; i++) {
+        const mod = failedModules[i];
+        const slot = slots[i % slots.length];
+        const results = await processMultiFileBatch([mod], slot.provider);
+        for (const result of results) {
+          if (result.aiSummary) {
+            const idx = updatedModules.findIndex((m) => m.filePath === result.filePath);
+            if (idx >= 0) updatedModules[idx] = result;
           }
         }
-        remaining = remaining.slice(consumed);
+        if (i < failedModules.length - 1) {
+          await new Promise((r) => setTimeout(r, 200));
+        }
       }
     } else {
       const retryChunks = [];
@@ -1070,6 +1068,10 @@ var init_ai_summarizer = __esm({
           provider: new OpenAIProvider(apiKey, spec.id, baseURL),
           spec
         }));
+      }
+      /** Expose slots for round-robin retry access. */
+      getSlots() {
+        return this.slots;
       }
       /**
        * Plan work distribution for a set of modules.
