@@ -61,7 +61,7 @@ jobs:
       - name: Link pre-installed dependencies
         run: |
           if [ -d /opt/docwalk-deps/node_modules ]; then
-            cp -r /opt/docwalk-deps/node_modules docwalk-src/node_modules
+            ln -s /opt/docwalk-deps/node_modules docwalk-src/node_modules
           else
             cd docwalk-src && npm ci --ignore-scripts
           fi

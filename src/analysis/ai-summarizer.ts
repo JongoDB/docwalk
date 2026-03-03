@@ -587,7 +587,9 @@ export async function summarizeModules(
           temperature: 0.2,
           systemPrompt,
         }),
-        3, 3000, onRateLimit
+        pool ? 1 : 3,     // Pool: fail fast (1 retry), catch in retry pass
+        pool ? 500 : 3000, // Pool: short delay (model rotation handles 429)
+        onRateLimit
       );
 
       const summaries = parseMultiFileBatchResponse(response, filePaths);
@@ -751,11 +753,6 @@ export async function summarizeModules(
       }
 
       remaining = remaining.slice(consumed);
-
-      // Brief pause between waves to let rate windows recover
-      if (remaining.length > 0) {
-        await new Promise((r) => setTimeout(r, 1000));
-      }
     }
 
     updatedModules = [...allResults, ...skippedModules];
@@ -787,8 +784,8 @@ export async function summarizeModules(
     onProgress?.(progressCount, modules.length,
       `Retrying ${failedModules.length} failed modules...`);
 
-    // Brief pause before retry to let rate limits recover
-    await new Promise((r) => setTimeout(r, 3000));
+    // Brief pause before retry
+    await new Promise((r) => setTimeout(r, pool ? 500 : 3000));
 
     // Reset counters for retry pass
     const retryFailed = failed;
@@ -813,7 +810,6 @@ export async function summarizeModules(
           }
         }
         remaining = remaining.slice(consumed);
-        if (remaining.length > 0) await new Promise((r) => setTimeout(r, 1500));
       }
     } else {
       // Sequential retry for proxy/non-pool path
