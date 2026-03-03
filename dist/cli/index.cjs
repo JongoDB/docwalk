@@ -13772,7 +13772,8 @@ async function generateDocs(options) {
       const { buildQAIndex: buildQAIndex2 } = await Promise.resolve().then(() => (init_qa(), qa_exports));
       const aiBaseUrl = config.analysis.ai_provider?.base_url || "";
       const isGroq = aiBaseUrl.includes("groq.com");
-      const qaProviderName = config.analysis.qa_config.provider || (isGroq ? "bag-of-words" : "openai");
+      const hasExplicitQAKey = !!config.analysis.qa_config.api_key_env;
+      const qaProviderName = isGroq && !hasExplicitQAKey ? "bag-of-words" : config.analysis.qa_config.provider;
       const qaKeyEnv = config.analysis.qa_config.api_key_env || config.analysis.ai_provider?.api_key_env || "DOCWALK_AI_KEY";
       const qaApiKey = resolveApiKey(qaProviderName, qaKeyEnv) || "";
       const qaIndex = await buildQAIndex2({

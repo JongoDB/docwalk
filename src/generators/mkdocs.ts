@@ -520,12 +520,15 @@ export async function generateDocs(options: GenerateOptions): Promise<void> {
     onProgress?.("Building Q&A index...");
     try {
       const { buildQAIndex } = await import("../qa/index.js");
-      // If no QA provider is explicitly set, infer from the AI provider.
-      // Groq doesn't have an embedding API, so fall back to bag-of-words.
+      // Groq doesn't have an embedding API. When the AI provider uses Groq,
+      // force bag-of-words embeddings unless the user explicitly configured
+      // a separate QA provider with its own API key.
       const aiBaseUrl = config.analysis.ai_provider?.base_url || "";
       const isGroq = aiBaseUrl.includes("groq.com");
-      const qaProviderName = config.analysis.qa_config.provider
-        || (isGroq ? "bag-of-words" : "openai");
+      const hasExplicitQAKey = !!config.analysis.qa_config.api_key_env;
+      const qaProviderName = (isGroq && !hasExplicitQAKey)
+        ? "bag-of-words"
+        : config.analysis.qa_config.provider;
       const qaKeyEnv = config.analysis.qa_config.api_key_env
         || config.analysis.ai_provider?.api_key_env
         || "DOCWALK_AI_KEY";
