@@ -734,46 +734,47 @@ export async function summarizeModules(
 
   let updatedModules: ModuleInfo[];
 
-  if (isRateLimited && canBatch && filesPerRequest > 1) {
+  if (pool && canBatch) {
+    // ── Groq model pool: capacity-aware parallel dispatch ───────────────
+    // Each model gets files proportional to its TPM limit:
+    //   compound (70K TPM) → 10 files, scout (30K) → 8, llama-70b (12K) → 6, etc.
+    // All models fire in parallel per wave. ~65 files/wave total.
+    // For 50 try-mode files, this means a single wave — all at once.
     const allResults: ModuleInfo[] = [];
+    let remaining = [...modulesToSummarize];
 
-    if (pool) {
-      // ── Capacity-aware parallel dispatch ─────────────────────────────
-      // Each model gets files proportional to its TPM limit:
-      //   scout (30K TPM) → 8 files, llama-70b (12K) → 6, kimi (10K) → 5, etc.
-      // All models fire in parallel per wave. ~36 files/wave total.
-      let remaining = [...modulesToSummarize];
+    while (remaining.length > 0) {
+      const assignments = pool.planWave(remaining);
+      const consumed = assignments.reduce((n, a) => n + a.batch.length, 0);
 
-      while (remaining.length > 0) {
-        const assignments = pool.planWave(remaining);
-        const consumed = assignments.reduce((n, a) => n + a.batch.length, 0);
-
-        const waveResults = await Promise.all(
-          assignments.map(({ provider: p, batch }) =>
-            processMultiFileBatch(batch, p)
-          )
-        );
-        for (const results of waveResults) {
-          allResults.push(...results);
-        }
-
-        remaining = remaining.slice(consumed);
-
-        // Brief pause between waves to let rate windows recover
-        if (remaining.length > 0) {
-          await new Promise((r) => setTimeout(r, 1000));
-        }
+      const waveResults = await Promise.all(
+        assignments.map(({ provider: p, batch }) =>
+          processMultiFileBatch(batch, p)
+        )
+      );
+      for (const results of waveResults) {
+        allResults.push(...results);
       }
-    } else {
-      // Sequential fallback for non-Groq rate-limited providers
-      const chunks: ModuleInfo[][] = [];
-      for (let i = 0; i < modulesToSummarize.length; i += filesPerRequest) {
-        chunks.push(modulesToSummarize.slice(i, i + filesPerRequest));
+
+      remaining = remaining.slice(consumed);
+
+      // Brief pause between waves to let rate windows recover
+      if (remaining.length > 0) {
+        await new Promise((r) => setTimeout(r, 1000));
       }
-      for (const chunk of chunks) {
-        const batchResults = await processMultiFileBatch(chunk, provider as AIProvider);
-        allResults.push(...batchResults);
-      }
+    }
+
+    updatedModules = [...allResults, ...skippedModules];
+  } else if (isRateLimited && canBatch && filesPerRequest > 1) {
+    // ── Sequential multi-file batching (non-Groq rate-limited providers) ──
+    const allResults: ModuleInfo[] = [];
+    const chunks: ModuleInfo[][] = [];
+    for (let i = 0; i < modulesToSummarize.length; i += filesPerRequest) {
+      chunks.push(modulesToSummarize.slice(i, i + filesPerRequest));
+    }
+    for (const chunk of chunks) {
+      const batchResults = await processMultiFileBatch(chunk, provider as AIProvider);
+      allResults.push(...batchResults);
     }
 
     updatedModules = [...allResults, ...skippedModules];

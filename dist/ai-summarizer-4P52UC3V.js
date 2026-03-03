@@ -432,35 +432,35 @@ async function summarizeModules(options) {
     }
   }
   let updatedModules;
-  if (isRateLimited && canBatch && filesPerRequest > 1) {
+  if (pool && canBatch) {
     const allResults = [];
-    if (pool) {
-      let remaining = [...modulesToSummarize];
-      while (remaining.length > 0) {
-        const assignments = pool.planWave(remaining);
-        const consumed = assignments.reduce((n, a) => n + a.batch.length, 0);
-        const waveResults = await Promise.all(
-          assignments.map(
-            ({ provider: p, batch }) => processMultiFileBatch(batch, p)
-          )
-        );
-        for (const results of waveResults) {
-          allResults.push(...results);
-        }
-        remaining = remaining.slice(consumed);
-        if (remaining.length > 0) {
-          await new Promise((r) => setTimeout(r, 1e3));
-        }
+    let remaining = [...modulesToSummarize];
+    while (remaining.length > 0) {
+      const assignments = pool.planWave(remaining);
+      const consumed = assignments.reduce((n, a) => n + a.batch.length, 0);
+      const waveResults = await Promise.all(
+        assignments.map(
+          ({ provider: p, batch }) => processMultiFileBatch(batch, p)
+        )
+      );
+      for (const results of waveResults) {
+        allResults.push(...results);
       }
-    } else {
-      const chunks = [];
-      for (let i = 0; i < modulesToSummarize.length; i += filesPerRequest) {
-        chunks.push(modulesToSummarize.slice(i, i + filesPerRequest));
+      remaining = remaining.slice(consumed);
+      if (remaining.length > 0) {
+        await new Promise((r) => setTimeout(r, 1e3));
       }
-      for (const chunk of chunks) {
-        const batchResults = await processMultiFileBatch(chunk, provider);
-        allResults.push(...batchResults);
-      }
+    }
+    updatedModules = [...allResults, ...skippedModules];
+  } else if (isRateLimited && canBatch && filesPerRequest > 1) {
+    const allResults = [];
+    const chunks = [];
+    for (let i = 0; i < modulesToSummarize.length; i += filesPerRequest) {
+      chunks.push(modulesToSummarize.slice(i, i + filesPerRequest));
+    }
+    for (const chunk of chunks) {
+      const batchResults = await processMultiFileBatch(chunk, provider);
+      allResults.push(...batchResults);
     }
     updatedModules = [...allResults, ...skippedModules];
   } else {
