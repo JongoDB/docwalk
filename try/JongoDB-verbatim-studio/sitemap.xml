@@ -97,18 +97,6 @@
         <loc>/api/packages/frontend/src/lib/utils/</loc>
       </url>
       <url>
-        <loc>/api/packages/backend/persistence/__init__/</loc>
-      </url>
-      <url>
-        <loc>/api/packages/backend/persistence/database/</loc>
-      </url>
-      <url>
-        <loc>/api/packages/backend/persistence/defaults/</loc>
-      </url>
-      <url>
-        <loc>/api/packages/backend/persistence/models/</loc>
-      </url>
-      <url>
         <loc>/api/packages/backend/api/routes/ai/</loc>
       </url>
       <url>
@@ -197,6 +185,18 @@
       </url>
       <url>
         <loc>/api/packages/backend/api/routes/whisper/</loc>
+      </url>
+      <url>
+        <loc>/api/packages/backend/persistence/__init__/</loc>
+      </url>
+      <url>
+        <loc>/api/packages/backend/persistence/database/</loc>
+      </url>
+      <url>
+        <loc>/api/packages/backend/persistence/defaults/</loc>
+      </url>
+      <url>
+        <loc>/api/packages/backend/persistence/models/</loc>
       </url>
       <url>
         <loc>/api/packages/backend/core/interfaces/__init__/</loc>
@@ -331,16 +331,64 @@
         <loc>/api/packages/backend/adapters/transcription/whisperx/</loc>
       </url>
       <url>
-        <loc>/api/packages/backend/storage/__init__/</loc>
+        <loc>/api/apps/electron/src/main/backend/</loc>
       </url>
       <url>
-        <loc>/api/packages/backend/storage/base/</loc>
+        <loc>/api/apps/electron/src/main/bootstrap-models/</loc>
       </url>
       <url>
-        <loc>/api/packages/backend/storage/exceptions/</loc>
+        <loc>/api/apps/electron/src/main/</loc>
       </url>
       <url>
-        <loc>/api/packages/backend/storage/factory/</loc>
+        <loc>/api/apps/electron/src/main/ipc/</loc>
+      </url>
+      <url>
+        <loc>/api/apps/electron/src/main/resource-migration/</loc>
+      </url>
+      <url>
+        <loc>/api/apps/electron/src/main/screenshot/</loc>
+      </url>
+      <url>
+        <loc>/api/apps/electron/src/main/splash/</loc>
+      </url>
+      <url>
+        <loc>/api/apps/electron/src/main/update-script/</loc>
+      </url>
+      <url>
+        <loc>/api/apps/electron/src/main/update-store/</loc>
+      </url>
+      <url>
+        <loc>/api/apps/electron/src/main/updater/</loc>
+      </url>
+      <url>
+        <loc>/api/apps/electron/src/main/utils/</loc>
+      </url>
+      <url>
+        <loc>/api/apps/electron/src/main/windows/</loc>
+      </url>
+      <url>
+        <loc>/api/docs/architecture/enterprise-strategy/</loc>
+      </url>
+      <url>
+        <loc>/api/docs/architecture/plugin-system-design/</loc>
+      </url>
+      <url>
+        <loc>/api/docs/knowledge/settings/configuration/</loc>
+      </url>
+      <url>
+        <loc>/api/packages/frontend/src/pages/settings/SettingsPage/</loc>
+      </url>
+      <url>
+        <loc>/api/apps/electron/src/preload/</loc>
+      </url>
+      <url>
+        <loc>/api/packages/frontend/src/stores/downloadStore/</loc>
+      </url>
+      <url>
+        <loc>/api/packages/frontend/src/stores/keybindingStore/</loc>
+      </url>
+      <url>
+        <loc>/api/packages/frontend/src/stores/taskStore/</loc>
       </url>
       <url>
         <loc>/api/packages/frontend/src/hooks/useConversations/</loc>
@@ -379,70 +427,19 @@
         <loc>/api/packages/frontend/src/hooks/useSearchHistory/</loc>
       </url>
       <url>
-        <loc>/api/packages/frontend/src/stores/downloadStore/</loc>
+        <loc>/api/packages/backend/storage/__init__/</loc>
       </url>
       <url>
-        <loc>/api/packages/frontend/src/stores/keybindingStore/</loc>
+        <loc>/api/packages/backend/storage/base/</loc>
       </url>
       <url>
-        <loc>/api/packages/frontend/src/stores/taskStore/</loc>
+        <loc>/api/packages/backend/storage/exceptions/</loc>
       </url>
       <url>
-        <loc>/api/apps/electron/src/main/backend/</loc>
-      </url>
-      <url>
-        <loc>/api/apps/electron/src/main/bootstrap-models/</loc>
-      </url>
-      <url>
-        <loc>/api/apps/electron/src/main/</loc>
-      </url>
-      <url>
-        <loc>/api/apps/electron/src/main/ipc/</loc>
-      </url>
-      <url>
-        <loc>/api/apps/electron/src/main/resource-migration/</loc>
-      </url>
-      <url>
-        <loc>/api/apps/electron/src/main/screenshot/</loc>
-      </url>
-      <url>
-        <loc>/api/apps/electron/src/main/splash/</loc>
-      </url>
-      <url>
-        <loc>/api/apps/electron/src/main/update-script/</loc>
-      </url>
-      <url>
-        <loc>/api/apps/electron/src/main/update-store/</loc>
-      </url>
-      <url>
-        <loc>/api/apps/electron/src/main/updater/</loc>
-      </url>
-      <url>
-        <loc>/api/apps/electron/src/main/utils/</loc>
-      </url>
-      <url>
-        <loc>/api/apps/electron/src/main/windows/</loc>
+        <loc>/api/packages/backend/storage/factory/</loc>
       </url>
       <url>
         <loc>/api/packages/backend/scripts/migrate_filesystem_ui/</loc>
-      </url>
-      <url>
-        <loc>/api/docs/architecture/enterprise-strategy/</loc>
-      </url>
-      <url>
-        <loc>/api/docs/architecture/plugin-system-design/</loc>
-      </url>
-      <url>
-        <loc>/api/docs/knowledge/settings/configuration/</loc>
-      </url>
-      <url>
-        <loc>/api/packages/frontend/src/pages/settings/SettingsPage/</loc>
-      </url>
-      <url>
-        <loc>/api/docs/knowledge/troubleshooting/common-issues/</loc>
-      </url>
-      <url>
-        <loc>/api/docs/knowledge/troubleshooting/error-messages/</loc>
       </url>
       <url>
         <loc>/api/packages/frontend/src/components/projects/AddRecordingDialog/</loc>
@@ -724,16 +721,25 @@
         <loc>/api/packages/frontend/src/components/updates/WhatsNewDialog/</loc>
       </url>
       <url>
-        <loc>/api/docs/knowledge/transcribing/editing-transcripts/</loc>
+        <loc>/api/packages/backend/jobs/process_document/</loc>
       </url>
       <url>
-        <loc>/api/docs/knowledge/transcribing/exporting/</loc>
+        <loc>/api/packages/frontend/src/app/App/</loc>
       </url>
       <url>
-        <loc>/api/docs/knowledge/transcribing/transcription-settings/</loc>
+        <loc>/api/packages/frontend/src/main/</loc>
       </url>
       <url>
-        <loc>/api/docs/knowledge/transcribing/uploading-files/</loc>
+        <loc>/api/packages/frontend/src/version/</loc>
+      </url>
+      <url>
+        <loc>/api/docs/knowledge/getting-started/first-transcription/</loc>
+      </url>
+      <url>
+        <loc>/api/docs/knowledge/getting-started/navigation/</loc>
+      </url>
+      <url>
+        <loc>/api/docs/knowledge/getting-started/overview/</loc>
       </url>
       <url>
         <loc>/api/docs/knowledge/analyzing/ai-chat/</loc>
@@ -760,28 +766,22 @@
         <loc>/api/docs/knowledge/organizing/tags/</loc>
       </url>
       <url>
-        <loc>/api/packages/frontend/src/app/App/</loc>
+        <loc>/api/docs/knowledge/transcribing/editing-transcripts/</loc>
       </url>
       <url>
-        <loc>/api/docs/knowledge/getting-started/first-transcription/</loc>
+        <loc>/api/docs/knowledge/transcribing/exporting/</loc>
       </url>
       <url>
-        <loc>/api/docs/knowledge/getting-started/navigation/</loc>
+        <loc>/api/docs/knowledge/transcribing/transcription-settings/</loc>
       </url>
       <url>
-        <loc>/api/docs/knowledge/getting-started/overview/</loc>
+        <loc>/api/docs/knowledge/transcribing/uploading-files/</loc>
       </url>
       <url>
-        <loc>/api/packages/backend/jobs/process_document/</loc>
+        <loc>/api/docs/knowledge/troubleshooting/common-issues/</loc>
       </url>
       <url>
-        <loc>/api/packages/frontend/src/main/</loc>
-      </url>
-      <url>
-        <loc>/api/packages/frontend/src/version/</loc>
-      </url>
-      <url>
-        <loc>/api/apps/electron/src/preload/</loc>
+        <loc>/api/docs/knowledge/troubleshooting/error-messages/</loc>
       </url>
       <url>
         <loc>/api/packages/frontend/public/sw/</loc>
