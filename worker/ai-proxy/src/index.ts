@@ -226,7 +226,7 @@ async function callGeminiStream(
   maxTokens = 1024,
   temperature = 0.3,
 ): Promise<Response> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:streamGenerateContent?alt=sse&key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${apiKey}`;
 
   const res = await fetch(url, {
     method: "POST",
