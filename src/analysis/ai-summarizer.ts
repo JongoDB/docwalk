@@ -45,15 +45,14 @@ const TOKENS_PER_FILE = 500;
 
 const GROQ_MODELS: GroqModelSpec[] = [
   // Reliable Groq models only — kimi-k2 and gpt-oss frequently return 503.
-  // Compound models: 70K TPM each — highest capacity and most reliable.
-  { id: "groq/compound",                                  rpm: 30, tpm: 70000, filesPerRequest: 10 },
-  { id: "groq/compound-mini",                             rpm: 30, tpm: 70000, filesPerRequest: 10 },
-  // Llama models: consistently available
-  { id: "meta-llama/llama-4-scout-17b-16e-instruct",     rpm: 30, tpm: 30000, filesPerRequest: 8 },
-  { id: "llama-3.3-70b-versatile",                        rpm: 30, tpm: 12000, filesPerRequest: 6 },
+  // Cap all models at 3-5 files/request for reliable JSON parsing.
+  // 7 models × ~4 files = ~28 files/wave. 50 files in 2 waves (~4-6s).
+  { id: "groq/compound",                                  rpm: 30, tpm: 70000, filesPerRequest: 5 },
+  { id: "groq/compound-mini",                             rpm: 30, tpm: 70000, filesPerRequest: 5 },
+  { id: "meta-llama/llama-4-scout-17b-16e-instruct",     rpm: 30, tpm: 30000, filesPerRequest: 4 },
+  { id: "llama-3.3-70b-versatile",                        rpm: 30, tpm: 12000, filesPerRequest: 4 },
   { id: "meta-llama/llama-4-maverick-17b-128e-instruct",  rpm: 30, tpm: 6000,  filesPerRequest: 3 },
   { id: "llama-3.1-8b-instant",                           rpm: 30, tpm: 6000,  filesPerRequest: 3 },
-  // Qwen: reliable, decent quality
   { id: "qwen/qwen3-32b",                                 rpm: 60, tpm: 6000,  filesPerRequest: 3 },
 ];
 
@@ -753,6 +752,11 @@ export async function summarizeModules(
       }
 
       remaining = remaining.slice(consumed);
+
+      // Tiny pause between waves to avoid slamming rate limits
+      if (remaining.length > 0) {
+        await new Promise((r) => setTimeout(r, 500));
+      }
     }
 
     updatedModules = [...allResults, ...skippedModules];
