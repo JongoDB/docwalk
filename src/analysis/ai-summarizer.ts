@@ -333,6 +333,19 @@ function scoreModuleForDemo(mod: ModuleInfo): number {
   if (/migration|seed/.test(name)) score -= 10;
   if (/\.lock|\.config\.[^/]+$/.test(name)) score -= 10;
 
+  // Tutorial / example / docs_src files — these are illustrative snippets,
+  // not core library code. Heavy penalty keeps them out of the top 50.
+  if (/\b(docs_src|examples?|samples?|tutorials?|snippets?|demos?)\b/.test(name)) score -= 25;
+  // Vendored or third-party code
+  if (/\b(vendor|third[_-]?party|external|node_modules)\b/.test(name)) score -= 20;
+
+  // ── Depth bonus ────────────────────────────────────────────────────
+  // Core library files live near the project root (depth 1-2).
+  // Deeply nested files (depth 4+) are usually less architecturally significant.
+  const depth = mod.filePath.split("/").length - 1;
+  if (depth <= 2) score += 6;
+  else if (depth >= 4) score -= 3;
+
   // Import graph: more imports = more architectural significance
   score += Math.min(mod.imports.length, 8);
 
