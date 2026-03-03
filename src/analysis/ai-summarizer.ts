@@ -274,52 +274,114 @@ async function withRetry<T>(
 // with rich type signatures, and core architectural files score highest.
 // This ensures try-mode showcases the most compelling AI summaries.
 
+/**
+ * Score a module for demo impressiveness.
+ * Higher scores = better showcase in try-mode's 50-module cap.
+ */
 function scoreModuleForDemo(mod: ModuleInfo): number {
   let score = 0;
   const exported = mod.symbols.filter((s) => s.exported);
 
-  // Classes and interfaces are the most visually impressive in docs
+  // ── Symbol variety (capped to avoid route-file inflation) ────────────
   const classes = exported.filter((s) => s.kind === "class");
   const interfaces = exported.filter((s) => s.kind === "interface");
   const functions = exported.filter((s) => s.kind === "function");
   const types = exported.filter((s) => s.kind === "type" || s.kind === "enum");
 
-  score += classes.length * 15;       // Classes are doc gold — methods, inheritance, etc.
-  score += interfaces.length * 12;    // Interfaces define contracts
-  score += functions.length * 5;      // Functions are useful but simpler
-  score += types.length * 3;          // Types/enums add completeness
+  score += Math.min(classes.length, 3) * 15;     // Classes are doc gold
+  score += Math.min(interfaces.length, 4) * 12;  // Interfaces define contracts
+  score += Math.min(functions.length, 5) * 4;    // Functions: cap at 5 to avoid route inflation
+  score += Math.min(types.length, 5) * 3;        // Types/enums add completeness
 
-  // More exported symbols = richer API reference page
-  score += Math.min(exported.length, 20) * 2;
+  // Symbol diversity bonus: having multiple KINDS of exports is more impressive
+  const kinds = new Set(exported.map((s) => s.kind));
+  score += (kinds.size - 1) * 8; // 0 for 1 kind, +8 for 2, +16 for 3, etc.
 
-  // Documented symbols (JSDoc/docstrings) produce better AI summaries
-  const documented = exported.filter((s) => s.docs?.summary);
-  score += documented.length * 3;
+  // Documented symbols produce better AI summaries
+  score += Math.min(exported.filter((s) => s.docs?.summary).length, 8) * 3;
 
-  // Entry points and core files (index, main, app, server, config)
+  // ── File role (what the file IS, not just its name) ──────────────────
   const name = mod.filePath.toLowerCase();
-  if (/index\.[^/]+$/.test(name)) score += 8;
-  if (/main\.[^/]+$/.test(name)) score += 10;
-  if (/app\.[^/]+$/.test(name)) score += 10;
-  if (/server\.[^/]+$/.test(name)) score += 8;
-  if (/config|schema/.test(name)) score += 6;
-  if (/router|routes/.test(name)) score += 6;
-  if (/model|entity/.test(name)) score += 6;
+  const base = name.split("/").pop() || "";
 
-  // Moderate file size (not too small, not too large) — sweet spot for summaries
-  if (mod.lineCount >= 50 && mod.lineCount <= 500) score += 5;
-  if (mod.lineCount < 10) score -= 10; // Tiny stubs aren't impressive
+  // Core architectural files — these tell the most interesting story
+  if (/^(index|main|app|server)\.[^/]+$/.test(base)) score += 12;
+  if (/model|entity|schema|types/.test(base)) score += 10;
+  if (/config/.test(base)) score += 8;
+  if (/service|controller|manager|handler/.test(base)) score += 6;
+  if (/store|state|context/.test(base)) score += 8;  // State management
+  if (/hook|composable/.test(base)) score += 6;       // React/Vue hooks
+  if (/component|widget|view|page/.test(base)) score += 5; // UI components
+  if (/util|helper|lib/.test(base)) score += 4;
+  if (/middleware|interceptor|guard/.test(base)) score += 5;
+  if (/factory|builder|provider/.test(base)) score += 6;
 
-  // Penalize test files and generated files — not demo-worthy
-  if (/\.(test|spec|mock)\.[^/]+$/.test(name)) score -= 20;
-  if (/__(tests|mocks|fixtures)__/.test(name)) score -= 20;
-  if (/\.d\.ts$/.test(name)) score -= 10; // Type declaration files
-  if (/generated|dist\//.test(name)) score -= 15;
+  // Route files: small bonus for the FIRST one, but not 20+ of them
+  // (the diversity selection below handles this via directory caps)
+  if (/route|endpoint|api/.test(base)) score += 3;
 
-  // Files with many imports connect to more of the codebase (architectural)
-  score += Math.min(mod.imports.length, 10);
+  // Moderate file size — sweet spot for readable summaries
+  if (mod.lineCount >= 80 && mod.lineCount <= 400) score += 5;
+  else if (mod.lineCount >= 50 && mod.lineCount <= 600) score += 3;
+  if (mod.lineCount < 15) score -= 10;
+
+  // ── Penalties ────────────────────────────────────────────────────────
+  if (/\.(test|spec|mock|fixture)\.[^/]+$/.test(name)) score -= 30;
+  if (/__(tests|mocks|fixtures|snapshots)__/.test(name)) score -= 30;
+  if (/\.d\.ts$/.test(name)) score -= 15;
+  if (/generated|dist\/|\.min\./.test(name)) score -= 20;
+  if (/migration|seed/.test(name)) score -= 10;
+  if (/\.lock|\.config\.[^/]+$/.test(name)) score -= 10;
+
+  // Import graph: more imports = more architectural significance
+  score += Math.min(mod.imports.length, 8);
 
   return score;
+}
+
+/**
+ * Select modules with diversity — no single directory dominates.
+ * Picks top-scored modules but limits how many come from the same parent dir.
+ */
+function selectDiverseModules(
+  modules: ModuleInfo[],
+  maxModules: number
+): { selected: ModuleInfo[]; skipped: ModuleInfo[] } {
+  const scored = modules.map((mod) => ({ mod, score: scoreModuleForDemo(mod) }));
+  scored.sort((a, b) => b.score - a.score);
+
+  // Allow at most ~20% of budget from any single directory
+  const maxPerDir = Math.max(3, Math.ceil(maxModules * 0.2));
+  const dirCounts: Record<string, number> = {};
+  const selected: ModuleInfo[] = [];
+  const skipped: ModuleInfo[] = [];
+
+  for (const { mod } of scored) {
+    if (selected.length >= maxModules) {
+      skipped.push(mod);
+      continue;
+    }
+
+    const dir = mod.filePath.split("/").slice(0, -1).join("/");
+    const count = dirCounts[dir] || 0;
+
+    if (count >= maxPerDir) {
+      // Directory over-represented — defer this module
+      skipped.push(mod);
+      continue;
+    }
+
+    dirCounts[dir] = count + 1;
+    selected.push(mod);
+  }
+
+  // If we haven't filled the budget (due to dir caps), backfill from skipped
+  if (selected.length < maxModules && skipped.length > 0) {
+    const backfill = skipped.splice(0, maxModules - selected.length);
+    selected.push(...backfill);
+  }
+
+  return { selected, skipped };
 }
 
 // ─── Orchestrator ────────────────────────────────────────────────────────────
@@ -443,15 +505,14 @@ export async function summarizeModules(
   const effectiveConcurrency = pool ? pool.size : concurrency;
   const limiter = new RateLimiter(effectiveConcurrency, pool ? 0 : delayMs);
 
-  // Cap modules for try-mode: prioritize the most impressive modules
-  // so the demo showcases the best output (classes, interfaces, rich APIs).
+  // Cap modules for try-mode: pick the most impressive modules with
+  // directory diversity so no single folder (e.g. api/routes/) dominates.
   let modulesToSummarize = modules;
   let skippedModules: ModuleInfo[] = [];
   if (maxModules && modules.length > maxModules) {
-    const scored = modules.map((mod) => ({ mod, score: scoreModuleForDemo(mod) }));
-    scored.sort((a, b) => b.score - a.score);
-    modulesToSummarize = scored.slice(0, maxModules).map((s) => s.mod);
-    skippedModules = scored.slice(maxModules).map((s) => s.mod);
+    const { selected, skipped } = selectDiverseModules(modules, maxModules);
+    modulesToSummarize = selected;
+    skippedModules = skipped;
   }
 
   let progressCount = 0;

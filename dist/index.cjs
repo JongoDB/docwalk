@@ -669,29 +669,64 @@ function scoreModuleForDemo(mod) {
   const interfaces = exported.filter((s) => s.kind === "interface");
   const functions = exported.filter((s) => s.kind === "function");
   const types = exported.filter((s) => s.kind === "type" || s.kind === "enum");
-  score += classes.length * 15;
-  score += interfaces.length * 12;
-  score += functions.length * 5;
-  score += types.length * 3;
-  score += Math.min(exported.length, 20) * 2;
-  const documented = exported.filter((s) => s.docs?.summary);
-  score += documented.length * 3;
+  score += Math.min(classes.length, 3) * 15;
+  score += Math.min(interfaces.length, 4) * 12;
+  score += Math.min(functions.length, 5) * 4;
+  score += Math.min(types.length, 5) * 3;
+  const kinds = new Set(exported.map((s) => s.kind));
+  score += (kinds.size - 1) * 8;
+  score += Math.min(exported.filter((s) => s.docs?.summary).length, 8) * 3;
   const name = mod.filePath.toLowerCase();
-  if (/index\.[^/]+$/.test(name)) score += 8;
-  if (/main\.[^/]+$/.test(name)) score += 10;
-  if (/app\.[^/]+$/.test(name)) score += 10;
-  if (/server\.[^/]+$/.test(name)) score += 8;
-  if (/config|schema/.test(name)) score += 6;
-  if (/router|routes/.test(name)) score += 6;
-  if (/model|entity/.test(name)) score += 6;
-  if (mod.lineCount >= 50 && mod.lineCount <= 500) score += 5;
-  if (mod.lineCount < 10) score -= 10;
-  if (/\.(test|spec|mock)\.[^/]+$/.test(name)) score -= 20;
-  if (/__(tests|mocks|fixtures)__/.test(name)) score -= 20;
-  if (/\.d\.ts$/.test(name)) score -= 10;
-  if (/generated|dist\//.test(name)) score -= 15;
-  score += Math.min(mod.imports.length, 10);
+  const base = name.split("/").pop() || "";
+  if (/^(index|main|app|server)\.[^/]+$/.test(base)) score += 12;
+  if (/model|entity|schema|types/.test(base)) score += 10;
+  if (/config/.test(base)) score += 8;
+  if (/service|controller|manager|handler/.test(base)) score += 6;
+  if (/store|state|context/.test(base)) score += 8;
+  if (/hook|composable/.test(base)) score += 6;
+  if (/component|widget|view|page/.test(base)) score += 5;
+  if (/util|helper|lib/.test(base)) score += 4;
+  if (/middleware|interceptor|guard/.test(base)) score += 5;
+  if (/factory|builder|provider/.test(base)) score += 6;
+  if (/route|endpoint|api/.test(base)) score += 3;
+  if (mod.lineCount >= 80 && mod.lineCount <= 400) score += 5;
+  else if (mod.lineCount >= 50 && mod.lineCount <= 600) score += 3;
+  if (mod.lineCount < 15) score -= 10;
+  if (/\.(test|spec|mock|fixture)\.[^/]+$/.test(name)) score -= 30;
+  if (/__(tests|mocks|fixtures|snapshots)__/.test(name)) score -= 30;
+  if (/\.d\.ts$/.test(name)) score -= 15;
+  if (/generated|dist\/|\.min\./.test(name)) score -= 20;
+  if (/migration|seed/.test(name)) score -= 10;
+  if (/\.lock|\.config\.[^/]+$/.test(name)) score -= 10;
+  score += Math.min(mod.imports.length, 8);
   return score;
+}
+function selectDiverseModules(modules, maxModules) {
+  const scored = modules.map((mod) => ({ mod, score: scoreModuleForDemo(mod) }));
+  scored.sort((a, b) => b.score - a.score);
+  const maxPerDir = Math.max(3, Math.ceil(maxModules * 0.2));
+  const dirCounts = {};
+  const selected = [];
+  const skipped = [];
+  for (const { mod } of scored) {
+    if (selected.length >= maxModules) {
+      skipped.push(mod);
+      continue;
+    }
+    const dir = mod.filePath.split("/").slice(0, -1).join("/");
+    const count = dirCounts[dir] || 0;
+    if (count >= maxPerDir) {
+      skipped.push(mod);
+      continue;
+    }
+    dirCounts[dir] = count + 1;
+    selected.push(mod);
+  }
+  if (selected.length < maxModules && skipped.length > 0) {
+    const backfill = skipped.splice(0, maxModules - selected.length);
+    selected.push(...backfill);
+  }
+  return { selected, skipped };
 }
 async function summarizeModules(options) {
   const {
@@ -732,10 +767,9 @@ async function summarizeModules(options) {
   let modulesToSummarize = modules;
   let skippedModules = [];
   if (maxModules && modules.length > maxModules) {
-    const scored = modules.map((mod) => ({ mod, score: scoreModuleForDemo(mod) }));
-    scored.sort((a, b) => b.score - a.score);
-    modulesToSummarize = scored.slice(0, maxModules).map((s) => s.mod);
-    skippedModules = scored.slice(maxModules).map((s) => s.mod);
+    const { selected, skipped } = selectDiverseModules(modules, maxModules);
+    modulesToSummarize = selected;
+    skippedModules = skipped;
   }
   let progressCount = 0;
   async function processMultiFileBatch(batch, batchProvider) {
