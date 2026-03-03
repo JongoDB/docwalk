@@ -709,8 +709,10 @@ function scoreModuleForDemo(mod) {
 function selectDiverseModules(modules, maxModules) {
   const scored = modules.map((mod) => ({ mod, score: scoreModuleForDemo(mod) }));
   scored.sort((a, b) => b.score - a.score);
-  const maxPerDir = Math.max(3, Math.ceil(maxModules * 0.2));
-  const dirCounts = {};
+  const maxPerLeafDir = Math.max(3, Math.ceil(maxModules * 0.2));
+  const maxPerTopDir = Math.max(5, Math.ceil(maxModules * 0.3));
+  const leafDirCounts = {};
+  const topDirCounts = {};
   const selected = [];
   const skipped = [];
   for (const { mod } of scored) {
@@ -718,13 +720,17 @@ function selectDiverseModules(modules, maxModules) {
       skipped.push(mod);
       continue;
     }
-    const dir = mod.filePath.split("/").slice(0, -1).join("/");
-    const count = dirCounts[dir] || 0;
-    if (count >= maxPerDir) {
+    const parts = mod.filePath.split("/");
+    const leafDir = parts.slice(0, -1).join("/");
+    const topDir = parts[0] || leafDir;
+    const leafCount = leafDirCounts[leafDir] || 0;
+    const topCount = topDirCounts[topDir] || 0;
+    if (leafCount >= maxPerLeafDir || topCount >= maxPerTopDir) {
       skipped.push(mod);
       continue;
     }
-    dirCounts[dir] = count + 1;
+    leafDirCounts[leafDir] = leafCount + 1;
+    topDirCounts[topDir] = topCount + 1;
     selected.push(mod);
   }
   if (selected.length < maxModules && skipped.length > 0) {

@@ -363,9 +363,12 @@ function selectDiverseModules(
   const scored = modules.map((mod) => ({ mod, score: scoreModuleForDemo(mod) }));
   scored.sort((a, b) => b.score - a.score);
 
-  // Allow at most ~20% of budget from any single directory
-  const maxPerDir = Math.max(3, Math.ceil(maxModules * 0.2));
-  const dirCounts: Record<string, number> = {};
+  // Two-level directory caps prevent both leaf directories (e.g. docs_src/security/)
+  // and parent directories (e.g. docs_src/) from dominating the selection.
+  const maxPerLeafDir = Math.max(3, Math.ceil(maxModules * 0.2));   // ~20% per leaf
+  const maxPerTopDir = Math.max(5, Math.ceil(maxModules * 0.3));    // ~30% per top-level
+  const leafDirCounts: Record<string, number> = {};
+  const topDirCounts: Record<string, number> = {};
   const selected: ModuleInfo[] = [];
   const skipped: ModuleInfo[] = [];
 
@@ -375,16 +378,20 @@ function selectDiverseModules(
       continue;
     }
 
-    const dir = mod.filePath.split("/").slice(0, -1).join("/");
-    const count = dirCounts[dir] || 0;
+    const parts = mod.filePath.split("/");
+    const leafDir = parts.slice(0, -1).join("/");
+    const topDir = parts[0] || leafDir;  // first path segment (e.g. "docs_src", "fastapi")
 
-    if (count >= maxPerDir) {
-      // Directory over-represented — defer this module
+    const leafCount = leafDirCounts[leafDir] || 0;
+    const topCount = topDirCounts[topDir] || 0;
+
+    if (leafCount >= maxPerLeafDir || topCount >= maxPerTopDir) {
       skipped.push(mod);
       continue;
     }
 
-    dirCounts[dir] = count + 1;
+    leafDirCounts[leafDir] = leafCount + 1;
+    topDirCounts[topDir] = topCount + 1;
     selected.push(mod);
   }
 
