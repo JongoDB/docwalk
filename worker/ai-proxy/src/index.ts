@@ -15,6 +15,7 @@
 
 interface Env {
   GROQ_API_KEY: string;
+  GEMINI_API_KEY: string;
   ALLOWED_ORIGINS: string;
 }
 
@@ -207,6 +208,106 @@ Rules:
 - Use markdown formatting for code blocks, bold, and lists.
 - Never invent information or speculate beyond what's in the context.`;
 
+// ─── Gemini Streaming (for Q&A) ─────────────────────────────────────────────
+
+interface GeminiMessage {
+  role: "user" | "model";
+  parts: Array<{ text: string }>;
+}
+
+/**
+ * Call Gemini with streaming. Returns the raw Response for SSE transformation.
+ * Uses the generateContent streaming endpoint with Gemini 2.5 Flash.
+ */
+async function callGeminiStream(
+  apiKey: string,
+  systemPrompt: string,
+  messages: GeminiMessage[],
+  maxTokens = 1024,
+  temperature = 0.3,
+): Promise<Response> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:streamGenerateContent?alt=sse&key=${apiKey}`;
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: systemPrompt }] },
+      contents: messages,
+      generationConfig: {
+        maxOutputTokens: maxTokens,
+        temperature,
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Gemini API error (${res.status}): ${errText}`);
+  }
+
+  return res;
+}
+
+/**
+ * Transform Gemini's SSE stream into our widget's format.
+ * Gemini sends: data: {"candidates":[{"content":{"parts":[{"text":"..."}]}}]}
+ */
+function transformGeminiStream(
+  geminiRes: Response,
+  chunks: QAChunk[],
+): ReadableStream {
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  const reader = geminiRes.body!.getReader();
+  let fullText = "";
+
+  return new ReadableStream({
+    async pull(controller) {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          const citations = extractCitations(chunks, fullText);
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ done: true, citations })}\n\n`)
+          );
+          controller.close();
+          return;
+        }
+
+        const text = decoder.decode(value, { stream: true });
+        const lines = text.split("\n");
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const data = line.slice(6).trim();
+          if (!data) continue;
+
+          try {
+            const parsed = JSON.parse(data) as {
+              candidates?: Array<{
+                content?: { parts?: Array<{ text?: string }> };
+              }>;
+            };
+            const token = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (token) {
+              fullText += token;
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ token })}\n\n`)
+              );
+            }
+          } catch {
+            // Skip malformed lines
+          }
+        }
+      }
+    },
+    cancel() {
+      reader.cancel();
+    },
+  });
+}
+
 // ─── Q&A Streaming Handler ───────────────────────────────────────────────────
 
 interface QAChunk {
@@ -248,37 +349,64 @@ async function handleQAStream(
     return `[Source ${i + 1}: ${source}]\n${c.content}`;
   });
   const context = contextParts.join("\n\n---\n\n");
+  const userContent = `Context from project documentation:\n\n${context}\n\n---\n\nQuestion: ${question}`;
 
-  // Build messages: system + history + context + question
-  const messages: GroqMessage[] = [
+  const sseHeaders = {
+    ...headers,
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+  };
+
+  // ── Try Gemini first (better quality, higher TPM) ─────────────────────
+  if (env.GEMINI_API_KEY) {
+    try {
+      // Build Gemini messages (role: "user"/"model", system is separate)
+      const geminiMessages: GeminiMessage[] = [];
+      if (history && Array.isArray(history)) {
+        const capped = history.slice(-6);
+        for (const msg of capped) {
+          geminiMessages.push({
+            role: msg.role === "assistant" ? "model" : "user",
+            parts: [{ text: msg.content }],
+          });
+        }
+      }
+      geminiMessages.push({ role: "user", parts: [{ text: userContent }] });
+
+      const geminiRes = await callGeminiStream(
+        env.GEMINI_API_KEY, QA_SYSTEM_PROMPT, geminiMessages, 1024, 0.3
+      );
+
+      const stream = transformGeminiStream(geminiRes, chunks);
+      return new Response(stream, { headers: sseHeaders });
+    } catch (err) {
+      // Gemini failed — fall through to Groq
+      console.warn("Gemini Q&A failed, falling back to Groq:", err instanceof Error ? err.message : err);
+    }
+  }
+
+  // ── Groq fallback ─────────────────────────────────────────────────────
+  const groqMessages: GroqMessage[] = [
     { role: "system", content: QA_SYSTEM_PROMPT },
   ];
-
-  // Add conversation history (capped at last 3 exchanges = 6 messages)
   if (history && Array.isArray(history)) {
     const capped = history.slice(-6);
     for (const msg of capped) {
       if (msg.role === "user" || msg.role === "assistant") {
-        messages.push({ role: msg.role, content: msg.content });
+        groqMessages.push({ role: msg.role, content: msg.content });
       }
     }
   }
+  groqMessages.push({ role: "user", content: userContent });
 
-  // Add current question with context
-  messages.push({
-    role: "user",
-    content: `Context from project documentation:\n\n${context}\n\n---\n\nQuestion: ${question}`,
-  });
-
-  // Stream response from Groq
   try {
-    const groqRes = await callGroqStream(env.GROQ_API_KEY, messages, 1024, 0.3, true);
+    const groqRes = await callGroqStream(env.GROQ_API_KEY, groqMessages, 1024, 0.3, true);
 
     if (!groqRes.body) {
       throw new Error("No response body from Groq");
     }
 
-    // Transform Groq's SSE stream into our format
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
     const reader = groqRes.body.getReader();
@@ -289,7 +417,6 @@ async function handleQAStream(
         while (true) {
           const { done, value } = await reader.read();
           if (done) {
-            // Extract citations from the full response
             const citations = extractCitations(chunks, fullText);
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ done: true, citations })}\n\n`)
@@ -328,14 +455,7 @@ async function handleQAStream(
       },
     });
 
-    return new Response(stream, {
-      headers: {
-        ...headers,
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        "Connection": "keep-alive",
-      },
-    });
+    return new Response(stream, { headers: sseHeaders });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("Q&A stream failed:", message);
