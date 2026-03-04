@@ -60,6 +60,8 @@
     
       <link rel="stylesheet" href="../../../stylesheets/preset.css">
     
+      <link rel="stylesheet" href="../../../_docwalk/qa-widget.css">
+    
     <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,a=__md_scope)=>JSON.parse(t.getItem(a.pathname+"."+e)),__md_set=(e,t,a=localStorage,_=__md_scope)=>{try{a.setItem(_.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -3834,6 +3836,28 @@
       On this page
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scriptsdoc_parsing_utilspy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        scripts/doc_parsing_utils.py
+      
+    </span>
+  </a>
+  
+</li>
       
         <li class="md-nav__item">
   <a href="#exports" class="md-nav__link">
@@ -10187,6 +10211,28 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scriptsdoc_parsing_utilspy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        scripts/doc_parsing_utils.py
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#exports" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -10721,6 +10767,7 @@
 
 
 <h1 id="doc_parsing_utilspy">doc_parsing_utils.py<a class="headerlink" href="#doc_parsing_utilspy" title="Permanent link">&para;</a></h1>
+<p>Orchestrates the documentation parsing pipeline by extracting and transforming code includes, header permalinks, markdown links, HTML links, and multiline code blocks. Exposes the TypedDict classes CodeIncludeInfo, HeaderPermalinkInfo, MarkdownLinkInfo, HTMLLinkAttribute, HtmlLinkInfo, MultilineCodeBlockInfo and a suite of extract/replace functions for each element type. Consumed by higher‑level documentation generators and translation tools to normalize source files before rendering. Enables downstream CLI commands to reliably replace placeholders and verify translations.</p>
 <details>
 <summary>Relevant source files</summary>
 
@@ -10756,6 +10803,33 @@ The following files were used as context for this page:
 </tr>
 </tbody>
 </table>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>&lt;details&gt;
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>&lt;summary&gt;Sources for &quot;scripts/doc_parsing_utils.py&quot; in fastapi&lt;/summary&gt;
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="k">-</span><span class="w"> </span>[<span class="sb">`scripts/doc_parsing_utils.py`</span>](fastapi/fastapi/blob/main/scripts/doc_parsing_utils.py)
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="k">-</span><span class="w"> </span>[<span class="sb">`scripts/people.py`</span>](fastapi/fastapi/blob/main/scripts/people.py)
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="k">-</span><span class="w"> </span>[<span class="sb">`scripts/test.sh`</span>](fastapi/fastapi/blob/main/scripts/test.sh)
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="k">-</span><span class="w"> </span>[<span class="sb">`scripts/coverage.sh`</span>](fastapi/fastapi/blob/main/scripts/coverage.sh)
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="k">-</span><span class="w"> </span>[<span class="sb">`docs/de/mkdocs.yml`</span>](fastapi/fastapi/blob/main/docs/de/mkdocs.yml)
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>&lt;/details&gt;
+</code></pre></div>
+<h2 id="scriptsdoc_parsing_utilspy">scripts/doc_parsing_utils.py<a class="headerlink" href="#scriptsdoc_parsing_utilspy" title="Permanent link">&para;</a></h2>
+<p>Acts as a utility module for parsing and manipulating documentation-related data, specifically for the FastAPI project. It provides a set of functions for extracting and replacing code includes, header permalinks, and Markdown links.</p>
+<p>The module uses regular expressions to identify and extract specific patterns from the documentation text. For example, it uses the <code>CODE_INCLUDE_RE</code> regular expression to match code include statements, and the <code>HEADER_WITH_PERMALINK_RE</code> regular expression to match header lines with permalinks.</p>
+<p>The <code>extract_code_includes</code> function, for instance, takes a list of lines as input and returns a list of <code>CodeIncludeInfo</code> objects, which contain information about the code includes found in the text. Similarly, the <code>extract_header_permalinks</code> function extracts header permalinks and returns a list of <code>HeaderPermalinkInfo</code> objects.</p>
+<p>Here's an example of how to use the <code>extract_code_includes</code> function:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">lines</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="s2">&quot;Some code&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="s2">&quot;{* include some_code *}&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="s2">&quot;More code&quot;</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="p">]</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">includes</span> <span class="o">=</span> <span class="n">extract_code_includes</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">includes</span><span class="p">)</span>  <span class="c1"># Output: [CodeIncludeInfo(line_no=2, line=&#39;{* include some_code *}&#39;)]</span>
+</code></pre></div>
+The module also provides functions for replacing code includes, header permalinks, and Markdown links with placeholders or actual code. For example, the <code>replace_code_includes_with_placeholders</code> function replaces code includes with placeholders, while the <code>replace_header_permalinks</code> function replaces header permalinks with actual permalinks.</p>
+<p>Sources: <a href="">scripts/doc_parsing_utils.py:1-292</a></p>
 <hr />
 <h2 id="exports">Exports<a class="headerlink" href="#exports" title="Permanent link">&para;</a></h2>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Exports (35)</label><label for="__tabbed_1_2">Internal (5)</label></div>
@@ -10843,107 +10917,107 @@ The following files were used as context for this page:
 <tr>
 <td><a href="#codeincludeinfo"><code>CodeIncludeInfo</code></a></td>
 <td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18s-.41-.06-.57-.18l-7.9-4.44A.99.99 0 0 1 3 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18s.41.06.57.18l7.9 4.44c.32.17.53.5.53.88zM12 4.15 6.04 7.5 12 10.85l5.96-3.35zM5 15.91l6 3.38v-6.71L5 9.21zm14 0v-6.7l-6 3.37v6.71z"/></svg></span> class</td>
-<td></td>
+<td>TypedDict that captures the line number and raw line text of a <code>{* include *}</code> directive, used when tracking code snippets during parsing.</td>
 </tr>
 <tr>
 <td><a href="#headerpermalinkinfo"><code>HeaderPermalinkInfo</code></a></td>
 <td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18s-.41-.06-.57-.18l-7.9-4.44A.99.99 0 0 1 3 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18s.41.06.57.18l7.9 4.44c.32.17.53.5.53.88zM12 4.15 6.04 7.5 12 10.85l5.96-3.35zM5 15.91l6 3.38v-6.71L5 9.21zm14 0v-6.7l-6 3.37v6.71z"/></svg></span> class</td>
-<td></td>
+<td>TypedDict that records a header's line number, hash markers, title, and generated permalink, useful for rebuilding or stripping permalinks.</td>
 </tr>
 <tr>
 <td><a href="#markdownlinkinfo"><code>MarkdownLinkInfo</code></a></td>
 <td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18s-.41-.06-.57-.18l-7.9-4.44A.99.99 0 0 1 3 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18s.41.06.57.18l7.9 4.44c.32.17.53.5.53.88zM12 4.15 6.04 7.5 12 10.85l5.96-3.35zM5 15.91l6 3.38v-6.71L5 9.21zm14 0v-6.7l-6 3.37v6.71z"/></svg></span> class</td>
-<td></td>
+<td>TypedDict containing line number, URL, link text, optional title and attributes, and the full match, employed when processing markdown link transformations.</td>
 </tr>
 <tr>
 <td><a href="#htmllinkattribute"><code>HTMLLinkAttribute</code></a></td>
 <td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18s-.41-.06-.57-.18l-7.9-4.44A.99.99 0 0 1 3 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18s.41.06.57.18l7.9 4.44c.32.17.53.5.53.88zM12 4.15 6.04 7.5 12 10.85l5.96-3.35zM5 15.91l6 3.38v-6.71L5 9.21zm14 0v-6.7l-6 3.37v6.71z"/></svg></span> class</td>
-<td></td>
+<td>TypedDict describing a single HTML attribute name, its quoting character, and value, used while parsing or rewriting <a> tags.</td>
 </tr>
 <tr>
 <td><a href="#htmllinkinfo"><code>HtmlLinkInfo</code></a></td>
 <td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18s-.41-.06-.57-.18l-7.9-4.44A.99.99 0 0 1 3 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18s.41.06.57.18l7.9 4.44c.32.17.53.5.53.88zM12 4.15 6.04 7.5 12 10.85l5.96-3.35zM5 15.91l6 3.38v-6.71L5 9.21zm14 0v-6.7l-6 3.37v6.71z"/></svg></span> class</td>
-<td></td>
+<td>TypedDict that aggregates a line number, the full <a> tag, a list of HTMLLinkAttribute objects, and link text, enabling precise HTML link manipulation.</td>
 </tr>
 <tr>
 <td><a href="#multilinecodeblockinfo"><code>MultilineCodeBlockInfo</code></a></td>
 <td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18s-.41-.06-.57-.18l-7.9-4.44A.99.99 0 0 1 3 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18s.41.06.57.18l7.9 4.44c.32.17.53.5.53.88zM12 4.15 6.04 7.5 12 10.85l5.96-3.35zM5 15.91l6 3.38v-6.71L5 9.21zm14 0v-6.7l-6 3.37v6.71z"/></svg></span> class</td>
-<td></td>
+<td>TypedDict that stores a code block's language, starting line number, and its content lines, leveraged when extracting or replacing fenced code sections.</td>
 </tr>
 <tr>
 <td><a href="#extract_code_includes"><code>extract_code_includes</code></a></td>
 <td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M15.6 5.29c-1.1-.1-2.07.71-2.17 1.82L13.18 10H16v2h-3l-.44 5.07a3.986 3.986 0 0 1-4.33 3.63 4 4 0 0 1-3.06-1.87l1.5-1.5c.24.74.9 1.31 1.73 1.38 1.1.1 2.07-.71 2.17-1.82L11 12H8v-2h3.17l.27-3.07c.19-2.2 2.13-3.83 4.33-3.63 1.31.11 2.41.84 3.06 1.87l-1.5 1.5c-.24-.74-.9-1.31-1.73-1.38"/></svg></span> function</td>
-<td></td>
+<td>Scans a list of lines for <code>{* include *}</code> patterns and returns CodeIncludeInfo entries, invoked by parsers that need to isolate external code references.</td>
 </tr>
 <tr>
 <td><a href="#replace_code_includes_with_placeholders"><code>replace_code_includes_with_placeholders</code></a></td>
 <td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M15.6 5.29c-1.1-.1-2.07.71-2.17 1.82L13.18 10H16v2h-3l-.44 5.07a3.986 3.986 0 0 1-4.33 3.63 4 4 0 0 1-3.06-1.87l1.5-1.5c.24.74.9 1.31 1.73 1.38 1.1.1 2.07-.71 2.17-1.82L11 12H8v-2h3.17l.27-3.07c.19-2.2 2.13-3.83 4.33-3.63 1.31.11 2.41.84 3.06 1.87l-1.5 1.5c-.24-.74-.9-1.31-1.73-1.38"/></svg></span> function</td>
-<td></td>
+<td>Substitutes each detected code include with a sentinel placeholder, allowing downstream processing to ignore raw includes.</td>
 </tr>
 <tr>
 <td><a href="#replace_placeholders_with_code_includes"><code>replace_placeholders_with_code_includes</code></a></td>
 <td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M15.6 5.29c-1.1-.1-2.07.71-2.17 1.82L13.18 10H16v2h-3l-.44 5.07a3.986 3.986 0 0 1-4.33 3.63 4 4 0 0 1-3.06-1.87l1.5-1.5c.24.74.9 1.31 1.73 1.38 1.1.1 2.07-.71 2.17-1.82L11 12H8v-2h3.17l.27-3.07c.19-2.2 2.13-3.83 4.33-3.63 1.31.11 2.41.84 3.06 1.87l-1.5 1.5c-.24-.74-.9-1.31-1.73-1.38"/></svg></span> function</td>
-<td></td>
+<td>Restores original <code>{* include *}</code> lines by swapping placeholders back, used after transformations that required temporary removal.</td>
 </tr>
 <tr>
 <td><a href="#extract_header_permalinks"><code>extract_header_permalinks</code></a></td>
 <td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M15.6 5.29c-1.1-.1-2.07.71-2.17 1.82L13.18 10H16v2h-3l-.44 5.07a3.986 3.986 0 0 1-4.33 3.63 4 4 0 0 1-3.06-1.87l1.5-1.5c.24.74.9 1.31 1.73 1.38 1.1.1 2.07-.71 2.17-1.82L11 12H8v-2h3.17l.27-3.07c.19-2.2 2.13-3.83 4.33-3.63 1.31.11 2.41.84 3.06 1.87l-1.5 1.5c-.24-.74-.9-1.31-1.73-1.38"/></svg></span> function</td>
-<td></td>
+<td>Detects markdown headers with optional <code>{#...}</code> anchors and returns HeaderPermalinkInfo, enabling tools to manipulate or validate permalinks.</td>
 </tr>
 <tr>
 <td><a href="#remove_header_permalinks"><code>remove_header_permalinks</code></a></td>
 <td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M15.6 5.29c-1.1-.1-2.07.71-2.17 1.82L13.18 10H16v2h-3l-.44 5.07a3.986 3.986 0 0 1-4.33 3.63 4 4 0 0 1-3.06-1.87l1.5-1.5c.24.74.9 1.31 1.73 1.38 1.1.1 2.07-.71 2.17-1.82L11 12H8v-2h3.17l.27-3.07c.19-2.2 2.13-3.83 4.33-3.63 1.31.11 2.41.84 3.06 1.87l-1.5 1.5c-.24-.74-.9-1.31-1.73-1.38"/></svg></span> function</td>
-<td></td>
+<td>Strips <code>{#...}</code> anchors from header lines, preparing content for environments that generate their own anchors.</td>
 </tr>
 <tr>
 <td><a href="#replace_header_permalinks"><code>replace_header_permalinks</code></a></td>
 <td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M15.6 5.29c-1.1-.1-2.07.71-2.17 1.82L13.18 10H16v2h-3l-.44 5.07a3.986 3.986 0 0 1-4.33 3.63 4 4 0 0 1-3.06-1.87l1.5-1.5c.24.74.9 1.31 1.73 1.38 1.1.1 2.07-.71 2.17-1.82L11 12H8v-2h3.17l.27-3.07c.19-2.2 2.13-3.83 4.33-3.63 1.31.11 2.41.84 3.06 1.87l-1.5 1.5c-.24-.74-.9-1.31-1.73-1.38"/></svg></span> function</td>
-<td></td>
+<td>Reinserts or updates header permalinks based on provided mappings, supporting consistent linking across language versions.</td>
 </tr>
 <tr>
 <td><a href="#extract_markdown_links"><code>extract_markdown_links</code></a></td>
 <td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M15.6 5.29c-1.1-.1-2.07.71-2.17 1.82L13.18 10H16v2h-3l-.44 5.07a3.986 3.986 0 0 1-4.33 3.63 4 4 0 0 1-3.06-1.87l1.5-1.5c.24.74.9 1.31 1.73 1.38 1.1.1 2.07-.71 2.17-1.82L11 12H8v-2h3.17l.27-3.07c.19-2.2 2.13-3.83 4.33-3.63 1.31.11 2.41.84 3.06 1.87l-1.5 1.5c-.24-.74-.9-1.31-1.73-1.38"/></svg></span> function</td>
-<td></td>
+<td>Finds markdown link syntax across lines and yields MarkdownLinkInfo objects, facilitating link rewriting or validation.</td>
 </tr>
 <tr>
 <td><a href="#replace_markdown_links"><code>replace_markdown_links</code></a></td>
 <td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M15.6 5.29c-1.1-.1-2.07.71-2.17 1.82L13.18 10H16v2h-3l-.44 5.07a3.986 3.986 0 0 1-4.33 3.63 4 4 0 0 1-3.06-1.87l1.5-1.5c.24.74.9 1.31 1.73 1.38 1.1.1 2.07-.71 2.17-1.82L11 12H8v-2h3.17l.27-3.07c.19-2.2 2.13-3.83 4.33-3.63 1.31.11 2.41.84 3.06 1.87l-1.5 1.5c-.24-.74-.9-1.31-1.73-1.38"/></svg></span> function</td>
-<td></td>
+<td>Replaces identified markdown links with language‑specific equivalents, used during localization workflows.</td>
 </tr>
 <tr>
 <td><a href="#extract_html_links"><code>extract_html_links</code></a></td>
 <td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M15.6 5.29c-1.1-.1-2.07.71-2.17 1.82L13.18 10H16v2h-3l-.44 5.07a3.986 3.986 0 0 1-4.33 3.63 4 4 0 0 1-3.06-1.87l1.5-1.5c.24.74.9 1.31 1.73 1.38 1.1.1 2.07-.71 2.17-1.82L11 12H8v-2h3.17l.27-3.07c.19-2.2 2.13-3.83 4.33-3.63 1.31.11 2.41.84 3.06 1.87l-1.5 1.5c-.24-.74-.9-1.31-1.73-1.38"/></svg></span> function</td>
-<td></td>
+<td>Parses raw HTML <a> tags in lines and returns HtmlLinkInfo, allowing HTML link adjustments alongside markdown processing.</td>
 </tr>
 <tr>
 <td><a href="#replace_html_links"><code>replace_html_links</code></a></td>
 <td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M15.6 5.29c-1.1-.1-2.07.71-2.17 1.82L13.18 10H16v2h-3l-.44 5.07a3.986 3.986 0 0 1-4.33 3.63 4 4 0 0 1-3.06-1.87l1.5-1.5c.24.74.9 1.31 1.73 1.38 1.1.1 2.07-.71 2.17-1.82L11 12H8v-2h3.17l.27-3.07c.19-2.2 2.13-3.83 4.33-3.63 1.31.11 2.41.84 3.06 1.87l-1.5 1.5c-.24-.74-.9-1.31-1.73-1.38"/></svg></span> function</td>
-<td></td>
+<td>Updates HTML <a> tags according to translation mappings, ensuring correct link destinations in localized docs.</td>
 </tr>
 <tr>
 <td><a href="#get_code_block_lang"><code>get_code_block_lang</code></a></td>
 <td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M15.6 5.29c-1.1-.1-2.07.71-2.17 1.82L13.18 10H16v2h-3l-.44 5.07a3.986 3.986 0 0 1-4.33 3.63 4 4 0 0 1-3.06-1.87l1.5-1.5c.24.74.9 1.31 1.73 1.38 1.1.1 2.07-.71 2.17-1.82L11 12H8v-2h3.17l.27-3.07c.19-2.2 2.13-3.83 4.33-3.63 1.31.11 2.41.84 3.06 1.87l-1.5 1.5c-.24-.74-.9-1.31-1.73-1.38"/></svg></span> function</td>
-<td></td>
+<td>Extracts the language identifier from a fenced code block opening line, used to preserve syntax highlighting metadata.</td>
 </tr>
 <tr>
 <td><a href="#extract_multiline_code_blocks"><code>extract_multiline_code_blocks</code></a></td>
 <td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M15.6 5.29c-1.1-.1-2.07.71-2.17 1.82L13.18 10H16v2h-3l-.44 5.07a3.986 3.986 0 0 1-4.33 3.63 4 4 0 0 1-3.06-1.87l1.5-1.5c.24.74.9 1.31 1.73 1.38 1.1.1 2.07-.71 2.17-1.82L11 12H8v-2h3.17l.27-3.07c.19-2.2 2.13-3.83 4.33-3.63 1.31.11 2.41.84 3.06 1.87l-1.5 1.5c-.24-.74-.9-1.31-1.73-1.38"/></svg></span> function</td>
-<td></td>
+<td>Collects all fenced code blocks, returning MultilineCodeBlockInfo for each, supporting bulk transformations.</td>
 </tr>
 <tr>
 <td><a href="#replace_multiline_code_block"><code>replace_multiline_code_block</code></a></td>
 <td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M15.6 5.29c-1.1-.1-2.07.71-2.17 1.82L13.18 10H16v2h-3l-.44 5.07a3.986 3.986 0 0 1-4.33 3.63 4 4 0 0 1-3.06-1.87l1.5-1.5c.24.74.9 1.31 1.73 1.38 1.1.1 2.07-.71 2.17-1.82L11 12H8v-2h3.17l.27-3.07c.19-2.2 2.13-3.83 4.33-3.63 1.31.11 2.41.84 3.06 1.87l-1.5 1.5c-.24-.74-.9-1.31-1.73-1.38"/></svg></span> function</td>
-<td></td>
+<td>Replaces the content of a specific fenced block with new lines, applied when updating example code.</td>
 </tr>
 <tr>
 <td><a href="#replace_multiline_code_blocks_in_text"><code>replace_multiline_code_blocks_in_text</code></a></td>
 <td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M15.6 5.29c-1.1-.1-2.07.71-2.17 1.82L13.18 10H16v2h-3l-.44 5.07a3.986 3.986 0 0 1-4.33 3.63 4 4 0 0 1-3.06-1.87l1.5-1.5c.24.74.9 1.31 1.73 1.38 1.1.1 2.07-.71 2.17-1.82L11 12H8v-2h3.17l.27-3.07c.19-2.2 2.13-3.83 4.33-3.63 1.31.11 2.41.84 3.06 1.87l-1.5 1.5c-.24-.74-.9-1.31-1.73-1.38"/></svg></span> function</td>
-<td></td>
+<td>Iterates over all detected code blocks and swaps them with provided replacements, enabling batch code updates.</td>
 </tr>
 <tr>
 <td><a href="#check_translation"><code>check_translation</code></a></td>
 <td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M15.6 5.29c-1.1-.1-2.07.71-2.17 1.82L13.18 10H16v2h-3l-.44 5.07a3.986 3.986 0 0 1-4.33 3.63 4 4 0 0 1-3.06-1.87l1.5-1.5c.24.74.9 1.31 1.73 1.38 1.1.1 2.07-.71 2.17-1.82L11 12H8v-2h3.17l.27-3.07c.19-2.2 2.13-3.83 4.33-3.63 1.31.11 2.41.84 3.06 1.87l-1.5 1.5c-.24-.74-.9-1.31-1.73-1.38"/></svg></span> function</td>
-<td></td>
+<td>Compares a translated document against its source, reporting mismatches and optionally auto‑fixing them, essential for CI validation of localized docs.</td>
 </tr>
 </tbody>
 </table>
@@ -11005,42 +11079,48 @@ The following files were used as context for this page:
 <hr />
 <h3 id="codeincludeinfo"><code>CodeIncludeInfo</code><a class="headerlink" href="#codeincludeinfo" title="Permanent link">&para;</a></h3>
 <p><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg></span> <a href="https://github.com/fastapi/fastapi/blob/main/scripts/doc_parsing_utils.py#L37-L39">View source</a></p>
+<p>TypedDict that captures the line number and raw line text of a <code>{* include *}</code> directive, used when tracking code snippets during parsing.</p>
 <p><strong>Hierarchy:</strong></p>
 <div class="mermaid">classDiagram
     TypedDict &lt;|-- CodeIncludeInfo</div>
 <hr />
 <h3 id="headerpermalinkinfo"><code>HeaderPermalinkInfo</code><a class="headerlink" href="#headerpermalinkinfo" title="Permanent link">&para;</a></h3>
 <p><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg></span> <a href="https://github.com/fastapi/fastapi/blob/main/scripts/doc_parsing_utils.py#L42-L46">View source</a></p>
+<p>TypedDict that records a header's line number, hash markers, title, and generated permalink, useful for rebuilding or stripping permalinks.</p>
 <p><strong>Hierarchy:</strong></p>
 <div class="mermaid">classDiagram
     TypedDict &lt;|-- HeaderPermalinkInfo</div>
 <hr />
 <h3 id="markdownlinkinfo"><code>MarkdownLinkInfo</code><a class="headerlink" href="#markdownlinkinfo" title="Permanent link">&para;</a></h3>
 <p><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg></span> <a href="https://github.com/fastapi/fastapi/blob/main/scripts/doc_parsing_utils.py#L49-L55">View source</a></p>
+<p>TypedDict containing line number, URL, link text, optional title and attributes, and the full match, employed when processing markdown link transformations.</p>
 <p><strong>Hierarchy:</strong></p>
 <div class="mermaid">classDiagram
     TypedDict &lt;|-- MarkdownLinkInfo</div>
 <hr />
 <h3 id="htmllinkattribute"><code>HTMLLinkAttribute</code><a class="headerlink" href="#htmllinkattribute" title="Permanent link">&para;</a></h3>
 <p><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg></span> <a href="https://github.com/fastapi/fastapi/blob/main/scripts/doc_parsing_utils.py#L58-L61">View source</a></p>
+<p>TypedDict describing a single HTML attribute name, its quoting character, and value, used while parsing or rewriting <a> tags.</p>
 <p><strong>Hierarchy:</strong></p>
 <div class="mermaid">classDiagram
     TypedDict &lt;|-- HTMLLinkAttribute</div>
 <hr />
 <h3 id="htmllinkinfo"><code>HtmlLinkInfo</code><a class="headerlink" href="#htmllinkinfo" title="Permanent link">&para;</a></h3>
 <p><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg></span> <a href="https://github.com/fastapi/fastapi/blob/main/scripts/doc_parsing_utils.py#L64-L68">View source</a></p>
+<p>TypedDict that aggregates a line number, the full <a> tag, a list of HTMLLinkAttribute objects, and link text, enabling precise HTML link manipulation.</p>
 <p><strong>Hierarchy:</strong></p>
 <div class="mermaid">classDiagram
     TypedDict &lt;|-- HtmlLinkInfo</div>
 <hr />
 <h3 id="multilinecodeblockinfo"><code>MultilineCodeBlockInfo</code><a class="headerlink" href="#multilinecodeblockinfo" title="Permanent link">&para;</a></h3>
 <p><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg></span> <a href="https://github.com/fastapi/fastapi/blob/main/scripts/doc_parsing_utils.py#L71-L74">View source</a></p>
+<p>TypedDict that stores a code block's language, starting line number, and its content lines, leveraged when extracting or replacing fenced code sections.</p>
 <p><strong>Hierarchy:</strong></p>
 <div class="mermaid">classDiagram
     TypedDict &lt;|-- MultilineCodeBlockInfo</div>
 <hr />
 <h3 id="extract_code_includes"><code>extract_code_includes</code><a class="headerlink" href="#extract_code_includes" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">extract_code_includes</span><span class="p">(</span><span class="n">lines</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">CodeIncludeInfo</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">extract_code_includes</span><span class="p">(</span><span class="n">lines</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">CodeIncludeInfo</span><span class="p">]</span>
 </code></pre></div>
 <p><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg></span> <a href="https://github.com/fastapi/fastapi/blob/main/scripts/doc_parsing_utils.py#L81-L94">View source</a></p>
 <p>Extract lines that contain code includes.</p>
@@ -11048,6 +11128,7 @@ The following files were used as context for this page:
 - `line_no` - line number (1-based)
 - `line` - text of the line
 </code></pre></div>
+<p>Scans a list of lines for <code>{* include *}</code> patterns and returns CodeIncludeInfo entries, invoked by parsers that need to isolate external code references.</p>
 <p><strong>Parameters:</strong></p>
 <table>
 <thead>
@@ -11070,10 +11151,11 @@ The following files were used as context for this page:
 <p><strong>Returns:</strong> list[<a href="../doc_parsing_utils/#codeincludeinfo">CodeIncludeInfo</a>] </p>
 <hr />
 <h3 id="replace_code_includes_with_placeholders"><code>replace_code_includes_with_placeholders</code><a class="headerlink" href="#replace_code_includes_with_placeholders" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">replace_code_includes_with_placeholders</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">replace_code_includes_with_placeholders</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
 </code></pre></div>
 <p><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg></span> <a href="https://github.com/fastapi/fastapi/blob/main/scripts/doc_parsing_utils.py#L97-L106">View source</a></p>
 <p>Replace code includes with placeholders.</p>
+<p>Substitutes each detected code include with a sentinel placeholder, allowing downstream processing to ignore raw includes.</p>
 <p><strong>Parameters:</strong></p>
 <table>
 <thead>
@@ -11096,11 +11178,12 @@ The following files were used as context for this page:
 <p><strong>Returns:</strong> <code>list[str]</code> </p>
 <hr />
 <h3 id="replace_placeholders_with_code_includes"><code>replace_placeholders_with_code_includes</code><a class="headerlink" href="#replace_placeholders_with_code_includes" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">replace_placeholders_with_code_includes</span><span class="p">(</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">replace_placeholders_with_code_includes</span><span class="p">(</span>
 </code></pre></div>
 <p><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg></span> <a href="https://github.com/fastapi/fastapi/blob/main/scripts/doc_parsing_utils.py#L109-L134">View source</a></p>
 <p>Replace code includes placeholders with actual code includes from the original (English) document.
     Fail if the number of placeholders does not match the number of original includes.</p>
+<p>Restores original <code>{* include *}</code> lines by swapping placeholders back, used after transformations that required temporary removal.</p>
 <p><strong>Parameters:</strong></p>
 <table>
 <thead>
@@ -11129,7 +11212,7 @@ The following files were used as context for this page:
 <p><strong>Returns:</strong> <code>list[str]</code> </p>
 <hr />
 <h3 id="extract_header_permalinks"><code>extract_header_permalinks</code><a class="headerlink" href="#extract_header_permalinks" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">extract_header_permalinks</span><span class="p">(</span><span class="n">lines</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">HeaderPermalinkInfo</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">extract_header_permalinks</span><span class="p">(</span><span class="n">lines</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">HeaderPermalinkInfo</span><span class="p">]</span>
 </code></pre></div>
 <p><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg></span> <a href="https://github.com/fastapi/fastapi/blob/main/scripts/doc_parsing_utils.py#L141-L189">View source</a></p>
 <p>Extract list of header permalinks from the given lines.</p>
@@ -11138,6 +11221,7 @@ The following files were used as context for this page:
 - `hashes` - string of hashes representing header level (e.g., &quot;###&quot;)
 - `permalink` - permalink string (e.g., &quot;{#permalink}&quot;)
 </code></pre></div>
+<p>Detects markdown headers with optional <code>{#...}</code> anchors and returns HeaderPermalinkInfo, enabling tools to manipulate or validate permalinks.</p>
 <p><strong>Parameters:</strong></p>
 <table>
 <thead>
@@ -11160,10 +11244,11 @@ The following files were used as context for this page:
 <p><strong>Returns:</strong> list[<a href="../doc_parsing_utils/#headerpermalinkinfo">HeaderPermalinkInfo</a>] </p>
 <hr />
 <h3 id="remove_header_permalinks"><code>remove_header_permalinks</code><a class="headerlink" href="#remove_header_permalinks" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">remove_header_permalinks</span><span class="p">(</span><span class="n">lines</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">remove_header_permalinks</span><span class="p">(</span><span class="n">lines</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
 </code></pre></div>
 <p><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg></span> <a href="https://github.com/fastapi/fastapi/blob/main/scripts/doc_parsing_utils.py#L192-L206">View source</a></p>
 <p>Remove permalinks from headers in the given lines.</p>
+<p>Strips <code>{#...}</code> anchors from header lines, preparing content for environments that generate their own anchors.</p>
 <p><strong>Parameters:</strong></p>
 <table>
 <thead>
@@ -11186,12 +11271,13 @@ The following files were used as context for this page:
 <p><strong>Returns:</strong> <code>list[str]</code> </p>
 <hr />
 <h3 id="replace_header_permalinks"><code>replace_header_permalinks</code><a class="headerlink" href="#replace_header_permalinks" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">replace_header_permalinks</span><span class="p">(</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">replace_header_permalinks</span><span class="p">(</span>
 </code></pre></div>
 <p><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg></span> <a href="https://github.com/fastapi/fastapi/blob/main/scripts/doc_parsing_utils.py#L209-L245">View source</a></p>
 <p>Replace permalinks in the given text with the permalinks from the original document.</p>
 <div class="highlight"><pre><span></span><code>Fail if the number or level of headers does not match the original.
 </code></pre></div>
+<p>Reinserts or updates header permalinks based on provided mappings, supporting consistent linking across language versions.</p>
 <p><strong>Parameters:</strong></p>
 <table>
 <thead>
@@ -11226,7 +11312,7 @@ The following files were used as context for this page:
 <p><strong>Returns:</strong> <code>list[str]</code> </p>
 <hr />
 <h3 id="extract_markdown_links"><code>extract_markdown_links</code><a class="headerlink" href="#extract_markdown_links" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">extract_markdown_links</span><span class="p">(</span><span class="n">lines</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">MarkdownLinkInfo</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">extract_markdown_links</span><span class="p">(</span><span class="n">lines</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">MarkdownLinkInfo</span><span class="p">]</span>
 </code></pre></div>
 <p><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg></span> <a href="https://github.com/fastapi/fastapi/blob/main/scripts/doc_parsing_utils.py#L252-L276">View source</a></p>
 <p>Extract all markdown links from the given lines.</p>
@@ -11236,6 +11322,7 @@ The following files were used as context for this page:
 - `text` - link text
 - `title` - link title (if any)
 </code></pre></div>
+<p>Finds markdown link syntax across lines and yields MarkdownLinkInfo objects, facilitating link rewriting or validation.</p>
 <p><strong>Parameters:</strong></p>
 <table>
 <thead>
@@ -11258,12 +11345,13 @@ The following files were used as context for this page:
 <p><strong>Returns:</strong> list[<a href="../doc_parsing_utils/#markdownlinkinfo">MarkdownLinkInfo</a>] </p>
 <hr />
 <h3 id="replace_markdown_links"><code>replace_markdown_links</code><a class="headerlink" href="#replace_markdown_links" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">replace_markdown_links</span><span class="p">(</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">replace_markdown_links</span><span class="p">(</span>
 </code></pre></div>
 <p><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg></span> <a href="https://github.com/fastapi/fastapi/blob/main/scripts/doc_parsing_utils.py#L310-L350">View source</a></p>
 <p>Replace markdown links in the given text with the original links.</p>
 <div class="highlight"><pre><span></span><code>Fail if the number of links does not match the original.
 </code></pre></div>
+<p>Replaces identified markdown links with language‑specific equivalents, used during localization workflows.</p>
 <p><strong>Parameters:</strong></p>
 <table>
 <thead>
@@ -11304,7 +11392,7 @@ The following files were used as context for this page:
 <p><strong>Returns:</strong> <code>list[str]</code> </p>
 <hr />
 <h3 id="extract_html_links"><code>extract_html_links</code><a class="headerlink" href="#extract_html_links" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">extract_html_links</span><span class="p">(</span><span class="n">lines</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">HtmlLinkInfo</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">extract_html_links</span><span class="p">(</span><span class="n">lines</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">HtmlLinkInfo</span><span class="p">]</span>
 </code></pre></div>
 <p><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg></span> <a href="https://github.com/fastapi/fastapi/blob/main/scripts/doc_parsing_utils.py#L357-L403">View source</a></p>
 <p>Extract all HTML links from the given lines.</p>
@@ -11314,6 +11402,7 @@ The following files were used as context for this page:
 - `attributes` - list of HTMLLinkAttribute (name, quote, value)
 - `text` - link text
 </code></pre></div>
+<p>Parses raw HTML <a> tags in lines and returns HtmlLinkInfo, allowing HTML link adjustments alongside markdown processing.</p>
 <p><strong>Parameters:</strong></p>
 <table>
 <thead>
@@ -11336,13 +11425,14 @@ The following files were used as context for this page:
 <p><strong>Returns:</strong> list[<a href="../doc_parsing_utils/#htmllinkinfo">HtmlLinkInfo</a>] </p>
 <hr />
 <h3 id="replace_html_links"><code>replace_html_links</code><a class="headerlink" href="#replace_html_links" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">replace_html_links</span><span class="p">(</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">replace_html_links</span><span class="p">(</span>
 </code></pre></div>
 <p><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg></span> <a href="https://github.com/fastapi/fastapi/blob/main/scripts/doc_parsing_utils.py#L433-L468">View source</a></p>
 <p>Replace HTML links in the given text with the links from the original document.</p>
 <div class="highlight"><pre><span></span><code>Adjust URLs for the given language code.
 Fail if the number of links does not match the original.
 </code></pre></div>
+<p>Updates HTML <a> tags according to translation mappings, ensuring correct link destinations in localized docs.</p>
 <p><strong>Parameters:</strong></p>
 <table>
 <thead>
@@ -11383,9 +11473,10 @@ Fail if the number of links does not match the original.
 <p><strong>Returns:</strong> <code>list[str]</code> </p>
 <hr />
 <h3 id="get_code_block_lang"><code>get_code_block_lang</code><a class="headerlink" href="#get_code_block_lang" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_code_block_lang</span><span class="p">(</span><span class="n">line</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_code_block_lang</span><span class="p">(</span><span class="n">line</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
 </code></pre></div>
 <p><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg></span> <a href="https://github.com/fastapi/fastapi/blob/main/scripts/doc_parsing_utils.py#L475-L479">View source</a></p>
+<p>Extracts the language identifier from a fenced code block opening line, used to preserve syntax highlighting metadata.</p>
 <p><strong>Parameters:</strong></p>
 <table>
 <thead>
@@ -11408,9 +11499,10 @@ Fail if the number of links does not match the original.
 <p><strong>Returns:</strong> <code>str</code> </p>
 <hr />
 <h3 id="extract_multiline_code_blocks"><code>extract_multiline_code_blocks</code><a class="headerlink" href="#extract_multiline_code_blocks" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">extract_multiline_code_blocks</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">MultilineCodeBlockInfo</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">extract_multiline_code_blocks</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">MultilineCodeBlockInfo</span><span class="p">]</span>
 </code></pre></div>
 <p><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg></span> <a href="https://github.com/fastapi/fastapi/blob/main/scripts/doc_parsing_utils.py#L482-L549">View source</a></p>
+<p>Collects all fenced code blocks, returning MultilineCodeBlockInfo for each, supporting bulk transformations.</p>
 <p><strong>Parameters:</strong></p>
 <table>
 <thead>
@@ -11433,13 +11525,14 @@ Fail if the number of links does not match the original.
 <p><strong>Returns:</strong> list[<a href="../doc_parsing_utils/#multilinecodeblockinfo">MultilineCodeBlockInfo</a>] </p>
 <hr />
 <h3 id="replace_multiline_code_block"><code>replace_multiline_code_block</code><a class="headerlink" href="#replace_multiline_code_block" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">replace_multiline_code_block</span><span class="p">(</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">replace_multiline_code_block</span><span class="p">(</span>
 </code></pre></div>
 <p><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg></span> <a href="https://github.com/fastapi/fastapi/blob/main/scripts/doc_parsing_utils.py#L570-L640">View source</a></p>
 <p>Replace multiline code block <code>a</code> with block <code>b</code> leaving comments intact.</p>
 <div class="highlight"><pre><span></span><code>Syntax of comments depends on the language of the code block.
 Raises ValueError if the blocks are not compatible (different languages or different number of lines).
 </code></pre></div>
+<p>Replaces the content of a specific fenced block with new lines, applied when updating example code.</p>
 <p><strong>Parameters:</strong></p>
 <table>
 <thead>
@@ -11468,13 +11561,14 @@ Raises ValueError if the blocks are not compatible (different languages or diffe
 <p><strong>Returns:</strong> <code>list[str]</code> </p>
 <hr />
 <h3 id="replace_multiline_code_blocks_in_text"><code>replace_multiline_code_blocks_in_text</code><a class="headerlink" href="#replace_multiline_code_blocks_in_text" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">replace_multiline_code_blocks_in_text</span><span class="p">(</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">replace_multiline_code_blocks_in_text</span><span class="p">(</span>
 </code></pre></div>
 <p><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg></span> <a href="https://github.com/fastapi/fastapi/blob/main/scripts/doc_parsing_utils.py#L643-L669">View source</a></p>
 <p>Update each code block in <code>text</code> with the corresponding code block from
     <code>original_code_blocks</code> with comments taken from <code>code_blocks</code>.</p>
 <div class="highlight"><pre><span></span><code>Raises ValueError if the number, language, or shape of code blocks do not match.
 </code></pre></div>
+<p>Iterates over all detected code blocks and swaps them with provided replacements, enabling batch code updates.</p>
 <p><strong>Parameters:</strong></p>
 <table>
 <thead>
@@ -11509,9 +11603,10 @@ Raises ValueError if the blocks are not compatible (different languages or diffe
 <p><strong>Returns:</strong> <code>list[str]</code> </p>
 <hr />
 <h3 id="check_translation"><code>check_translation</code><a class="headerlink" href="#check_translation" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">check_translation</span><span class="p">(</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">check_translation</span><span class="p">(</span>
 </code></pre></div>
 <p><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg></span> <a href="https://github.com/fastapi/fastapi/blob/main/scripts/doc_parsing_utils.py#L676-L733">View source</a></p>
+<p>Compares a translated document against its source, reporting mismatches and optionally auto‑fixing them, essential for CI validation of localized docs.</p>
 <p><strong>Parameters:</strong></p>
 <table>
 <thead>
@@ -11564,7 +11659,7 @@ Raises ValueError if the blocks are not compatible (different languages or diffe
 <li><code>typing</code> — TypedDict</li>
 </ul>
 <hr />
-<p><em>Source: <code>scripts/doc_parsing_utils.py</code> · Last analyzed: 2026-03-03T17:43:40.874Z</em></p>
+<p><em>Source: <code>scripts/doc_parsing_utils.py</code> · Last analyzed: 2026-03-04T19:02:22.772Z</em></p>
 <div class="admonition tip">
 <p class="admonition-title">Unlock Full Documentation</p>
 <p>This is a preview. Run DocWalk on your own repo for complete API reference across all 2017 modules, deeper AI analysis, and more.</p>
@@ -11675,6 +11770,8 @@ Raises ValueError if the blocks are not compatible (different languages or diffe
       <script src="../../../assets/javascripts/bundle.16f8adc2.min.js"></script>
       
         <script src="../../../javascripts/mermaid-zoom.js"></script>
+      
+        <script src="../../../_docwalk/qa-widget.js"></script>
       
     
   </body>

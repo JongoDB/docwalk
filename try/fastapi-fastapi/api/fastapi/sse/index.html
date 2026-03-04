@@ -60,6 +60,8 @@
     
       <link rel="stylesheet" href="../../../stylesheets/preset.css">
     
+      <link rel="stylesheet" href="../../../_docwalk/qa-widget.css">
+    
     <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,a=__md_scope)=>JSON.parse(t.getItem(a.pathname+"."+e)),__md_set=(e,t,a=localStorage,_=__md_scope)=>{try{a.setItem(_.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -10179,6 +10181,13 @@
 
 
 <h1 id="ssepy">sse.py<a class="headerlink" href="#ssepy" title="Permanent link">&para;</a></h1>
+<p><think>
+Okay, let's tackle this. The user wants me to summarize the Python file fastapi/sse.py into a JSON structure with module and symbol summaries. </p>
+<p>First, looking at the module. The file is about Server-Sent Events (SSE) in FastAPI. The key exports are EventSourceResponse, ServerSentEvent, and format_sse_event. The module's role is to handle SSE responses, integrating with FastAPI's routing. The EventSourceResponse sets the media type and works with any HTTP method. ServerSentEvent models the event data, and format_sse_event probably encodes events into the correct format. Need to mention how it connects to the broader system, like the FastAPI routing layer.</p>
+<p>For the module summary: It should state that it implements SSE handling for FastAPI, exports the two classes and a function, and how it integrates with the framework. Maybe mention the OpenAPI spec compliance.</p>
+<p>Now, each symbol:</p>
+<p>EventSourceResponse: A streaming response class for text/event-stream, used in path operations with yield. It sets the media type and works with any HTTP method.</p>
+<p>ServerSentEvent: Represents an SSE event with data, event type, etc. When yielded, it's encoded into the SSE format. It handles both JSON</p>
 <details>
 <summary>Relevant source files</summary>
 
@@ -10573,7 +10582,7 @@ quotes).
 <li><code>starlette.responses</code> — StreamingResponse</li>
 </ul>
 <hr />
-<p><em>Source: <code>fastapi/sse.py</code> · Last analyzed: 2026-03-03T17:43:40.864Z</em></p>
+<p><em>Source: <code>fastapi/sse.py</code> · Last analyzed: 2026-03-04T19:02:22.760Z</em></p>
 <div class="admonition tip">
 <p class="admonition-title">Unlock Full Documentation</p>
 <p>This is a preview. Run DocWalk on your own repo for complete API reference across all 2017 modules, deeper AI analysis, and more.</p>
@@ -10684,6 +10693,8 @@ quotes).
       <script src="../../../assets/javascripts/bundle.16f8adc2.min.js"></script>
       
         <script src="../../../javascripts/mermaid-zoom.js"></script>
+      
+        <script src="../../../_docwalk/qa-widget.js"></script>
       
     
   </body>

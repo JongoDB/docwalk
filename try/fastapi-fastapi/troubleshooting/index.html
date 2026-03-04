@@ -60,6 +60,8 @@
     
       <link rel="stylesheet" href="../stylesheets/preset.css">
     
+      <link rel="stylesheet" href="../_docwalk/qa-widget.css">
+    
     <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,a=__md_scope)=>JSON.parse(t.getItem(a.pathname+"."+e)),__md_set=(e,t,a=localStorage,_=__md_scope)=>{try{a.setItem(_.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -637,203 +639,401 @@
 
 
 <h1 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h1>
-<h1 id="fastapi-troubleshooting-guide"><strong>FastAPI Troubleshooting Guide</strong><a class="headerlink" href="#fastapi-troubleshooting-guide" title="Permanent link">&para;</a></h1>
-<p>Don't worry if you're experiencing issues with FastAPI - we're here to help! This guide will walk you through common problems, their causes, and solutions. Let's get started!</p>
-<h3 id="general-troubleshooting-steps">General Troubleshooting Steps<a class="headerlink" href="#general-troubleshooting-steps" title="Permanent link">&para;</a></h3>
-<p>Before diving into specific error types, make sure you've covered these basic steps:</p>
-<h4 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h4>
+<h1 id="fastapi-troubleshooting-guide-for-endusers">FastAPI Troubleshooting Guide for End‑Users<a class="headerlink" href="#fastapi-troubleshooting-guide-for-endusers" title="Permanent link">&para;</a></h1>
+<p><em>Friendly, step‑by‑step help for the most common FastAPI hiccups.</em></p>
+<hr />
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ol>
+<li><a href="#general-checklist">General troubleshooting checklist</a>  </li>
+<li><a href="#error‑by‑error-guide">Error‑by‑error guide</a>  </li>
+<li><a href="#httpexception">HTTPException</a>  </li>
+<li><a href="#websocketexception">WebSocketException</a>  </li>
+<li><a href="#fastapierror">FastAPIError</a>  </li>
+<li><a href="#dependencyscopeerror">DependencyScopeError</a>  </li>
+<li><a href="#validationexception">ValidationException</a>  </li>
+<li><a href="#requestvalidationerror">RequestValidationError</a>  </li>
+<li><a href="#websocketrequestvalidationerror">WebSocketRequestValidationError</a>  </li>
+<li><a href="#responsevalidationerror">ResponseValidationError</a>  </li>
+<li><a href="#pydanticv1notsupportederror">PydanticV1NotSupportedError</a>  </li>
+<li><a href="#ownererror">OwnerError</a>  </li>
+<li><a href="#internalerror">InternalError</a>  </li>
+<li><a href="#unicornexception">UnicornException</a>  </li>
+<li><a href="#getting-help">Getting help &amp; community resources</a>  </li>
+</ol>
+<hr />
+<h2 id="1-general-troubleshooting-checklist"><a name="general-checklist"></a>1️⃣ General troubleshooting checklist<a class="headerlink" href="#1-general-troubleshooting-checklist" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>What to do</th>
+<th>Why it helps</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>✅ Verify installation</strong></td>
+<td><code>bash\npip install --upgrade fastapi uvicorn\n</code></td>
+<td>Guarantees you’re on a supported version of FastAPI, Uvicorn (or another ASGI server), and their dependencies.</td>
+</tr>
+<tr>
+<td><strong>✅ Check Python version</strong></td>
+<td>FastAPI requires <strong>Python 3.7+</strong>. Run <code>python --version</code>.</td>
+<td>Older interpreters lack required language features (e.g., <code>async</code>/<code>await</code>).</td>
+</tr>
+<tr>
+<td><strong>✅ Review your <code>requirements.txt</code> / <code>pyproject.toml</code></strong></td>
+<td>Ensure pinned versions are compatible (e.g., <code>pydantic&gt;=2</code>).</td>
+<td>Prevents mismatched library versions that cause obscure errors.</td>
+</tr>
+<tr>
+<td><strong>✅ Run the app in development mode</strong></td>
+<td><code>bash\nuvicorn main:app --reload\n</code></td>
+<td>The auto‑reload server prints detailed tracebacks and reloads on code changes.</td>
+</tr>
+<tr>
+<td><strong>✅ Look at the console / server logs</strong></td>
+<td>Errors are printed to stdout/stderr. Use <code>logging</code> for more context.</td>
+<td>The exact traceback often points directly to the problematic line.</td>
+</tr>
+<tr>
+<td><strong>✅ Use a debugger or <code>print</code> statements</strong></td>
+<td><code>python\nimport pdb; pdb.set_trace()\n</code></td>
+<td>Pausing execution lets you inspect variables and request data.</td>
+</tr>
+<tr>
+<td><strong>✅ Validate request/response schemas</strong></td>
+<td>Use tools like <strong>httpie</strong>, <strong>curl</strong>, or <strong>Postman</strong> to send known‑good payloads.</td>
+<td>Isolates whether the problem is in the client request, the server logic, or the schema.</td>
+</tr>
+<tr>
+<td><strong>✅ Clear caches / restart the server</strong></td>
+<td>Stop the process, delete <code>__pycache__</code> folders, then restart.</td>
+<td>Stale compiled files can hide recent code changes.</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Tip:</strong> Keep a small “sandbox” FastAPI project (e.g., the official tutorial app) that you know works. When something breaks, compare the failing project to the sandbox to spot differences.</p>
+</blockquote>
+<hr />
+<h2 id="2-errorbyerror-guide"><a name="error-by-error-guide"></a>2️⃣ Error‑by‑error guide<a class="headerlink" href="#2-errorbyerror-guide" title="Permanent link">&para;</a></h2>
+<p>Below each error type you’ll find:</p>
 <ul>
-<li>Ensure you've installed FastAPI using pip: <code>pip install fastapi</code></li>
-<li>Verify that you've installed the required dependencies, such as Uvicorn: <code>pip install uvicorn</code></li>
+<li><strong>What it means</strong> – the typical cause.  </li>
+<li><strong>How to fix it</strong> – concrete steps and code snippets.  </li>
+<li><strong>Common pitfalls</strong> – things that often trip people up.</li>
 </ul>
-<h4 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h4>
-<ul>
-<li>Check your <code>main.py</code> file for any syntax errors or typos</li>
-<li>Make sure you've properly configured your routes, models, and dependencies</li>
-</ul>
-<h4 id="runtime">Runtime<a class="headerlink" href="#runtime" title="Permanent link">&para;</a></h4>
-<ul>
-<li>Run your FastAPI application using Uvicorn: <code>uvicorn main:app --host 0.0.0.0 --port 8000</code></li>
-<li>Check the console output for any error messages</li>
-</ul>
-<h3 id="known-error-types">Known Error Types<a class="headerlink" href="#known-error-types" title="Permanent link">&para;</a></h3>
-<h4 id="1-httpexception">1. HTTPException<a class="headerlink" href="#1-httpexception" title="Permanent link">&para;</a></h4>
-<ul>
-<li><strong>Cause:</strong> Raised when an HTTP request is invalid or cannot be processed</li>
-<li><strong>Solution:</strong><ul>
-<li>Check your request data for any errors or inconsistencies</li>
-<li>Verify that your route handlers are properly defined and configured</li>
-<li>Use try-except blocks to catch and handle exceptions</li>
-</ul>
-</li>
-</ul>
-<p>Example:
+<blockquote>
+<p><strong>Note:</strong> Many of these errors are subclasses of <code>FastAPIError</code>. The specific subclass tells you where the problem originated (request, response, dependency, etc.).</p>
+</blockquote>
+<hr />
+<h3 id="httpexception"><a name="httpexception"></a>🔹 <code>HTTPException</code><a class="headerlink" href="#httpexception" title="Permanent link">&para;</a></h3>
+<p><strong>Cause</strong><br />
+Raised manually (or by FastAPI) when the request cannot be fulfilled – e.g., 404 Not Found, 401 Unauthorized, 400 Bad Request.</p>
+<p><strong>Fix</strong><br />
+<em> Ensure the route path and HTTP method match what the client calls.<br />
+</em> Return appropriate status codes and messages.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastAPI</span><span class="p">,</span> <span class="n">HTTPException</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">()</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/items/</span><span class="si">{item_id}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">read_item</span><span class="p">(</span><span class="n">item_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="k">if</span> <span class="n">item_id</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">&quot;Item ID must be greater than 0&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;item_id&quot;</span><span class="p">:</span> <span class="n">item_id</span><span class="p">}</span>
-</code></pre></div></p>
-<h4 id="2-websocketexception">2. WebSocketException<a class="headerlink" href="#2-websocketexception" title="Permanent link">&para;</a></h4>
-<ul>
-<li><strong>Cause:</strong> Raised when a WebSocket connection is invalid or cannot be established</li>
-<li><strong>Solution:</strong><ul>
-<li>Verify that your WebSocket endpoint is properly defined and configured</li>
-<li>Check your WebSocket client code for any errors or inconsistencies</li>
-<li>Use try-except blocks to catch and handle exceptions</li>
-</ul>
-</li>
-</ul>
-<p>Example:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastAPI</span><span class="p">,</span> <span class="n">WebSocketException</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/users/</span><span class="si">{user_id}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">read_user</span><span class="p">(</span><span class="n">user_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="k">if</span> <span class="n">user_id</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">&quot;user_id must be positive&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="c1"># pretend we looked up the user…</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="k">if</span> <span class="n">user_id</span> <span class="o">!=</span> <span class="mi">42</span><span class="p">:</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">404</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">&quot;User not found&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;user_id&quot;</span><span class="p">:</span> <span class="n">user_id</span><span class="p">}</span>
+</code></pre></div>
+<p><strong>Pitfall</strong><br />
+Forgetting to import <code>HTTPException</code> from <code>fastapi</code> (instead of <code>starlette</code>) can cause a <code>NameError</code>.</p>
+<hr />
+<h3 id="websocketexception"><a name="websocketexception"></a>🔹 <code>WebSocketException</code><a class="headerlink" href="#websocketexception" title="Permanent link">&para;</a></h3>
+<p><strong>Cause</strong><br />
+Issues while establishing or communicating over a WebSocket (e.g., client disconnects, protocol errors).</p>
+<p><strong>Fix</strong><br />
+<em> Accept the connection before reading/writing.<br />
+</em> Wrap receive/send calls in <code>try/except</code> blocks to handle abrupt disconnects.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastAPI</span><span class="p">,</span> <span class="n">WebSocket</span><span class="p">,</span> <span class="n">WebSocketException</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">()</span>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nd">@app</span><span class="o">.</span><span class="n">websocket</span><span class="p">(</span><span class="s2">&quot;/ws&quot;</span><span class="p">)</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">websocket_endpoint</span><span class="p">(</span><span class="n">websocket</span><span class="p">:</span> <span class="n">WebSocket</span><span class="p">):</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>        <span class="k">await</span> <span class="n">websocket</span><span class="o">.</span><span class="n">accept</span><span class="p">()</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>        <span class="c1"># Handle WebSocket connection</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="k">except</span> <span class="n">WebSocketException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;WebSocket error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</code></pre></div></p>
-<h4 id="3-fastapierror">3. FastAPIError<a class="headerlink" href="#3-fastapierror" title="Permanent link">&para;</a></h4>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nd">@app</span><span class="o">.</span><span class="n">websocket</span><span class="p">(</span><span class="s2">&quot;/ws/chat&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">chat</span><span class="p">(</span><span class="n">ws</span><span class="p">:</span> <span class="n">WebSocket</span><span class="p">):</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="k">await</span> <span class="n">ws</span><span class="o">.</span><span class="n">accept</span><span class="p">()</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>            <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ws</span><span class="o">.</span><span class="n">receive_text</span><span class="p">()</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>            <span class="k">await</span> <span class="n">ws</span><span class="o">.</span><span class="n">send_text</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Echo: </span><span class="si">{</span><span class="n">data</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="k">except</span> <span class="n">WebSocketException</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;WebSocket closed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p><strong>Pitfall</strong><br />
+Calling <code>await ws.send_text()</code> <em>before</em> <code>await ws.accept()</code> raises a <code>RuntimeError</code>.</p>
+<hr />
+<h3 id="fastapierror"><a name="fastapierror"></a>🔹 <code>FastAPIError</code><a class="headerlink" href="#fastapierror" title="Permanent link">&para;</a></h3>
+<p><strong>Cause</strong><br />
+A generic base class for FastAPI‑specific errors (e.g., mis‑configured routers, duplicate routes).</p>
+<p><strong>Fix</strong><br />
+<em> Look at the full traceback – it will usually indicate the subclass (e.g., <code>DuplicateRouteError</code>).<br />
+</em> Verify that you haven’t added the same path+method twice.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># BAD – duplicate route</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/items&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">list_items</span><span class="p">():</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="o">...</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/items&quot;</span><span class="p">)</span>  <span class="c1"># &lt;-- raises FastAPIError at startup</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">another_list</span><span class="p">():</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="o">...</span>
+</code></pre></div>
+<p><strong>Pitfall</strong><br />
+Running the app with <code>--reload</code> can hide duplicate‑route errors until the second file change triggers a reload.</p>
+<hr />
+<h3 id="dependencyscopeerror"><a name="dependencyscopeerror"></a>🔹 <code>DependencyScopeError</code><a class="headerlink" href="#dependencyscopeerror" title="Permanent link">&para;</a></h3>
+<p><strong>Cause</strong><br />
+A dependency is declared with an incompatible scope (e.g., a request‑scoped dependency used as a singleton).</p>
+<p><strong>Fix</strong><br />
+<em> Use <code>Depends</code> correctly and, when needed, set <code>use_cache=False</code> for per‑request instances.<br />
+</em> For database sessions, create a <strong>dependency generator</strong> that yields a fresh session per request.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">Depends</span><span class="p">,</span> <span class="n">FastAPI</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">sqlalchemy.orm</span><span class="w"> </span><span class="kn">import</span> <span class="n">Session</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">.database</span><span class="w"> </span><span class="kn">import</span> <span class="n">SessionLocal</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_db</span><span class="p">():</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">db</span><span class="p">:</span> <span class="n">Session</span> <span class="o">=</span> <span class="n">SessionLocal</span><span class="p">()</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>        <span class="k">yield</span> <span class="n">db</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="k">finally</span><span class="p">:</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>        <span class="n">db</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">()</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/items/&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">read_items</span><span class="p">(</span><span class="n">db</span><span class="p">:</span> <span class="n">Session</span> <span class="o">=</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_db</span><span class="p">)):</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;count&quot;</span><span class="p">:</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="o">...</span><span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">()}</span>
+</code></pre></div>
+<p><strong>Pitfall</strong><br />
+Returning a plain object (instead of a generator) from a dependency will make FastAPI treat it as a singleton, causing <code>DependencyScopeError</code> when the object expects per‑request state.</p>
+<hr />
+<h3 id="validationexception"><a name="validationexception"></a>🔹 <code>ValidationException</code><a class="headerlink" href="#validationexception" title="Permanent link">&para;</a></h3>
+<p><strong>Cause</strong><br />
+Pydantic validation failed for a model that isn’t directly tied to a request body (e.g., a custom validator you called manually).</p>
+<p><strong>Fix</strong><br />
+<em> Ensure the data you pass to a Pydantic model matches the field types and constraints.<br />
+</em> Use <code>model = MyModel(**data)</code> inside a <code>try/except ValidationError</code> block.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span><span class="p">,</span> <span class="n">ValidationError</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">Item</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">price</span><span class="p">:</span> <span class="nb">float</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_item</span><span class="p">(</span><span class="n">raw</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>        <span class="n">item</span> <span class="o">=</span> <span class="n">Item</span><span class="p">(</span><span class="o">**</span><span class="n">raw</span><span class="p">)</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>        <span class="k">return</span> <span class="n">item</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>    <span class="k">except</span> <span class="n">ValidationError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">422</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="n">exc</span><span class="o">.</span><span class="n">errors</span><span class="p">())</span>
+</code></pre></div>
+<p><strong>Pitfall</strong><br />
+Passing a list where a dict is expected (or vice‑versa) triggers this error.</p>
+<hr />
+<h3 id="requestvalidationerror"><a name="requestvalidationerror"></a>🔹 <code>RequestValidationError</code><a class="headerlink" href="#requestvalidationerror" title="Permanent link">&para;</a></h3>
+<p><strong>Cause</strong><br />
+FastAPI could not validate the incoming request body, query parameters, headers, or path parameters against the declared Pydantic models.</p>
+<p><strong>Fix</strong><br />
+<em> Double‑check the client payload matches the schema (field names, types, required/optional).<br />
+</em> Use <code>curl</code> or <strong>httpie</strong> to send a minimal, known‑good request.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>http<span class="w"> </span>POST<span class="w"> </span>http://localhost:8000/items/<span class="w"> </span><span class="nv">name</span><span class="o">=</span><span class="s2">&quot;Apple&quot;</span><span class="w"> </span>price:<span class="o">=</span><span class="m">1</span>.23
+</code></pre></div>
 <ul>
-<li><strong>Cause:</strong> A generic error raised by FastAPI</li>
-<li><strong>Solution:</strong><ul>
-<li>Check the console output for any error messages</li>
-<li>Verify that your code is properly configured and formatted</li>
-<li>Search online for solutions or seek help from the FastAPI community</li>
+<li>If you need custom validation, add a <strong>dependency</strong> that runs before the endpoint.</li>
 </ul>
-</li>
-</ul>
-<h4 id="4-dependencyscopeerror">4. DependencyScopeError<a class="headerlink" href="#4-dependencyscopeerror" title="Permanent link">&para;</a></h4>
-<ul>
-<li><strong>Cause:</strong> Raised when there's an issue with dependency injection</li>
-<li><strong>Solution:</strong><ul>
-<li>Verify that your dependencies are properly defined and configured</li>
-<li>Check your route handlers for any errors or inconsistencies</li>
-<li>Use try-except blocks to catch and handle exceptions</li>
-</ul>
-</li>
-</ul>
-<p>Example:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastAPI</span><span class="p">,</span> <span class="n">Depends</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">()</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_dependency</span><span class="p">():</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="k">return</span> <span class="s2">&quot;dependency&quot;</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/items/&quot;</span><span class="p">)</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">read_items</span><span class="p">(</span><span class="n">dependency</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_dependency</span><span class="p">)):</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;dependency&quot;</span><span class="p">:</span> <span class="n">dependency</span><span class="p">}</span>
-</code></pre></div></p>
-<h4 id="5-validationexception">5. ValidationException<a class="headerlink" href="#5-validationexception" title="Permanent link">&para;</a></h4>
-<ul>
-<li><strong>Cause:</strong> Raised when request data fails validation</li>
-<li><strong>Solution:</strong><ul>
-<li>Verify that your request data conforms to the expected schema</li>
-<li>Check your Pydantic models for any errors or inconsistencies</li>
-<li>Use try-except blocks to catch and handle exceptions</li>
-</ul>
-</li>
-</ul>
-<p>Example:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastAPI</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">()</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="k">class</span><span class="w"> </span><span class="nc">Item</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">price</span><span class="p">:</span> <span class="nb">float</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="nd">@app</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;/items/&quot;</span><span class="p">)</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">create_item</span><span class="p">(</span><span class="n">item</span><span class="p">:</span> <span class="n">Item</span><span class="p">):</span>
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="k">return</span> <span class="n">item</span>
-</code></pre></div></p>
-<h4 id="6-requestvalidationerror">6. RequestValidationError<a class="headerlink" href="#6-requestvalidationerror" title="Permanent link">&para;</a></h4>
-<ul>
-<li><strong>Cause:</strong> Raised when request data fails validation</li>
-<li><strong>Solution:</strong><ul>
-<li>Verify that your request data conforms to the expected schema</li>
-<li>Check your Pydantic models for any errors or inconsistencies</li>
-<li>Use try-except blocks to catch and handle exceptions</li>
-</ul>
-</li>
-</ul>
-<h4 id="7-websocketrequestvalidationerror">7. WebSocketRequestValidationError<a class="headerlink" href="#7-websocketrequestvalidationerror" title="Permanent link">&para;</a></h4>
-<ul>
-<li><strong>Cause:</strong> Raised when WebSocket request data fails validation</li>
-<li><strong>Solution:</strong><ul>
-<li>Verify that your WebSocket request data conforms to the expected schema</li>
-<li>Check your Pydantic models for any errors or inconsistencies</li>
-<li>Use try-except blocks to catch and handle exceptions</li>
-</ul>
-</li>
-</ul>
-<h4 id="8-responsevalidationerror">8. ResponseValidationError<a class="headerlink" href="#8-responsevalidationerror" title="Permanent link">&para;</a></h4>
-<ul>
-<li><strong>Cause:</strong> Raised when response data fails validation</li>
-<li><strong>Solution:</strong><ul>
-<li>Verify that your response data conforms to the expected schema</li>
-<li>Check your Pydantic models for any errors or inconsistencies</li>
-<li>Use try-except blocks to catch and handle exceptions</li>
-</ul>
-</li>
-</ul>
-<h4 id="9-pydanticv1notsupportederror">9. PydanticV1NotSupportedError<a class="headerlink" href="#9-pydanticv1notsupportederror" title="Permanent link">&para;</a></h4>
-<ul>
-<li><strong>Cause:</strong> Raised when using Pydantic v1, which is not supported</li>
-<li><strong>Solution:</strong><ul>
-<li>Upgrade to Pydantic v2 or later</li>
-<li>Check your dependencies for any conflicts or issues</li>
-</ul>
-</li>
-</ul>
-<h4 id="10-ownererror">10. OwnerError<a class="headerlink" href="#10-ownererror" title="Permanent link">&para;</a></h4>
-<ul>
-<li><strong>Cause:</strong> Raised when there's an issue with ownership or permissions</li>
-<li><strong>Solution:</strong><ul>
-<li>Verify that you have the necessary permissions or ownership</li>
-<li>Check your code for any errors or inconsistencies</li>
-<li>Use try-except blocks to catch and handle exceptions</li>
-</ul>
-</li>
-</ul>
-<h4 id="11-internalerror">11. InternalError<a class="headerlink" href="#11-internalerror" title="Permanent link">&para;</a></h4>
-<ul>
-<li><strong>Cause:</strong> A generic internal error</li>
-<li><strong>Solution:</strong><ul>
-<li>Check the console output for any error messages</li>
-<li>Verify that your code is properly configured and formatted</li>
-<li>Search online for solutions or seek help from the FastAPI community</li>
-</ul>
-</li>
-</ul>
-<h4 id="12-unicornexception">12. UnicornException<a class="headerlink" href="#12-unicornexception" title="Permanent link">&para;</a></h4>
-<ul>
-<li><strong>Cause:</strong> Raised by the Uvicorn server</li>
-<li><strong>Solution:</strong><ul>
-<li>Check the console output for any error messages</li>
-<li>Verify that your code is properly configured and formatted</li>
-<li>Search online for solutions or seek help from the Uvicorn community</li>
-</ul>
-</li>
-</ul>
-<h3 id="getting-help">Getting Help<a class="headerlink" href="#getting-help" title="Permanent link">&para;</a></h3>
-<p>If you're still experiencing issues, don't worry! There are many resources available to help:</p>
-<ul>
-<li><strong>FastAPI Documentation:</strong> <a href="https://fastapi.tiangolo.com/">https://fastapi.tiangolo.com/</a></li>
-<li><strong>FastAPI Community Forum:</strong> <a href="https://community.fastapi.tiangolo.com/">https://community.fastapi.tiangolo.com/</a></li>
-<li><strong>Stack Overflow:</strong> <a href="https://stackoverflow.com/questions/tagged/fastapi">https://stackoverflow.com/questions/tagged/fastapi</a></li>
-</ul>
-<p>We hope this guide has helped you troubleshoot and resolve issues with FastAPI. Happy coding!</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">Depends</span><span class="p">,</span> <span class="n">HTTPException</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">validate_price</span><span class="p">(</span><span class="n">price</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="o">...</span><span class="p">)):</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="k">if</span> <span class="n">price</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">&quot;Price must be non‑negative&quot;</span><span class="p">)</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="k">return</span> <span class="n">price</span>
+</code></pre></div>
+<p><strong>Pitfall</strong><br />
+FastAPI automatically converts query parameters to the annotated type; a typo like <code>price=abc</code> will raise this error.</p>
+<hr />
+<h3 id="websocketrequestvalidationerror"><a name="websocketrequestvalidationerror"></a>🔹 <code>WebSocketRequestValidationError</code><a class="headerlink" href="#websocketrequestvalidationerror" title="Permanent link">&para;</a></h3>
+<p><strong>Cause</strong><br />
+The data received over a WebSocket does not conform to the expected schema (e.g., JSON missing required fields).</p>
+<p><strong>Fix</strong><br />
+<em> Parse the incoming text as JSON and validate with a Pydantic model inside a <code>try/except</code>.<br />
+</em> Send a clear error message back to the client.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">WebSocket</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span><span class="p">,</span> <span class="n">ValidationError</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="k">class</span><span class="w"> </span><span class="nc">ChatMessage</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="n">user</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="n">message</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="nd">@app</span><span class="o">.</span><span class="n">websocket</span><span class="p">(</span><span class="s2">&quot;/ws/chat&quot;</span><span class="p">)</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">chat</span><span class="p">(</span><span class="n">ws</span><span class="p">:</span> <span class="n">WebSocket</span><span class="p">):</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>    <span class="k">await</span> <span class="n">ws</span><span class="o">.</span><span class="n">accept</span><span class="p">()</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>        <span class="n">raw</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ws</span><span class="o">.</span><span class="n">receive_text</span><span class="p">()</span>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>        <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>            <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
+<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>            <span class="n">msg</span> <span class="o">=</span> <span class="n">ChatMessage</span><span class="p">(</span><span class="o">**</span><span class="n">data</span><span class="p">)</span>
+<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>            <span class="k">await</span> <span class="n">ws</span><span class="o">.</span><span class="n">send_text</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">msg</span><span class="o">.</span><span class="n">user</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">msg</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a>        <span class="k">except</span> <span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">JSONDecodeError</span><span class="p">,</span> <span class="n">ValidationError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a>            <span class="k">await</span> <span class="n">ws</span><span class="o">.</span><span class="n">send_text</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid payload: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p><strong>Pitfall</strong><br />
+Forgetting to <code>await ws.accept()</code> before the first <code>receive_text()</code> will raise a different error, masking the validation issue.</p>
+<hr />
+<h3 id="responsevalidationerror"><a name="responsevalidationerror"></a>🔹 <code>ResponseValidationError</code><a class="headerlink" href="#responsevalidationerror" title="Permanent link">&para;</a></h3>
+<p><strong>Cause</strong><br />
+FastAPI tried to serialize the response object but it didn’t match the declared response model (e.g., missing required fields).</p>
+<p><strong>Fix</strong><br />
+<em> Ensure the endpoint returns an instance (or compatible dict) of the response model.<br />
+</em> If you return raw data, either remove the <code>response_model</code> argument or convert the data.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastAPI</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">UserOut</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    <span class="nb">id</span><span class="p">:</span> <span class="nb">int</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="n">username</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">()</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/users/</span><span class="si">{uid}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">response_model</span><span class="o">=</span><span class="n">UserOut</span><span class="p">)</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">get_user</span><span class="p">(</span><span class="n">uid</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>    <span class="c1"># BAD: missing &#39;username&#39;</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">uid</span><span class="p">}</span>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>    <span class="c1"># FIX:</span>
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>    <span class="c1"># return UserOut(id=uid, username=&quot;alice&quot;)</span>
+</code></pre></div>
+<p><strong>Pitfall</strong><br />
+Returning a SQLAlchemy model directly (instead of a Pydantic schema) often triggers this error because the ORM object isn’t JSON‑serializable.</p>
+<hr />
+<h3 id="pydanticv1notsupportederror"><a name="pydanticv1notsupportederror"></a>🔹 <code>PydanticV1NotSupportedError</code><a class="headerlink" href="#pydanticv1notsupportederror" title="Permanent link">&para;</a></h3>
+<p><strong>Cause</strong><br />
+You’re using an older version of <strong>Pydantic v1</strong> while FastAPI (≥0.100) expects <strong>Pydantic v2</strong>.</p>
+<p><strong>Fix</strong><br />
+Upgrade Pydantic:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>pip<span class="w"> </span>install<span class="w"> </span>--upgrade<span class="w"> </span><span class="s2">&quot;pydantic&gt;=2&quot;</span>
+</code></pre></div>
+<p>If you must stay on v1 (e.g., legacy code), pin FastAPI to a version that still supports it:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;fastapi&lt;0.100&quot;</span>
+</code></pre></div>
+<p><strong>Pitfall</strong><br />
+Sometimes <code>uvicorn</code> or other dependencies bring an older Pydantic version back in; use <code>pip list | grep pydantic</code> to verify the installed version.</p>
+<hr />
+<h3 id="ownererror"><a name="ownererror"></a>🔹 <code>OwnerError</code><a class="headerlink" href="#ownererror" title="Permanent link">&para;</a></h3>
+<p><strong>Cause</strong><br />
+FastAPI (or a third‑party extension) attempted to perform an operation that the current OS user does not have permission for—common when binding to privileged ports (&lt;1024) or accessing protected files.</p>
+<p><strong>Fix</strong><br />
+<em> Run the server on a non‑privileged port (e.g., 8000) or use <code>sudo</code> </em><em>only if you understand the security implications</em><em>.<br />
+</em> Adjust file permissions (<code>chmod</code>, <code>chown</code>) for any config files, logs, or database sockets.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Run on port 80 with proper privileges (use a reverse proxy instead!)</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>sudo<span class="w"> </span>uvicorn<span class="w"> </span>main:app<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">80</span>
+</code></pre></div>
+<p><strong>Pitfall</strong><br />
+Running the whole app as root is discouraged; instead, use a reverse proxy (nginx, Caddy) to expose port 80 and let Uvicorn listen on a high port.</p>
+<hr />
+<h3 id="internalerror"><a name="internalerror"></a>🔹 <code>InternalError</code><a class="headerlink" href="#internalerror" title="Permanent link">&para;</a></h3>
+<p><strong>Cause</strong><br />
+A catch‑all for unexpected server‑side failures (e.g., unhandled exceptions, database connection loss, third‑party library bugs).</p>
+<p><strong>Fix</strong><br />
+1. <strong>Read the traceback</strong> – it points to the exact line.<br />
+2. <strong>Add proper exception handling</strong> around risky code (DB calls, external APIs).<br />
+3. <strong>Log the error</strong> with stack trace for later analysis.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastAPI</span><span class="p">,</span> <span class="n">HTTPException</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;uvicorn.error&quot;</span><span class="p">)</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">()</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/external&quot;</span><span class="p">)</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">call_external</span><span class="p">():</span>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>        <span class="c1"># pretend this may raise a network error</span>
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>        <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">some_async_http_call</span><span class="p">()</span>
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>        <span class="k">return</span> <span class="n">result</span>
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;External call failed&quot;</span><span class="p">)</span>
+<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">502</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">&quot;Bad gateway&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p><strong>Pitfall</strong><br />
+Swallowing exceptions (<code>except Exception: pass</code>) hides the root cause and turns a useful traceback into a vague <code>InternalError</code>.</p>
+<hr />
+<h3 id="unicornexception"><a name="unicornexception"></a>🔹 <code>UnicornException</code><a class="headerlink" href="#unicornexception" title="Permanent link">&para;</a></h3>
+<p><strong>Cause</strong><br />
+Issues specific to the <strong>Uvicorn</strong> ASGI server (e.g., mis‑configured SSL, invalid command‑line options, or a failure to bind the socket).</p>
+<p><strong>Fix</strong><br />
+<em> Verify the command you used to start Uvicorn.<br />
+</em> If you’re using SSL, ensure the certificate/key files exist and are readable.<br />
+* Check that the host/port isn’t already in use (<code>lsof -i :8000</code>).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Typical dev command</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>uvicorn<span class="w"> </span>main:app<span class="w"> </span>--reload<span class="w"> </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">8000</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="c1"># Example SSL command</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>uvicorn<span class="w"> </span>main:app<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">443</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="w">    </span>--ssl-keyfile<span class="w"> </span>./key.pem<span class="w"> </span>--ssl-certfile<span class="w"> </span>./cert.pem
+</code></pre></div>
+<p><strong>Pitfall</strong><br />
+Running <code>uvicorn</code> inside a virtual environment but launching it from a system‑wide shell can pick up the wrong binary, leading to version mismatches.</p>
+<hr />
+<h2 id="3-getting-help-community-resources"><a name="getting-help"></a>3️⃣ Getting Help &amp; Community Resources<a class="headerlink" href="#3-getting-help-community-resources" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>What you’ll find</th>
+<th>Link</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>FastAPI Official Docs</strong></td>
+<td>Comprehensive tutorials, reference, and migration guides.</td>
+<td><a href="https://fastapi.tiangolo.com/">https://fastapi.tiangolo.com/</a></td>
+</tr>
+<tr>
+<td><strong>GitHub Issues (FastAPI)</strong></td>
+<td>Search existing bugs or open a new issue with a minimal reproducible example.</td>
+<td><a href="https://github.com/tiangolo/fastapi/issues">https://github.com/tiangolo/fastapi/issues</a></td>
+</tr>
+<tr>
+<td><strong>FastAPI Discord / Slack</strong></td>
+<td>Real‑time help from the community and the core maintainers.</td>
+<td><a href="https://discord.gg/VQjSZaeJ">https://discord.gg/VQjSZaeJ</a></td>
+</tr>
+<tr>
+<td><strong>Stack Overflow</strong></td>
+<td>Tag <code>fastapi</code> – many Q&amp;A on common pitfalls.</td>
+<td><a href="https://stackoverflow.com/questions/tagged/fastapi">https://stackoverflow.com/questions/tagged/fastapi</a></td>
+</tr>
+<tr>
+<td><strong>Python Discord “#fastapi” channel</strong></td>
+<td>Friendly chat, code reviews, and debugging help.</td>
+<td><a href="https://pythondiscord.com/">https://pythondiscord.com/</a></td>
+</tr>
+<tr>
+<td><strong>Blog posts &amp; tutorials</strong></td>
+<td>Search “FastAPI + <error name>” for step‑by‑step guides.</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Pro tip:</strong> When you ask for help, always include:<br />
+<em> Python, FastAPI, and Uvicorn versions (<code>pip freeze | grep -E "fastapi|uvicorn|pydantic"</code>).<br />
+</em> A minimal reproducible example (a tiny <code>main.py</code> that triggers the error).<br />
+* The full traceback.</p>
+</blockquote>
+<hr />
+<h3 id="youve-got-this">🎉 You’ve Got This!<a class="headerlink" href="#youve-got-this" title="Permanent link">&para;</a></h3>
+<p>FastAPI is powerful, but like any framework, it can throw a few curveballs. By following the checklist, understanding each error type, and leaning on the community, you’ll be back to building blazing‑fast APIs in no time. Happy coding!</p>
 <hr />
 <p><em>Generated by <a href="https://docwalk.dev">DocWalk</a></em></p>
 <div class="admonition tip">
@@ -946,6 +1146,8 @@
       <script src="../assets/javascripts/bundle.16f8adc2.min.js"></script>
       
         <script src="../javascripts/mermaid-zoom.js"></script>
+      
+        <script src="../_docwalk/qa-widget.js"></script>
       
     
   </body>

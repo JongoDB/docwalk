@@ -60,6 +60,8 @@
     
       <link rel="stylesheet" href="../../../../stylesheets/preset.css">
     
+      <link rel="stylesheet" href="../../../../_docwalk/qa-widget.css">
+    
     <script>__md_scope=new URL("../../../..",location),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,a=__md_scope)=>JSON.parse(t.getItem(a.pathname+"."+e)),__md_set=(e,t,a=localStorage,_=__md_scope)=>{try{a.setItem(_.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -13337,6 +13339,15 @@
 
 
 <h1 id="tutorial005_py310py">tutorial005_py310.py<a class="headerlink" href="#tutorial005_py310py" title="Permanent link">&para;</a></h1>
+<p>{
+  "module": "Orchestrates the authentication pipeline by exposing authentication-related classes and functions for the FastAPI application. It defines classes for tokens, user data, and users, as well as functions for password verification, token creation, and user authentication. These components are consumed by the application's routes to manage user authentication and authorization.",
+  "Token": "Represents an access token and its type, used to authenticate users with the application.",
+  "TokenData": "Stores user data, including username and scopes, used to authenticate users with the application.",
+  "User": "Represents a user's basic information, including username, email, and full name, used to store user data.",
+  "UserInDB": "Represents a user's data stored in the database, including username, email, full name, and hashed password, used to authenticate users with the application.",
+  "verify_password": "Verifies a plain password against a hashed password, used to authenticate users with the application.",
+  "get_password_hash": "Hashes a plain password using the recommended password hashing algorithm, used to store user passwords securely.",
+  "get_user": "Retrieves a user's data from the database based on their username, used to</p>
 <details>
 <summary>Relevant source files</summary>
 
@@ -13746,7 +13757,7 @@ The following files were used as context for this page:
 <li><code>pydantic</code> — BaseModel, ValidationError</li>
 </ul>
 <hr />
-<p><em>Source: <code>docs_src/security/tutorial005_py310.py</code> · Last analyzed: 2026-03-03T17:43:40.760Z</em></p>
+<p><em>Source: <code>docs_src/security/tutorial005_py310.py</code> · Last analyzed: 2026-03-04T19:02:22.675Z</em></p>
 <div class="admonition tip">
 <p class="admonition-title">Unlock Full Documentation</p>
 <p>This is a preview. Run DocWalk on your own repo for complete API reference across all 2017 modules, deeper AI analysis, and more.</p>
@@ -13857,6 +13868,8 @@ The following files were used as context for this page:
       <script src="../../../../assets/javascripts/bundle.16f8adc2.min.js"></script>
       
         <script src="../../../../javascripts/mermaid-zoom.js"></script>
+      
+        <script src="../../../../_docwalk/qa-widget.js"></script>
       
     
   </body>

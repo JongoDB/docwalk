@@ -60,6 +60,8 @@
     
       <link rel="stylesheet" href="../../../stylesheets/preset.css">
     
+      <link rel="stylesheet" href="../../../_docwalk/qa-widget.css">
+    
     <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,a=__md_scope)=>JSON.parse(t.getItem(a.pathname+"."+e)),__md_set=(e,t,a=localStorage,_=__md_scope)=>{try{a.setItem(_.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -10171,6 +10173,12 @@
 
 
 <h1 id="mkdocs_hookspy">mkdocs_hooks.py<a class="headerlink" href="#mkdocs_hookspy" title="Permanent link">&para;</a></h1>
+<p>{
+  "module": "The mkdocs_hooks module orchestrates the MkDocs build pipeline by providing custom hooks for configuration, file resolution, and navigation generation, exposing key exports such as on_config, resolve_file, and on_files, which are consumed by the MkDocs core to customize the build process, and it connects to the broader system by integrating with the MkDocs material theme and configuration defaults. The module's main role is to provide a set of hooks that allow for customization of the MkDocs build process, including configuration, file resolution, and navigation generation. It exposes several key exports, including on_config, resolve_file, and on_files, which are used to customize the build process. The module is used by the MkDocs core to generate the final documentation site.",
+  "EnFile": "The EnFile class represents a file object that is used to resolve files in the English language directory.",
+  "on_config": "The on_config function customizes the MkDocs configuration by setting the language and site URL based on the current directory and available languages.",
+  "resolve_file": "The resolve_file function resolves a file by checking if it exists in the current directory and, if not, attempts to find it in the English language directory.",
+  "resolve_files": "</p>
 <details>
 <summary>Relevant source files</summary>
 
@@ -10583,7 +10591,7 @@ The following files were used as context for this page:
 <li><code>mkdocs.structure.pages</code> — Page</li>
 </ul>
 <hr />
-<p><em>Source: <code>scripts/mkdocs_hooks.py</code> · Last analyzed: 2026-03-03T17:43:40.884Z</em></p>
+<p><em>Source: <code>scripts/mkdocs_hooks.py</code> · Last analyzed: 2026-03-04T19:02:22.779Z</em></p>
 <div class="admonition tip">
 <p class="admonition-title">Unlock Full Documentation</p>
 <p>This is a preview. Run DocWalk on your own repo for complete API reference across all 2017 modules, deeper AI analysis, and more.</p>
@@ -10694,6 +10702,8 @@ The following files were used as context for this page:
       <script src="../../../assets/javascripts/bundle.16f8adc2.min.js"></script>
       
         <script src="../../../javascripts/mermaid-zoom.js"></script>
+      
+        <script src="../../../_docwalk/qa-widget.js"></script>
       
     
   </body>

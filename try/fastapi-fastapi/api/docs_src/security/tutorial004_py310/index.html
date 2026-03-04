@@ -60,6 +60,8 @@
     
       <link rel="stylesheet" href="../../../../stylesheets/preset.css">
     
+      <link rel="stylesheet" href="../../../../_docwalk/qa-widget.css">
+    
     <script>__md_scope=new URL("../../../..",location),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,a=__md_scope)=>JSON.parse(t.getItem(a.pathname+"."+e)),__md_set=(e,t,a=localStorage,_=__md_scope)=>{try{a.setItem(_.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -13337,6 +13339,7 @@
 
 
 <h1 id="tutorial004_py310py">tutorial004_py310.py<a class="headerlink" href="#tutorial004_py310py" title="Permanent link">&para;</a></h1>
+<p>{"module":"Orchestrates the authentication pipeline by defining user models, password hashing, and JWT token management. Exposes create_access_token(), get_current_user(), and related functions for authentication. Consumed by the FastAPI application to secure endpoints and manage user sessions.","Token":"Represents an access token with its type, used to return authentication results.","TokenData":"Holds the username extracted from a JWT token, used for authentication validation.","User":"Models a user with basic information like username, email, and full name.","UserInDB":"Extends the User model with a hashed password, representing a user stored in the database.","verify_password":"Verifies a plain password against a hashed password, used during authentication.","get_password_hash":"Hashes a plain password, used when creating or updating user passwords.","get_user":"Retrieves a user from the database by username, used in authentication and user management.","authenticate_user":"Authenticates a user by verifying their password, used to validate login attempts.","create_access_token":"Generates a JWT access token with an optional expiration time, used for authenticated sessions.","get_current_user":"Extracts and validates the current user from a JWT token, used to secure endpoints.","get_current_active_user":"Checks if the current user is active, used</p>
 <details>
 <summary>Relevant source files</summary>
 
@@ -13740,7 +13743,7 @@ The following files were used as context for this page:
 <li><code>pydantic</code> — BaseModel</li>
 </ul>
 <hr />
-<p><em>Source: <code>docs_src/security/tutorial004_py310.py</code> · Last analyzed: 2026-03-03T17:43:40.758Z</em></p>
+<p><em>Source: <code>docs_src/security/tutorial004_py310.py</code> · Last analyzed: 2026-03-04T19:02:22.673Z</em></p>
 <div class="admonition tip">
 <p class="admonition-title">Unlock Full Documentation</p>
 <p>This is a preview. Run DocWalk on your own repo for complete API reference across all 2017 modules, deeper AI analysis, and more.</p>
@@ -13851,6 +13854,8 @@ The following files were used as context for this page:
       <script src="../../../../assets/javascripts/bundle.16f8adc2.min.js"></script>
       
         <script src="../../../../javascripts/mermaid-zoom.js"></script>
+      
+        <script src="../../../../_docwalk/qa-widget.js"></script>
       
     
   </body>

@@ -60,6 +60,8 @@
     
       <link rel="stylesheet" href="../stylesheets/preset.css">
     
+      <link rel="stylesheet" href="../_docwalk/qa-widget.css">
+    
     <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,a=__md_scope)=>JSON.parse(t.getItem(a.pathname+"."+e)),__md_set=(e,t,a=localStorage,_=__md_scope)=>{try{a.setItem(_.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -637,8 +639,181 @@
 
 
 <h1 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h1>
-<p>A comprehensive guide to everything fastapi can do.</p>
-<p>For detailed information about fastapi's features, see the <a href="../getting-started/">Developer Reference</a>.</p>
+<p><think>
+Okay, I need to write feature documentation for FastAPI aimed at end users. Let me start by recalling what FastAPI does. It's a modern web framework for building APIs with Python, right? It's known for being fast, easy to use, and having features like automatic documentation.</p>
+<p>First, the user mentioned that no specific features were detected, so I should describe general capabilities. The user wants clear, user-friendly descriptions, practical examples, grouping related features, simple language, and Markdown with headings and code blocks.</p>
+<p>Let me outline the main sections. Maybe start with an introduction explaining what FastAPI is. Then list the key features. The main features of FastAPI include automatic interactive documentation, data validation with Pydantic, async support, dependency injection, and security features. Each of these can be a section.</p>
+<p>For each feature, I need a description and an example. Let's take the interactive documentation first. FastAPI provides Swagger UI and ReDoc. I can explain how users can access these and use them to test endpoints. Example: after running the app, they can go to /docs or /redoc.</p>
+<p>Next, data validation. FastAPI uses Pydantic models to validate request data. I can show a simple example of a model and an endpoint that uses it. Show how invalid data returns an error.</p>
+<p>Async support is another key point. Explain how to define async endpoints and when to use them, like for I/O-bound tasks. Maybe an example with an async def route.</p>
+<p>Dependency injection is used for things like authentication or database sessions. Show a simple dependency that checks a header, and how to use it in a route.</p>
+<p>Security features include OAuth2, JWT tokens. Maybe an example of creating a login endpoint and using Depends to protect another endpoint.</p>
+<p>I should also mention performance benefits, like being faster than other frameworks, and how to run the app with Uvicorn.</p>
+<p>Wait, the user wants practical examples. For each feature, include code snippets. Make sure the code is correct and simple. Also, note that the user isn't a developer, so explain in simple terms. Avoid jargon where possible.</p>
+<p>Check the languages allowed: markdown, python, yaml, shell, etc. So code examples in Python and shell commands for running the app.</p>
+<p>Group related features. Maybe under sections like Interactive Documentation, Data Validation, Async Support, etc.</p>
+<p>Need to make sure the examples are correct. For instance, the Pydantic model example should have a simple Item model with name and description. The FastAPI app would have a post endpoint that uses that model.</p>
+<p>For the async example, show an endpoint using async def and await some function, maybe a mock API call.</p>
+<p>In the security example, perhaps a basic OAuth2 password flow with a token endpoint and a protected route.</p>
+<p>Also, mention the configuration options if any, but the user said CONFIG OPTIONS: 0, so maybe not. Just stick to the features.</p>
+<p>Let me structure the document:</p>
+<ul>
+<li>Introduction</li>
+<li>Key Features</li>
+<li>Automatic Documentation</li>
+<li>Data Validation</li>
+<li>Async Support</li>
+<li>Dependency Injection</li>
+<li>Security Features</li>
+<li>Getting Started Example</li>
+<li>Running the Application</li>
+<li>Conclusion</li>
+</ul>
+<p>Make sure each section has a description and example. Use code blocks with appropriate syntax highlighting.</p>
+<p>Wait, the user wants the documentation aimed at end users, not developers. So maybe avoid too much technical detail. Explain how end users benefit from each feature. For example, the interactive docs let them test the API without needing Postman, etc.</p>
+<p>Check if I need to explain how to install FastAPI? The user didn't mention it, but maybe include a simple pip install command in the getting started.</p>
+<p>Also, in the getting started example, show a minimal app that can be run. Like a hello world.</p>
+<p>In the examples, use code blocks. For instance:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastAPI</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">()</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="k">def</span><span class="w"> </span><span class="nf">read_root</span><span class="p">():</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;Hello&quot;</span><span class="p">:</span> <span class="s2">&quot;World&quot;</span><span class="p">}</span>
+</code></pre></div>
+<p>Then show the command to run it with uvicorn.</p>
+<p>Make sure all examples are correct and tested in my mind. Also, note that FastAPI requires Python 3.6+.</p>
+<p>I think that's a solid outline. Now write each section with simple language, grouping related features, and providing practical examples. Avoid markdown as per the user's instruction, but since they want the output in Markdown, use headings and code blocks appropriately.
+</think></p>
+<h1 id="fastapi-feature-documentation-for-end-users">FastAPI Feature Documentation for End Users<a class="headerlink" href="#fastapi-feature-documentation-for-end-users" title="Permanent link">&para;</a></h1>
+<p>FastAPI is a modern, high-performance framework for building web APIs in Python. It simplifies creating APIs with features like automatic documentation, data validation, and built-in security. Below are its key capabilities explained for end users.</p>
+<hr />
+<h2 id="key-features">🚀 Key Features<a class="headerlink" href="#key-features" title="Permanent link">&para;</a></h2>
+<h3 id="1-automatic-interactive-documentation">1. <strong>Automatic Interactive Documentation</strong><a class="headerlink" href="#1-automatic-interactive-documentation" title="Permanent link">&para;</a></h3>
+<p>FastAPI generates live, interactive API documentation automatically. You can test endpoints directly in your browser without needing tools like Postman.</p>
+<p><strong>Example:</strong><br />
+After starting your FastAPI app, open your browser and navigate to:
+- <code>http://localhost:8000/docs</code> (Swagger UI)
+- <code>http://localhost:8000/redoc</code> (ReDoc)</p>
+<p>These interfaces show all available endpoints, parameters, and response examples.</p>
+<hr />
+<h3 id="2-data-validation-with-smart-error-messages">2. <strong>Data Validation with Smart Error Messages</strong><a class="headerlink" href="#2-data-validation-with-smart-error-messages" title="Permanent link">&para;</a></h3>
+<p>FastAPI ensures incoming data (e.g., JSON, form data) matches expected formats. If invalid data is sent, it returns clear error messages.</p>
+<p><strong>Example:</strong><br />
+Define a model for an item:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastAPI</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">Item</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">description</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Optional field</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">()</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="nd">@app</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;/items/&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_item</span><span class="p">(</span><span class="n">item</span><span class="p">:</span> <span class="n">Item</span><span class="p">):</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;item&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">}</span>
+</code></pre></div></p>
+<p>If you send invalid data (e.g., a number instead of a string), FastAPI responds with:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">&quot;detail&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">      </span><span class="nt">&quot;loc&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;body&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;name&quot;</span><span class="p">],</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">      </span><span class="nt">&quot;msg&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;str type expected&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">      </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;type_error.str&quot;</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="p">}</span>
+</code></pre></div></p>
+<hr />
+<h3 id="3-async-support-for-faster-io-bound-tasks">3. <strong>Async Support for Faster I/O-Bound Tasks</strong><a class="headerlink" href="#3-async-support-for-faster-io-bound-tasks" title="Permanent link">&para;</a></h3>
+<p>FastAPI supports asynchronous programming, which is ideal for tasks like fetching data from external APIs or databases.</p>
+<p><strong>Example:</strong><br />
+An async endpoint to fetch data:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastAPI</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">httpx</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">()</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/fetch-data&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch_data</span><span class="p">():</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="k">async</span> <span class="k">with</span> <span class="n">httpx</span><span class="o">.</span><span class="n">AsyncClient</span><span class="p">()</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>        <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://api.example.com/data&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()}</span>
+</code></pre></div></p>
+<p>Use <code>async def</code> for routes that perform I/O-bound operations to improve performance.</p>
+<hr />
+<h3 id="4-dependency-injection-for-reusable-logic">4. <strong>Dependency Injection for Reusable Logic</strong><a class="headerlink" href="#4-dependency-injection-for-reusable-logic" title="Permanent link">&para;</a></h3>
+<p>FastAPI allows you to inject reusable logic (e.g., authentication, logging) into multiple endpoints.</p>
+<p><strong>Example:</strong><br />
+Create a dependency to check an API key:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">Depends</span><span class="p">,</span> <span class="n">FastAPI</span><span class="p">,</span> <span class="n">HTTPException</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">()</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="k">def</span><span class="w"> </span><span class="nf">check_api_key</span><span class="p">(</span><span class="n">x_api_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Header</span><span class="p">(</span><span class="o">...</span><span class="p">)):</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="k">if</span> <span class="n">x_api_key</span> <span class="o">!=</span> <span class="s2">&quot;secret123&quot;</span><span class="p">:</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">403</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">&quot;Invalid API Key&quot;</span><span class="p">)</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="k">return</span> <span class="n">x_api_key</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/secure-data&quot;</span><span class="p">)</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="k">def</span><span class="w"> </span><span class="nf">secure_data</span><span class="p">(</span><span class="n">api_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Depends</span><span class="p">(</span><span class="n">check_api_key</span><span class="p">)):</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="s2">&quot;You have access to secure data!&quot;</span><span class="p">}</span>
+</code></pre></div></p>
+<p>This ensures only requests with the correct <code>X-API-Key</code> header can access <code>/secure-data</code>.</p>
+<hr />
+<h3 id="5-built-in-security-features">5. <strong>Built-in Security Features</strong><a class="headerlink" href="#5-built-in-security-features" title="Permanent link">&para;</a></h3>
+<p>FastAPI supports common security patterns like OAuth2, JWT tokens, and API key authentication.</p>
+<p><strong>Example:</strong><br />
+A login endpoint using OAuth2:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">Depends</span><span class="p">,</span> <span class="n">FastAPI</span><span class="p">,</span> <span class="n">HTTPException</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi.security</span><span class="w"> </span><span class="kn">import</span> <span class="n">OAuth2PasswordBearer</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">()</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">oauth2_scheme</span> <span class="o">=</span> <span class="n">OAuth2PasswordBearer</span><span class="p">(</span><span class="n">tokenUrl</span><span class="o">=</span><span class="s2">&quot;token&quot;</span><span class="p">)</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/users/me&quot;</span><span class="p">)</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="k">def</span><span class="w"> </span><span class="nf">read_users_me</span><span class="p">(</span><span class="n">token</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Depends</span><span class="p">(</span><span class="n">oauth2_scheme</span><span class="p">)):</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;token&quot;</span><span class="p">:</span> <span class="n">token</span><span class="p">}</span>
+</code></pre></div></p>
+<p>Users can authenticate via <code>/token</code> and use the returned token in subsequent requests.</p>
+<hr />
+<h2 id="getting-started-example">🛠 Getting Started Example<a class="headerlink" href="#getting-started-example" title="Permanent link">&para;</a></h2>
+<p>Here’s a minimal FastAPI app:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastAPI</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">()</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="k">def</span><span class="w"> </span><span class="nf">read_root</span><span class="p">():</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="s2">&quot;Welcome to the API!&quot;</span><span class="p">}</span>
+</code></pre></div></p>
+<p>Run it with:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>uvicorn<span class="w"> </span>main:app<span class="w"> </span>--reload
+</code></pre></div></p>
+<p>Visit <code>http://localhost:8000</code> to see the response.</p>
+<hr />
+<h2 id="running-the-application">📦 Running the Application<a class="headerlink" href="#running-the-application" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Install FastAPI and Uvicorn:
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>pip<span class="w"> </span>install<span class="w"> </span>fastapi<span class="w"> </span>uvicorn
+</code></pre></div></li>
+<li>Save your app as <code>main.py</code>.</li>
+<li>Start the server:
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>uvicorn<span class="w"> </span>main:app<span class="w"> </span>--reload
+</code></pre></div></li>
+</ol>
+<hr />
+<h2 id="benefits-for-end-users">✅ Benefits for End Users<a class="headerlink" href="#benefits-for-end-users" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Test APIs directly</strong> in your browser with interactive docs.</li>
+<li><strong>Receive clear error messages</strong> when something goes wrong.</li>
+<li><strong>Secure endpoints</strong> with built-in authentication tools.</li>
+<li><strong>Scale efficiently</strong> with async support for I/O-heavy tasks.</li>
+</ul>
+<p>FastAPI makes it easy to build, test, and maintain APIs while ensuring reliability and performance.</p>
 <hr />
 <p><em>Generated by <a href="https://docwalk.dev">DocWalk</a></em></p>
 <div class="admonition tip">
@@ -751,6 +926,8 @@
       <script src="../assets/javascripts/bundle.16f8adc2.min.js"></script>
       
         <script src="../javascripts/mermaid-zoom.js"></script>
+      
+        <script src="../_docwalk/qa-widget.js"></script>
       
     
   </body>

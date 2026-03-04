@@ -60,6 +60,8 @@
     
       <link rel="stylesheet" href="../stylesheets/preset.css">
     
+      <link rel="stylesheet" href="../_docwalk/qa-widget.css">
+    
     <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,a=__md_scope)=>JSON.parse(t.getItem(a.pathname+"."+e)),__md_set=(e,t,a=localStorage,_=__md_scope)=>{try{a.setItem(_.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -637,64 +639,67 @@
 
 
 <h1 id="getting-started">Getting Started<a class="headerlink" href="#getting-started" title="Permanent link">&para;</a></h1>
-<h1 id="getting-started-with-fastapi"><strong>Getting Started with FastAPI</strong><a class="headerlink" href="#getting-started-with-fastapi" title="Permanent link">&para;</a></h1>
-<p>Welcome to FastAPI, a modern, fast (high-performance), web framework for building APIs with Python 3.7+ based on standard Python type hints. In this tutorial, we'll guide you through the installation process and a practical "first use" walkthrough.</p>
-<h3 id="step-1-installation">Step 1: Installation<a class="headerlink" href="#step-1-installation" title="Permanent link">&para;</a></h3>
-<p>To get started with FastAPI, you'll need to have Python 3.7+ installed on your machine. If you haven't installed Python yet, you can download it from the official Python website.</p>
-<p>Once you have Python installed, you can install FastAPI using pip, the Python package manager. Open your terminal or command prompt and run the following command:</p>
+<h1 id="welcome-to-fastapi-a-beginners-guide"><strong>Welcome to FastAPI: A Beginner's Guide</strong><a class="headerlink" href="#welcome-to-fastapi-a-beginners-guide" title="Permanent link">&para;</a></h1>
+<h2 id="step-1-installing-fastapi"><strong>Step 1: Installing FastAPI</strong><a class="headerlink" href="#step-1-installing-fastapi" title="Permanent link">&para;</a></h2>
+<p>Before we dive into the fun part, let's get FastAPI installed on your machine. Don't worry if you're new to this - it's easy!</p>
+<h3 id="install-fastapi-using-pip">Install FastAPI using pip<a class="headerlink" href="#install-fastapi-using-pip" title="Permanent link">&para;</a></h3>
+<p>You'll need to have Python installed on your computer. If you don't have Python, you can download it from the official Python website.</p>
+<p>Once you have Python installed, open your terminal or command prompt and run the following command:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>fastapi<span class="w"> </span>uvicorn
 </code></pre></div>
-<p>Here, we're installing two packages:</p>
-<ul>
-<li><code>fastapi</code>: The FastAPI framework itself.</li>
-<li><code>uvicorn</code>: A server that supports ASGI (Asynchronous Server Gateway Interface), which FastAPI uses.</li>
-</ul>
-<h3 id="step-2-your-first-fastapi-application">Step 2: Your First FastAPI Application<a class="headerlink" href="#step-2-your-first-fastapi-application" title="Permanent link">&para;</a></h3>
-<p>Now that you have FastAPI installed, let's create a simple "Hello, World!" application.</p>
-<ol>
-<li>Create a new file called <code>main.py</code>.</li>
-<li>Open <code>main.py</code> in your favorite text editor.</li>
-<li>Add the following code:</li>
-</ol>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastAPI</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">()</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="k">def</span><span class="w"> </span><span class="nf">read_root</span><span class="p">():</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;Hello&quot;</span><span class="p">:</span> <span class="s2">&quot;World&quot;</span><span class="p">}</span>
+<p>This will install FastAPI and the Uvicorn server, which we'll use to run our application.</p>
+<h2 id="step-2-creating-your-first-fastapi-application"><strong>Step 2: Creating Your First FastAPI Application</strong><a class="headerlink" href="#step-2-creating-your-first-fastapi-application" title="Permanent link">&para;</a></h2>
+<p>Now that we have FastAPI installed, let's create our first application!</p>
+<h3 id="create-a-new-directory-for-your-project">Create a new directory for your project<a class="headerlink" href="#create-a-new-directory-for-your-project" title="Permanent link">&para;</a></h3>
+<p>Open your terminal or command prompt and create a new directory for your project:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>mkdir<span class="w"> </span>my-fastapi-app
 </code></pre></div>
-<p>Let's go through what this code does:</p>
-<ul>
-<li>We import the <code>FastAPI</code> class from the <code>fastapi</code> module.</li>
-<li>We create an instance of the <code>FastAPI</code> class, which is our application.</li>
-<li>We define a route for the root URL (<code>"/"</code>) using the <code>@app.get()</code> decorator.</li>
-<li>The <code>read_root</code> function returns a JSON response with the message "Hello, World!".</li>
-</ul>
-<h3 id="step-3-running-your-application">Step 3: Running Your Application<a class="headerlink" href="#step-3-running-your-application" title="Permanent link">&para;</a></h3>
-<p>To run your application, navigate to the directory where you saved <code>main.py</code> in your terminal or command prompt. Then, run the following command:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>uvicorn<span class="w"> </span>main:app<span class="w"> </span>--reload
+<h3 id="navigate-to-your-project-directory">Navigate to your project directory<a class="headerlink" href="#navigate-to-your-project-directory" title="Permanent link">&para;</a></h3>
+<p>Navigate to the directory you just created:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">cd</span><span class="w"> </span>my-fastapi-app
 </code></pre></div>
-<p>Here's what this command does:</p>
-<ul>
-<li><code>uvicorn</code>: We're using the Uvicorn server to run our application.</li>
-<li><code>main:app</code>: We're telling Uvicorn to look for the <code>app</code> instance in the <code>main.py</code> file.</li>
-<li><code>--reload</code>: This flag enables auto-reload, which means the server will restart automatically if it detects any changes to your code.</li>
-</ul>
-<h3 id="step-4-testing-your-application">Step 4: Testing Your Application<a class="headerlink" href="#step-4-testing-your-application" title="Permanent link">&para;</a></h3>
-<p>Now that your application is running, you can test it by opening a web browser and navigating to <code>http://localhost:8000/</code>. You should see the following JSON response:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">&quot;Hello&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;World&quot;</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="p">}</span>
+<h3 id="create-a-new-file-for-your-application">Create a new file for your application<a class="headerlink" href="#create-a-new-file-for-your-application" title="Permanent link">&para;</a></h3>
+<p>Create a new file called <code>main.py</code> in your project directory:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>touch<span class="w"> </span>main.py
 </code></pre></div>
-<p>Congratulations! You've just created and run your first FastAPI application.</p>
-<h3 id="whats-next">What's Next?<a class="headerlink" href="#whats-next" title="Permanent link">&para;</a></h3>
+<h2 id="step-3-writing-your-first-fastapi-route"><strong>Step 3: Writing Your First FastAPI Route</strong><a class="headerlink" href="#step-3-writing-your-first-fastapi-route" title="Permanent link">&para;</a></h2>
+<p>Now it's time to write our first FastAPI route!</p>
+<h3 id="open-your-mainpy-file">Open your <code>main.py</code> file<a class="headerlink" href="#open-your-mainpy-file" title="Permanent link">&para;</a></h3>
+<p>Open your <code>main.py</code> file in your favorite code editor.</p>
+<h3 id="write-your-first-route">Write your first route<a class="headerlink" href="#write-your-first-route" title="Permanent link">&para;</a></h3>
+<p>Add the following code to your <code>main.py</code> file:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastAPI</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">()</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="k">def</span><span class="w"> </span><span class="nf">read_root</span><span class="p">():</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;Hello&quot;</span><span class="p">:</span> <span class="s2">&quot;World&quot;</span><span class="p">}</span>
+</code></pre></div>
+<p>This code creates a new FastAPI application and defines a single route at the root URL (<code>"/"</code>) that returns a JSON object with the message "Hello World".</p>
+<h2 id="step-4-running-your-fastapi-application"><strong>Step 4: Running Your FastAPI Application</strong><a class="headerlink" href="#step-4-running-your-fastapi-application" title="Permanent link">&para;</a></h2>
+<p>Now that we have our application written, let's run it!</p>
+<h3 id="run-your-application-using-uvicorn">Run your application using Uvicorn<a class="headerlink" href="#run-your-application-using-uvicorn" title="Permanent link">&para;</a></h3>
+<p>Open your terminal or command prompt and run the following command:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>uvicorn<span class="w"> </span>main:app<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">8000</span><span class="w"> </span>--reload
+</code></pre></div>
+<p>This will start the Uvicorn server and make your application available at <code>http://localhost:8000</code>.</p>
+<h2 id="step-5-testing-your-application"><strong>Step 5: Testing Your Application</strong><a class="headerlink" href="#step-5-testing-your-application" title="Permanent link">&para;</a></h2>
+<p>Now that your application is running, let's test it!</p>
+<h3 id="open-your-web-browser">Open your web browser<a class="headerlink" href="#open-your-web-browser" title="Permanent link">&para;</a></h3>
+<p>Open your web browser and navigate to <code>http://localhost:8000</code>.</p>
+<h3 id="see-the-result">See the result<a class="headerlink" href="#see-the-result" title="Permanent link">&para;</a></h3>
+<p>You should see a JSON object with the message "Hello World".</p>
+<p>Congratulations! You've just created and run your first FastAPI application!</p>
+<h2 id="whats-next"><strong>What's Next?</strong><a class="headerlink" href="#whats-next" title="Permanent link">&para;</a></h2>
+<p>This is just the beginning of your FastAPI journey! From here, you can start exploring the many features and capabilities of FastAPI, such as:</p>
 <ul>
-<li>Learn more about FastAPI in the <a href="https://fastapi.tiangolo.com/">official documentation</a>.</li>
-<li>Explore the <a href="https://github.com/tiangolo/fastapi">FastAPI GitHub repository</a> for more resources and examples.</li>
-<li>Try building your own API with FastAPI!</li>
+<li>Defining more routes and endpoints</li>
+<li>Handling requests and responses</li>
+<li>Using databases and APIs</li>
+<li>Creating APIs for your applications</li>
 </ul>
-<p>We hope this tutorial has been helpful in getting you started with FastAPI. Happy coding!</p>
+<p>Happy coding!</p>
 <hr />
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>
@@ -814,6 +819,8 @@
       <script src="../assets/javascripts/bundle.16f8adc2.min.js"></script>
       
         <script src="../javascripts/mermaid-zoom.js"></script>
+      
+        <script src="../_docwalk/qa-widget.js"></script>
       
     
   </body>

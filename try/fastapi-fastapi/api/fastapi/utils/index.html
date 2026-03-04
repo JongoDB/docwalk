@@ -60,6 +60,8 @@
     
       <link rel="stylesheet" href="../../../stylesheets/preset.css">
     
+      <link rel="stylesheet" href="../../../_docwalk/qa-widget.css">
+    
     <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,a=__md_scope)=>JSON.parse(t.getItem(a.pathname+"."+e)),__md_set=(e,t,a=localStorage,_=__md_scope)=>{try{a.setItem(_.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -10245,7 +10247,15 @@
 
 
 <h1 id="utilspy">utils.py<a class="headerlink" href="#utilspy" title="Permanent link">&para;</a></h1>
-<p>Provides utility functions for working with API routes, path parameters, and response fields. Exposes functions for checking if a status code allows a body and getting path parameter names. Consumed by the API layer to provide utility functions for route and response handling. Offers utility functions for working with Pydantic field types and validation errors.</p>
+<p>{
+  "module": "Orchestrates utility functions for FastAPI by exposing create_model_field() and other utility functions for model generation and string manipulation. The module provides functionality for validating response bodies, generating unique IDs, and updating dictionaries. It is consumed by the FastAPI core to facilitate model creation and path parameter extraction.",
+  "is_body_allowed_for_status_code": "Determines whether a response body is allowed for a given status code, returning True for default and 1XX-5XX status codes.",
+  "get_path_param_names": "Extracts path parameter names from a given path string using regular expressions.",
+  "create_model_field": "Creates a Pydantic model field with the given name, type, and default value, raising an error if the type is a Pydantic v1 model.",
+  "generate_operation_id_for_path": "Generates a unique operation ID for a given path and method, replacing non-alphanumeric characters with underscores.",
+  "generate_unique_id": "Generates a unique ID for a given API route by combining the route name, path, and method.",
+  "deep_dict_update": "Recursively updates a dictionary with another dictionary, merging nested dictionaries and lists.",
+  "get_value_or_default": "Returns the</p>
 <details>
 <summary>Relevant source files</summary>
 
@@ -10581,7 +10591,7 @@ Otherwise, the first item (a `DefaultPlaceholder`) will be returned.
 <li><code>._compat</code> — v2</li>
 </ul>
 <hr />
-<p><em>Source: <code>fastapi/utils.py</code> · Last analyzed: 2026-03-03T17:43:40.866Z</em></p>
+<p><em>Source: <code>fastapi/utils.py</code> · Last analyzed: 2026-03-04T19:02:22.762Z</em></p>
 <div class="admonition tip">
 <p class="admonition-title">Unlock Full Documentation</p>
 <p>This is a preview. Run DocWalk on your own repo for complete API reference across all 2017 modules, deeper AI analysis, and more.</p>
@@ -10692,6 +10702,8 @@ Otherwise, the first item (a `DefaultPlaceholder`) will be returned.
       <script src="../../../assets/javascripts/bundle.16f8adc2.min.js"></script>
       
         <script src="../../../javascripts/mermaid-zoom.js"></script>
+      
+        <script src="../../../_docwalk/qa-widget.js"></script>
       
     
   </body>

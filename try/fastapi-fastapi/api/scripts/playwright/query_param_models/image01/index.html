@@ -60,6 +60,8 @@
     
       <link rel="stylesheet" href="../../../../../stylesheets/preset.css">
     
+      <link rel="stylesheet" href="../../../../../_docwalk/qa-widget.css">
+    
     <script>__md_scope=new URL("../../../../..",location),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,a=__md_scope)=>JSON.parse(t.getItem(a.pathname+"."+e)),__md_set=(e,t,a=localStorage,_=__md_scope)=>{try{a.setItem(_.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -9799,7 +9801,12 @@
 
 
 <h1 id="image01py">image01.py<a class="headerlink" href="#image01py" title="Permanent link">&para;</a></h1>
-<p>Automates screenshot capture for API documentation by launching a FastAPI server and using Playwright to interact with the API docs page, exposing the run() function to orchestrate the process. The script launches a Chromium browser, navigates to the API docs, and captures a screenshot of the 'GET /items/' endpoint. It is part of the documentation generation pipeline. Consumed by the documentation build process.</p>
+<p><think>
+Okay, let's see. The user provided a Python script and wants me to generate a JSON summary for their documentation. The file is called image01.py and it's part of the scripts/playwright/query_param_models directory. The imports include subprocess, time, httpx, and playwright's sync_api. </p>
+<p>First, I need to figure out the module's purpose. The code starts a FastAPI server using subprocess, then uses Playwright to automate browser actions. It navigates to a documentation page, interacts with elements, takes a screenshot, and then terminates the server. The key exports are the run function.</p>
+<p>The module's architectural role is probably to generate a specific test scenario or documentation image. The run function is the main entry point here. The key exports should mention run and maybe the process setup. The module connects to the broader system by interacting with the FastAPI server and Playwright for browser automation.</p>
+<p>For the module summary, I need to state that it automates browser interactions to capture a screenshot for documentation. It uses Playwright and httpx, and is part of a test or documentation generation pipeline. The key exports are the run function and the script's execution flow.</p>
+<p>For the run function summary, it should describe that it sets up the browser</p>
 <details>
 <summary>Relevant source files</summary>
 
@@ -9897,7 +9904,7 @@ The following files were used as context for this page:
 <li><code>playwright.sync_api</code> — Playwright, sync_playwright</li>
 </ul>
 <hr />
-<p><em>Source: <code>scripts/playwright/query_param_models/image01.py</code> · Last analyzed: 2026-03-03T17:43:40.891Z</em></p>
+<p><em>Source: <code>scripts/playwright/query_param_models/image01.py</code> · Last analyzed: 2026-03-04T19:02:22.788Z</em></p>
 <div class="admonition tip">
 <p class="admonition-title">Unlock Full Documentation</p>
 <p>This is a preview. Run DocWalk on your own repo for complete API reference across all 2017 modules, deeper AI analysis, and more.</p>
@@ -10008,6 +10015,8 @@ The following files were used as context for this page:
       <script src="../../../../../assets/javascripts/bundle.16f8adc2.min.js"></script>
       
         <script src="../../../../../javascripts/mermaid-zoom.js"></script>
+      
+        <script src="../../../../../_docwalk/qa-widget.js"></script>
       
     
   </body>

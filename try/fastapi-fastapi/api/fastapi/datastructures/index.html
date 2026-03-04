@@ -60,6 +60,8 @@
     
       <link rel="stylesheet" href="../../../stylesheets/preset.css">
     
+      <link rel="stylesheet" href="../../../_docwalk/qa-widget.css">
+    
     <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,a=__md_scope)=>JSON.parse(t.getItem(a.pathname+"."+e)),__md_set=(e,t,a=localStorage,_=__md_scope)=>{try{a.setItem(_.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -10179,7 +10181,7 @@
 
 
 <h1 id="datastructurespy">datastructures.py<a class="headerlink" href="#datastructurespy" title="Permanent link">&para;</a></h1>
-<p>Provides data structures for handling request data, exposing UploadFile for file uploads, and re-exporting various data structures from Starlette. UploadFile is used to handle file uploads in request handlers. It is used in conjunction with the File annotation to define file upload parameters. The data structures are used throughout the FastAPI framework.</p>
+<p>Orchestrates the data structures pipeline by exposing custom UploadFile and DefaultPlaceholder classes, as well as the Default function, which are consumed by the application layer to handle file uploads and placeholder values.</p>
 <details>
 <summary>Relevant source files</summary>
 
@@ -10229,12 +10231,12 @@ The following files were used as context for this page:
 <tr>
 <td><a href="#uploadfile"><code>UploadFile</code></a></td>
 <td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18s-.41-.06-.57-.18l-7.9-4.44A.99.99 0 0 1 3 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18s.41.06.57.18l7.9 4.44c.32.17.53.5.53.88zM12 4.15 6.04 7.5 12 10.85l5.96-3.35zM5 15.91l6 3.38v-6.71L5 9.21zm14 0v-6.7l-6 3.37v6.71z"/></svg></span> class</td>
-<td></td>
+<td>Represents a file uploaded in a request, providing access to the raw file object, filename, size, headers, and content type, and allowing for asynchronous writing, reading, and seeking operations.</td>
 </tr>
 <tr>
 <td><a href="#defaultplaceholder"><code>DefaultPlaceholder</code></a></td>
 <td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18s-.41-.06-.57-.18l-7.9-4.44A.99.99 0 0 1 3 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18s.41.06.57.18l7.9 4.44c.32.17.53.5.53.88zM12 4.15 6.04 7.5 12 10.85l5.96-3.35zM5 15.91l6 3.38v-6.71L5 9.21zm14 0v-6.7l-6 3.37v6.71z"/></svg></span> class</td>
-<td></td>
+<td>Provides a placeholder value for a given type, used to handle missing or default values in the application.</td>
 </tr>
 <tr>
 <td><a href="#defaulttype"><code>DefaultType</code></a></td>
@@ -10244,7 +10246,7 @@ The following files were used as context for this page:
 <tr>
 <td><a href="#default"><code>Default</code></a></td>
 <td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M15.6 5.29c-1.1-.1-2.07.71-2.17 1.82L13.18 10H16v2h-3l-.44 5.07a3.986 3.986 0 0 1-4.33 3.63 4 4 0 0 1-3.06-1.87l1.5-1.5c.24.74.9 1.31 1.73 1.38 1.1.1 2.07-.71 2.17-1.82L11 12H8v-2h3.17l.27-3.07c.19-2.2 2.13-3.83 4.33-3.63 1.31.11 2.41.84 3.06 1.87l-1.5 1.5c-.24-.74-.9-1.31-1.73-1.38"/></svg></span> function</td>
-<td></td>
+<td>Returns a default value for a given type, used to handle missing or default values in the application.</td>
 </tr>
 </tbody>
 </table>
@@ -10282,6 +10284,7 @@ async def create_upload_file(file: UploadFile):
     return {&quot;filename&quot;: file.filename}
 ```
 </code></pre></div>
+<p>Represents a file uploaded in a request, providing access to the raw file object, filename, size, headers, and content type, and allowing for asynchronous writing, reading, and seeking operations.</p>
 <p><strong>Hierarchy:</strong></p>
 <div class="mermaid">classDiagram
     StarletteUploadFile &lt;|-- UploadFile</div>
@@ -10292,6 +10295,7 @@ async def create_upload_file(file: UploadFile):
 <div class="highlight"><pre><span></span><code>It&#39;s used internally to recognize when a default value has been overwritten, even
 if the overridden default value was truthy.
 </code></pre></div>
+<p>Provides a placeholder value for a given type, used to handle missing or default values in the application.</p>
 <hr />
 <h3 id="defaulttype"><code>DefaultType</code><a class="headerlink" href="#defaulttype" title="Permanent link">&para;</a></h3>
 <p><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg></span> <a href="https://github.com/fastapi/fastapi/blob/main/fastapi/datastructures.py#L171">View source</a></p>
@@ -10304,6 +10308,7 @@ if the overridden default value was truthy.
 <div class="highlight"><pre><span></span><code>It&#39;s used internally to recognize when a default value has been overwritten, even
 if the overridden default value was truthy.
 </code></pre></div>
+<p>Returns a default value for a given type, used to handle missing or default values in the application.</p>
 <p><strong>Parameters:</strong></p>
 <table>
 <thead>
@@ -10341,7 +10346,7 @@ if the overridden default value was truthy.
 <li><code>starlette.datastructures</code> — UploadFile as StarletteUploadFile</li>
 </ul>
 <hr />
-<p><em>Source: <code>fastapi/datastructures.py</code> · Last analyzed: 2026-03-03T17:43:40.809Z</em></p>
+<p><em>Source: <code>fastapi/datastructures.py</code> · Last analyzed: 2026-03-04T19:02:22.707Z</em></p>
 <div class="admonition tip">
 <p class="admonition-title">Unlock Full Documentation</p>
 <p>This is a preview. Run DocWalk on your own repo for complete API reference across all 2017 modules, deeper AI analysis, and more.</p>
@@ -10452,6 +10457,8 @@ if the overridden default value was truthy.
       <script src="../../../assets/javascripts/bundle.16f8adc2.min.js"></script>
       
         <script src="../../../javascripts/mermaid-zoom.js"></script>
+      
+        <script src="../../../_docwalk/qa-widget.js"></script>
       
     
   </body>

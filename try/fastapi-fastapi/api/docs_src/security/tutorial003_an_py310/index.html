@@ -60,6 +60,8 @@
     
       <link rel="stylesheet" href="../../../../stylesheets/preset.css">
     
+      <link rel="stylesheet" href="../../../../_docwalk/qa-widget.css">
+    
     <script>__md_scope=new URL("../../../..",location),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,a=__md_scope)=>JSON.parse(t.getItem(a.pathname+"."+e)),__md_set=(e,t,a=localStorage,_=__md_scope)=>{try{a.setItem(_.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -13139,6 +13141,15 @@
 
 
 <h1 id="tutorial003_an_py310py">tutorial003_an_py310.py<a class="headerlink" href="#tutorial003_an_py310py" title="Permanent link">&para;</a></h1>
+<p>{
+  "module": "This module implements an OAuth2 password flow for user authentication, exposing endpoints for token generation and user information retrieval. Key exports include fake_hash_password, User, UserInDB, get_user, fake_decode_token, get_current_user, and get_current_active_user. It connects to the FastAPI application, providing authentication and authorization functionality. The module relies on fake user data stored in memory for demonstration purposes.",
+  "fake_hash_password": "Hashes a given password by prepending 'fakehashed' to it, used for demonstration purposes only.",
+  "User": "Represents a user with attributes such as username, email, full name, and disabled status.",
+  "UserInDB": "Extends the User model with an additional hashed_password attribute for storing user credentials in the database.",
+  "get_user": "Retrieves a user from the fake user database by username, returning a UserInDB instance if found.",
+  "fake_decode_token": "Decodes a token by retrieving the corresponding user from the fake user database, providing no actual security.",
+  "get_current_user": "Gets the current user from the authentication token, raising an HTTP exception if the user is not authenticated.",
+  "get_current_active_user": "</p>
 <details>
 <summary>Relevant source files</summary>
 
@@ -13395,7 +13406,7 @@ The following files were used as context for this page:
 <li><code>pydantic</code> — BaseModel</li>
 </ul>
 <hr />
-<p><em>Source: <code>docs_src/security/tutorial003_an_py310.py</code> · Last analyzed: 2026-03-03T17:43:40.754Z</em></p>
+<p><em>Source: <code>docs_src/security/tutorial003_an_py310.py</code> · Last analyzed: 2026-03-04T19:02:22.670Z</em></p>
 <div class="admonition tip">
 <p class="admonition-title">Unlock Full Documentation</p>
 <p>This is a preview. Run DocWalk on your own repo for complete API reference across all 2017 modules, deeper AI analysis, and more.</p>
@@ -13506,6 +13517,8 @@ The following files were used as context for this page:
       <script src="../../../../assets/javascripts/bundle.16f8adc2.min.js"></script>
       
         <script src="../../../../javascripts/mermaid-zoom.js"></script>
+      
+        <script src="../../../../_docwalk/qa-widget.js"></script>
       
     
   </body>

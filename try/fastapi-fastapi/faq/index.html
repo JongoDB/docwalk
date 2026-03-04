@@ -60,6 +60,8 @@
     
       <link rel="stylesheet" href="../stylesheets/preset.css">
     
+      <link rel="stylesheet" href="../_docwalk/qa-widget.css">
+    
     <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,a=__md_scope)=>JSON.parse(t.getItem(a.pathname+"."+e)),__md_set=(e,t,a=localStorage,_=__md_scope)=>{try{a.setItem(_.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -637,26 +639,127 @@
 
 
 <h1 id="frequently-asked-questions">Frequently Asked Questions<a class="headerlink" href="#frequently-asked-questions" title="Permanent link">&para;</a></h1>
-<details class="question">
-<summary>What is fastapi?</summary>
-<p>FastAPI framework, high performance, easy to learn, fast to code, ready for production</p>
-</details>
-<details class="question">
-<summary>What languages/technologies does fastapi use?</summary>
-<p><strong>markdown</strong> (72%), <strong>python</strong> (26%), <strong>yaml</strong> (1%), <strong>shell</strong> (0%), <strong>javascript</strong> (0%), <strong>toml</strong> (0%).</p>
-</details>
-<details class="question">
-<summary>Where can I report bugs or request features?</summary>
-<p>File an issue on <a href="https://github.com/fastapi/fastapi/issues">GitHub</a>.</p>
-</details>
-<details class="question">
-<summary>How can I contribute?</summary>
-<p>Check the <a href="https://github.com/fastapi/fastapi">repository</a> for contribution guidelines.</p>
-</details>
-<details class="question">
-<summary>Where can I find the developer documentation?</summary>
-<p>See the <a href="../getting-started/">Developer Reference</a> section for architecture, API reference, and source documentation.</p>
-</details>
+<h1 id="fastapi-faq">FastAPI FAQ<a class="headerlink" href="#fastapi-faq" title="Permanent link">&para;</a></h1>
+<h3 id="what-is-fastapi-what-is-fastapi">??? what-is-fastapi "What is FastAPI?"<a class="headerlink" href="#what-is-fastapi-what-is-fastapi" title="Permanent link">&para;</a></h3>
+<p>FastAPI is a modern, fast (high-performance), web framework for building APIs with Python 3.7+ based on standard Python type hints. It's designed to be easy to learn, fast to code, and ready for production.</p>
+<h3 id="installation-how-do-i-install-fastapi">??? installation "How do I install FastAPI?"<a class="headerlink" href="#installation-how-do-i-install-fastapi" title="Permanent link">&para;</a></h3>
+<p>To install FastAPI, run the following command in your terminal:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>fastapi
+</code></pre></div>
+<p>You'll also need an ASGI server to run your FastAPI application. We recommend using Uvicorn:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip<span class="w"> </span>install<span class="w"> </span>uvicorn
+</code></pre></div>
+<h3 id="basic-usage-how-do-i-create-a-basic-fastapi-application">??? basic-usage "How do I create a basic FastAPI application?"<a class="headerlink" href="#basic-usage-how-do-i-create-a-basic-fastapi-application" title="Permanent link">&para;</a></h3>
+<p>Here's a simple example of a FastAPI application:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastAPI</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">()</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="k">def</span><span class="w"> </span><span class="nf">read_root</span><span class="p">():</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;Hello&quot;</span><span class="p">:</span> <span class="s2">&quot;World&quot;</span><span class="p">}</span>
+</code></pre></div>
+<p>You can run this application with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>uvicorn<span class="w"> </span>main:app<span class="w"> </span>--reload
+</code></pre></div>
+<h3 id="configuration-how-do-i-configure-my-fastapi-application">??? configuration "How do I configure my FastAPI application?"<a class="headerlink" href="#configuration-how-do-i-configure-my-fastapi-application" title="Permanent link">&para;</a></h3>
+<p>You can configure your FastAPI application using environment variables or configuration files. For example, you can use the <code>pydantic</code> library to define a configuration model:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseSettings</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">Settings</span><span class="p">(</span><span class="n">BaseSettings</span><span class="p">):</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">database_url</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">settings</span> <span class="o">=</span> <span class="n">Settings</span><span class="p">()</span>
+</code></pre></div>
+<p>You can then access the configuration values in your application:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastAPI</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">.settings</span><span class="w"> </span><span class="kn">import</span> <span class="n">settings</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">()</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">read_root</span><span class="p">():</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;debug&quot;</span><span class="p">:</span> <span class="n">settings</span><span class="o">.</span><span class="n">debug</span><span class="p">}</span>
+</code></pre></div>
+<h3 id="troubleshooting-how-do-i-troubleshoot-errors-in-my-fastapi-application">??? troubleshooting "How do I troubleshoot errors in my FastAPI application?"<a class="headerlink" href="#troubleshooting-how-do-i-troubleshoot-errors-in-my-fastapi-application" title="Permanent link">&para;</a></h3>
+<p>FastAPI provides detailed error messages to help you troubleshoot issues. You can also use the built-in debugger to step through your code.</p>
+<p>Common errors include:</p>
+<ul>
+<li><code>HTTPException</code>: raised when an HTTP error occurs</li>
+<li><code>ValidationException</code>: raised when request data is invalid</li>
+<li><code>InternalError</code>: raised when an internal server error occurs</li>
+</ul>
+<p>You can handle these errors using try-except blocks:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastAPI</span><span class="p">,</span> <span class="n">HTTPException</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">()</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="k">def</span><span class="w"> </span><span class="nf">read_root</span><span class="p">():</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>        <span class="c1"># code that might raise an error</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="k">except</span> <span class="n">HTTPException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="n">e</span><span class="o">.</span><span class="n">detail</span><span class="p">}</span>
+</code></pre></div>
+<h3 id="contributing-how-do-i-contribute-to-fastapi">??? contributing "How do I contribute to FastAPI?"<a class="headerlink" href="#contributing-how-do-i-contribute-to-fastapi" title="Permanent link">&para;</a></h3>
+<p>We appreciate contributions to FastAPI! You can contribute by:</p>
+<ul>
+<li>Reporting bugs on our issue tracker</li>
+<li>Submitting pull requests with new features or bug fixes</li>
+<li>Improving our documentation</li>
+</ul>
+<p>Before contributing, please read our <a href="https://github.com/tiangolo/fastapi/blob/master/CONTRIBUTING.md">CONTRIBUTING.md</a> file.</p>
+<h3 id="deployment-how-do-i-deploy-my-fastapi-application">??? deployment "How do I deploy my FastAPI application?"<a class="headerlink" href="#deployment-how-do-i-deploy-my-fastapi-application" title="Permanent link">&para;</a></h3>
+<p>You can deploy your FastAPI application using a variety of methods, including:</p>
+<ul>
+<li>Docker: package your application in a Docker container</li>
+<li>Kubernetes: deploy your container to a Kubernetes cluster</li>
+<li>Serverless: deploy your application to a serverless platform like AWS Lambda</li>
+</ul>
+<p>We recommend using a WSGI server like Gunicorn or Uvicorn to run your application.</p>
+<h3 id="performance-how-does-fastapi-achieve-high-performance">??? performance "How does FastAPI achieve high performance?"<a class="headerlink" href="#performance-how-does-fastapi-achieve-high-performance" title="Permanent link">&para;</a></h3>
+<p>FastAPI achieves high performance through:</p>
+<ul>
+<li>Asynchronous programming: using async/await to handle requests concurrently</li>
+<li>Standard Python type hints: using type hints to validate request data</li>
+<li>Pydantic: using Pydantic to validate request data and build robust APIs</li>
+</ul>
+<h3 id="security-how-does-fastapi-handle-security">??? security "How does FastAPI handle security?"<a class="headerlink" href="#security-how-does-fastapi-handle-security" title="Permanent link">&para;</a></h3>
+<p>FastAPI provides built-in support for:</p>
+<ul>
+<li>OAuth2: secure authentication using OAuth2</li>
+<li>JWT: secure authentication using JSON Web Tokens</li>
+<li>HTTPS: secure communication using HTTPS</li>
+</ul>
+<p>You can also use third-party libraries to add additional security features.</p>
+<h3 id="logging-how-do-i-configure-logging-in-fastapi">??? logging "How do I configure logging in FastAPI?"<a class="headerlink" href="#logging-how-do-i-configure-logging-in-fastapi" title="Permanent link">&para;</a></h3>
+<p>You can configure logging in FastAPI using the built-in <code>logging</code> module:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+</code></pre></div>
+<p>You can also use a logging library like Loguru to configure logging.</p>
+<h3 id="testing-how-do-i-test-my-fastapi-application">??? testing "How do I test my FastAPI application?"<a class="headerlink" href="#testing-how-do-i-test-my-fastapi-application" title="Permanent link">&para;</a></h3>
+<p>You can test your FastAPI application using a testing framework like Pytest:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi.testclient</span><span class="w"> </span><span class="kn">import</span> <span class="n">TestClient</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">.main</span><span class="w"> </span><span class="kn">import</span> <span class="n">app</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">client</span> <span class="o">=</span> <span class="n">TestClient</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_read_root</span><span class="p">():</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="n">response</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>    <span class="k">assert</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span>
+</code></pre></div>
+<p>You can also use a library like Pytest-Cov to measure test coverage.</p>
+<h3 id="comparison-with-other-frameworks-how-does-fastapi-compare-to-other-frameworks">??? comparison-with-other-frameworks "How does FastAPI compare to other frameworks?"<a class="headerlink" href="#comparison-with-other-frameworks-how-does-fastapi-compare-to-other-frameworks" title="Permanent link">&para;</a></h3>
+<p>FastAPI is designed to be fast, lightweight, and easy to use. Here's a comparison with other popular frameworks:</p>
+<ul>
+<li>Flask: lightweight, flexible, but slower than FastAPI</li>
+<li>Django: high-level, feature-rich, but more complex than FastAPI</li>
+<li>Pyramid: flexible, modular, but more complex than FastAPI</li>
+</ul>
+<p>Ultimately, the choice of framework depends on your project's needs and your personal preferences.</p>
 <hr />
 <p><em>Generated by <a href="https://docwalk.dev">DocWalk</a></em></p>
 <div class="admonition tip">
@@ -769,6 +872,8 @@
       <script src="../assets/javascripts/bundle.16f8adc2.min.js"></script>
       
         <script src="../javascripts/mermaid-zoom.js"></script>
+      
+        <script src="../_docwalk/qa-widget.js"></script>
       
     
   </body>

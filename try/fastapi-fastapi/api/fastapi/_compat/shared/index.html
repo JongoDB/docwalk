@@ -60,6 +60,8 @@
     
       <link rel="stylesheet" href="../../../../stylesheets/preset.css">
     
+      <link rel="stylesheet" href="../../../../_docwalk/qa-widget.css">
+    
     <script>__md_scope=new URL("../../../..",location),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,a=__md_scope)=>JSON.parse(t.getItem(a.pathname+"."+e)),__md_set=(e,t,a=localStorage,_=__md_scope)=>{try{a.setItem(_.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -10073,7 +10075,15 @@
 
 
 <h1 id="sharedpy">shared.py<a class="headerlink" href="#sharedpy" title="Permanent link">&para;</a></h1>
-<p>Orchestrates type compatibility between Pydantic and FastAPI by exposing lenient_issubclass() and sequence_annotation_to_type for use in type checking and validation. Consumed by the FastAPI core to ensure seamless integration with Pydantic models. This module provides a critical bridge between the two frameworks, enabling developers to leverage the strengths of both.</p>
+<p>{
+  "module": "Provides compatibility utilities for type checking and annotations, exposing functions for determining the nature of type annotations and values. Key exports include lenient_issubclass, field_annotation_is_sequence, and field_annotation_is_complex. This module supports integration with Pydantic and Starlette, facilitating robust type handling in FastAPI applications. It is consumed by various layers of the FastAPI framework to ensure consistent type evaluation.",
+  "lenient_issubclass": "Checks if a class is a subclass of another class or tuple of classes, handling potential TypeErrors and generic types.",
+  "field_annotation_is_sequence": "Determines if a type annotation represents a sequence type, such as list, tuple, or set.",
+  "value_is_sequence": "Checks if a given value is an instance of a sequence type, excluding strings and bytes.",
+  "field_annotation_is_complex": "Evaluates if a type annotation represents a complex type, including BaseModel, Mapping, UploadFile, or sequence types.",
+  "field_annotation_is_scalar": "Determines if a type annotation represents a scalar type, excluding complex and sequence types.",
+  "field_annotation_is_scalar_sequence": "Checks if a type annotation represents a sequence of scalar types.",
+  "is</p>
 <details>
 <summary>Relevant source files</summary>
 
@@ -10555,7 +10565,7 @@ The following files were used as context for this page:
 <li><code>starlette.datastructures</code> — UploadFile</li>
 </ul>
 <hr />
-<p><em>Source: <code>fastapi/_compat/shared.py</code> · Last analyzed: 2026-03-03T17:43:40.787Z</em></p>
+<p><em>Source: <code>fastapi/_compat/shared.py</code> · Last analyzed: 2026-03-04T19:02:22.693Z</em></p>
 <div class="admonition tip">
 <p class="admonition-title">Unlock Full Documentation</p>
 <p>This is a preview. Run DocWalk on your own repo for complete API reference across all 2017 modules, deeper AI analysis, and more.</p>
@@ -10666,6 +10676,8 @@ The following files were used as context for this page:
       <script src="../../../../assets/javascripts/bundle.16f8adc2.min.js"></script>
       
         <script src="../../../../javascripts/mermaid-zoom.js"></script>
+      
+        <script src="../../../../_docwalk/qa-widget.js"></script>
       
     
   </body>

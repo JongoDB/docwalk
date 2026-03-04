@@ -60,6 +60,8 @@
     
       <link rel="stylesheet" href="../stylesheets/preset.css">
     
+      <link rel="stylesheet" href="../_docwalk/qa-widget.css">
+    
     <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,a=__md_scope)=>JSON.parse(t.getItem(a.pathname+"."+e)),__md_set=(e,t,a=localStorage,_=__md_scope)=>{try{a.setItem(_.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -656,28 +658,6 @@
     <span class="md-ellipsis">
       
         Code Quality
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#contributing-guidelines" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Contributing Guidelines
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#contributing-guidelines_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Contributing Guidelines
       
     </span>
   </a>
@@ -9516,28 +9496,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#contributing-guidelines" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Contributing Guidelines
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#contributing-guidelines_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Contributing Guidelines
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#architecture" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9646,40 +9604,25 @@
 <hr />
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 <div class="admonition warning">
-<p class="admonition-title">15651 undocumented exported symbols</p>
-<p>Found 15651 exported symbols without JSDoc/docstring documentation across 1878 files. Examples: <code>github_graphql_url</code>, <code>questions_category_id</code>, <code>POINTS_PER_MINUTE_LIMIT</code>, <code>RateLimiter</code>, <code>rate_limiter</code>....</p>
-<p><strong>Affected files:</strong> <code>scripts/people.py</code>, <code>scripts/contributors.py</code>, <code>scripts/sponsors.py</code>, <code>scripts/notify_translations.py</code>, <code>scripts/doc_parsing_utils.py</code>, <code>fastapi/routing.py</code>, <code>docs_src/security/tutorial004_an_py310.py</code>, <code>docs_src/security/tutorial005_an_py310.py</code>, <code>docs_src/security/tutorial004_py310.py</code>, <code>docs_src/security/tutorial005_py310.py</code></p>
+<p class="admonition-title">15501 undocumented exported symbols</p>
+<p>Found 15501 exported symbols without JSDoc/docstring documentation across 1874 files. Examples: <code>github_graphql_url</code>, <code>questions_category_id</code>, <code>POINTS_PER_MINUTE_LIMIT</code>, <code>RateLimiter</code>, <code>rate_limiter</code>....</p>
+<p><strong>Affected files:</strong> <code>scripts/people.py</code>, <code>scripts/contributors.py</code>, <code>scripts/sponsors.py</code>, <code>scripts/notify_translations.py</code>, <code>scripts/doc_parsing_utils.py</code>, <code>docs_src/security/tutorial004_an_py310.py</code>, <code>docs_src/security/tutorial005_an_py310.py</code>, <code>docs_src/security/tutorial004_py310.py</code>, <code>docs_src/security/tutorial005_py310.py</code>, <code>fastapi/openapi/models.py</code></p>
 <p><strong>Suggestion:</strong> Add JSDoc comments or docstrings to all exported symbols to improve API documentation quality.</p>
 <details class="tip">
 <summary>AI Analysis</summary>
-<p>To address the issue of undocumented exported symbols, I recommend adding JSDoc-style comments or Python docstrings to all exported variables and classes. </p>
-<p>For example, the <code>github_graphql_url</code> variable can be documented as follows:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># URL for GitHub GraphQL API</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">github_graphql_url</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;https://api.github.com/graphql&quot;</span>
+<p>To address the issue of undocumented exported symbols, I recommend adding docstrings to the affected variables and classes. For example, you can add a docstring to the <code>RateLimiter</code> class like this:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">RateLimiter</span><span class="p">:</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="sd">    A rate limiter for GitHub API requests.</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="sd">    Attributes:</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="sd">        last_query_cost (int): The cost of the last query.</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="sd">        remaining_points (int): The remaining points for the current rate limit window.</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="sd">        reset_at (datetime): The time at which the rate limit window resets.</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="o">...</span>
 </code></pre></div>
-<p>Similarly, the <code>RateLimiter</code> class can be documented with a docstring:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">RateLimiter</span><span class="p">:</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="sd">    A rate limiter for GitHub API requests.</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="sd">    Attributes:</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="sd">        last_query_cost (int): The cost of the last query.</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="sd">        remaining_points (int): The remaining points for the rate limit.</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="sd">        reset_at (datetime): The time when the rate limit resets.</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>        <span class="c1"># ...</span>
-</code></pre></div>
-<p>By adding these comments and docstrings, you can improve the API documentation quality and make it easier for others to understand the purpose and usage of these exported symbols. </p>
-<p>To fix the issue, I suggest running a code analysis tool to identify all exported symbols and adding documentation to each one. This can be done iteratively, starting with the most critical or frequently used symbols. </p>
-<p>Here are some specific steps:</p>
-<ol>
-<li>Identify exported symbols using a tool like <code>pydoc</code> or a linter.</li>
-<li>Add docstrings to classes, functions, and variables.</li>
-<li>Use a consistent documentation style throughout the codebase. </li>
-</ol>
-<p>For instance, you could</p>
+Additionally, you can add docstrings to the exported variables, such as <code>github_graphql_url</code> and <code>POINTS_PER_MINUTE_LIMIT</code>, to provide a brief description of their purpose.</p>
 </details>
 </div>
 <h2 id="code-quality">Code Quality<a class="headerlink" href="#code-quality" title="Permanent link">&para;</a></h2>
@@ -9688,6 +9631,16 @@
 <p>Found 74 modules exceeding 500 lines or 30 symbols. Largest: <code>scripts/notify_translations.py</code> (433 lines, 40 symbols).</p>
 <p><strong>Affected files:</strong> <code>scripts/notify_translations.py</code>, <code>scripts/doc_parsing_utils.py</code>, <code>fastapi/routing.py</code>, <code>fastapi/openapi/models.py</code>, <code>scripts/docs.py</code>, <code>fastapi/params.py</code>, <code>fastapi/security/oauth2.py</code>, <code>fastapi/dependencies/utils.py</code>, <code>fastapi/openapi/utils.py</code>, <code>docs/de/docs/index.md</code></p>
 <p><strong>Suggestion:</strong> Consider splitting large modules into smaller, focused files with single responsibility.</p>
+<details class="tip">
+<summary>AI Analysis</summary>
+<p><think>
+Okay, let's see. The user is pointing out that there are 74 oversized modules in their codebase, with the largest being notify_translations.py at 433 lines. The suggestion is to split large modules into smaller, more focused files with single responsibility. </p>
+<p>First, I need to look at the provided code snippet from notify_translations.py. The file starts with imports and then several GraphQL queries as multi-line strings. There are also some Pydantic models defined at the end.</p>
+<p>Hmm, the queries are all related to GitHub discussions and mutations. Maybe these can be moved into a separate module. Also, the Pydantic models for Comment, UpdateDiscussionComment, etc., might be better placed in their own file, especially if they're used elsewhere.</p>
+<p>So the main issue here is that this file is handling multiple responsibilities: it's managing GitHub API interactions, defining data models, and possibly handling business logic for notifications. Splitting these into separate modules would make each file more manageable.</p>
+<p>For example, the GraphQL queries could be moved to a new file like github_queries.py. The Pydantic models could go into a models.py file within the same directory. Then, the main notify_translations.py would import these as needed. This would reduce the line count and make each part of the codebase more maintainable.</p>
+<p>Another thing to consider is if there's any business logic that can be extracted into separate functions or modules. For instance, if there's code</p>
+</details>
 </div>
 <div class="admonition warning">
 <p class="admonition-title">1733 orphan modules (potential dead code)</p>
@@ -9696,20 +9649,17 @@
 <p><strong>Suggestion:</strong> Review orphan modules — remove if unused, or add explicit imports/exports if they are needed.</p>
 <details class="tip">
 <summary>AI Analysis</summary>
-<p>To address the issue of 1733 orphan modules, I recommend reviewing the affected files and removing any unused code or modules. Since the affected files appear to be documentation files (e.g., CONTRIBUTING.md, README.md, SECURITY.md), it's likely that the orphan modules are related to code snippets or examples within these files.</p>
-<p>To fix this, I suggest removing any unused code blocks or examples from these documentation files. For instance, if a code snippet in CONTRIBUTING.md has an associated module that is not being used elsewhere, it can be safely removed:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>&lt;!-- Before --&gt;
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>```python
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="gh"># unused_module.py</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>def unused_function():
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    pass
+<p>To address the issue of 1733 orphan modules, I recommend reviewing the listed files and removing or refactoring them if they are not being utilized. The files listed, such as <code>CONTRIBUTING.md</code>, <code>README.md</code>, and various documentation files under <code>docs/de/docs/</code>, are Markdown files that don't directly contribute to the dependency graph unless they're being imported or referenced in code. </p>
+<p>Since these are documentation files, the issue likely stems from incorrect assumptions about how they're being used. To fix this, ensure that any code or modules referenced in these documentation files are properly imported or exported in the relevant code files.</p>
+<p>For example, if a code snippet in <code>docs/de/docs/advanced/additional-responses.md</code> is supposed to demonstrate a specific functionality, verify that the corresponding code is correctly referenced or imported. If not, consider removing or updating the snippet.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>&lt;!-- Before: referencing non-existent code --&gt;
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>```python
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>from non_existent_module import some_function
 </code></pre></div>
-<h2 id="contributing-guidelines">Contributing Guidelines<a class="headerlink" href="#contributing-guidelines" title="Permanent link">&para;</a></h2>
-<!-- After -->
-<h2 id="contributing-guidelines_1">Contributing Guidelines<a class="headerlink" href="#contributing-guidelines_1" title="Permanent link">&para;</a></h2>
-<p>```</p>
-<p>If a module is being used elsewhere in the codebase, ensure it has explicit imports and exports. However, given the context of the affected files, it's likely that the orphan modules are simply unused code snippets. </p>
-<p>By removing unused code and ensuring that remaining modules have proper imports and exports, you can resolve the issue of 1733 orphan modules.</p>
+<p><!-- After: updating to reference actual code or removing -->
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">actual_module</span><span class="w"> </span><span class="kn">import</span> <span class="n">some_function</span>
+</code></pre></div>
+Or, simply remove the reference if it's not needed.</p>
 </details>
 </div>
 <h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h2>
@@ -9718,6 +9668,37 @@
 <p>Found 172 files nested more than 5 directories deep. Deepest: <code>docs/en/docs/reference/security/index.md</code> (6 levels).</p>
 <p><strong>Affected files:</strong> <code>docs/en/docs/reference/security/index.md</code>, <code>docs/de/docs/advanced/security/index.md</code>, <code>docs/en/docs/advanced/security/index.md</code>, <code>docs/es/docs/advanced/security/index.md</code>, <code>docs/fr/docs/advanced/security/index.md</code>, <code>docs/ja/docs/advanced/security/index.md</code>, <code>docs/ko/docs/advanced/security/index.md</code>, <code>docs/pt/docs/advanced/security/index.md</code>, <code>docs/ru/docs/advanced/security/index.md</code>, <code>docs/tr/docs/advanced/security/index.md</code></p>
 <p><strong>Suggestion:</strong> Consider flattening the directory structure to reduce import path complexity.</p>
+<details class="tip">
+<summary>AI Analysis</summary>
+<p><strong>Fix Recommendation:</strong></p>
+<p>To address the deeply nested files issue, we can create a symbolic link to the <code>fastapi.security</code> module in the root directory of our project. This will allow us to import the necessary modules from a shallower directory depth.</p>
+<p><strong>Code Example:</strong></p>
+<ol>
+<li>Create a symbolic link in the root directory of your project:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>ln<span class="w"> </span>-s<span class="w"> </span>docs/en/docs/reference/security<span class="w"> </span>fastapi_security
+</code></pre></div></li>
+<li>Update the import statement in <code>index.md</code> to use the symbolic link:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi_security</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">APIKeyCookie</span><span class="p">,</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">APIKeyHeader</span><span class="p">,</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">APIKeyQuery</span><span class="p">,</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">HTTPAuthorizationCredentials</span><span class="p">,</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">HTTPBasic</span><span class="p">,</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="n">HTTPBasicCredentials</span><span class="p">,</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="n">HTTPBearer</span><span class="p">,</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="n">HTTPDigest</span><span class="p">,</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    <span class="n">OAuth2</span><span class="p">,</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>    <span class="n">OAuth2AuthorizationCodeBearer</span><span class="p">,</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>    <span class="n">OAuth2PasswordBearer</span><span class="p">,</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>    <span class="n">OAuth2PasswordRequestForm</span><span class="p">,</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>    <span class="n">OAuth2PasswordRequestFormStrict</span><span class="p">,</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>    <span class="n">OpenIdConnect</span><span class="p">,</span>
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>    <span class="n">SecurityScopes</span><span class="p">,</span>
+<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="p">)</span>
+</code></pre></div>
+By creating a symbolic link, we can reduce the directory depth and make the import path complexity more manageable.</li>
+</ol>
+</details>
 </div>
 <hr />
 <p><em>Generated by DocWalk from static analysis</em></p>
@@ -9831,6 +9812,8 @@
       <script src="../assets/javascripts/bundle.16f8adc2.min.js"></script>
       
         <script src="../javascripts/mermaid-zoom.js"></script>
+      
+        <script src="../_docwalk/qa-widget.js"></script>
       
     
   </body>

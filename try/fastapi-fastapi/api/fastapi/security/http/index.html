@@ -60,6 +60,8 @@
     
       <link rel="stylesheet" href="../../../../stylesheets/preset.css">
     
+      <link rel="stylesheet" href="../../../../_docwalk/qa-widget.css">
+    
     <script>__md_scope=new URL("../../../..",location),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,a=__md_scope)=>JSON.parse(t.getItem(a.pathname+"."+e)),__md_set=(e,t,a=localStorage,_=__md_scope)=>{try{a.setItem(_.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -13051,7 +13053,18 @@
 
 
 <h1 id="httppy">http.py<a class="headerlink" href="#httppy" title="Permanent link">&para;</a></h1>
-<p>Orchestrates HTTP security features by providing authentication utilities, exposes HTTPBasicCredentials and HTTPAuthorizationCredentials for authentication data, and is consumed by FastAPI's security layer to validate incoming requests.</p>
+<p><think>
+Okay, let's tackle this. The user wants me to summarize the FastAPI security HTTP module. First, I need to understand what each part does.</p>
+<p>Looking at the module, it's part of FastAPI's security features, handling HTTP authentication schemes. The key exports are classes like HTTPBasic, HTTPBearer, and their credentials models. The module's role is to provide base classes and utilities for different authentication methods, which are used in dependency injection with FastAPI.</p>
+<p>For the module summary, I should mention that it defines the foundational classes for HTTP auth schemes, lists the key exports, and connects to the broader FastAPI security system. </p>
+<p>Now, each symbol:</p>
+<ul>
+<li>HTTPBasicCredentials: This model holds username and password from basic auth. Used when you need to extract those from a request.</li>
+<li>HTTPAuthorizationCredentials: Holds scheme and credentials from the auth header, like Bearer tokens. Used for more complex auth types.</li>
+<li>HTTPBase: The base class for all HTTP security schemes. Provides common methods for authentication.</li>
+<li>HTTPBasic: Implements RFC 7617 for basic auth. Used when you need to authenticate via username and password.</li>
+<li>HTTPBearer: For Bearer token auth. Developers use it when they need to validate tokens in the Authorization header</li>
+</ul>
 <details>
 <summary>Relevant source files</summary>
 
@@ -13301,7 +13314,7 @@ def read_current_user(
 <li><code>starlette.status</code> — HTTP_401_UNAUTHORIZED</li>
 </ul>
 <hr />
-<p><em>Source: <code>fastapi/security/http.py</code> · Last analyzed: 2026-03-03T17:43:40.861Z</em></p>
+<p><em>Source: <code>fastapi/security/http.py</code> · Last analyzed: 2026-03-04T19:02:22.756Z</em></p>
 <div class="admonition tip">
 <p class="admonition-title">Unlock Full Documentation</p>
 <p>This is a preview. Run DocWalk on your own repo for complete API reference across all 2017 modules, deeper AI analysis, and more.</p>
@@ -13412,6 +13425,8 @@ def read_current_user(
       <script src="../../../../assets/javascripts/bundle.16f8adc2.min.js"></script>
       
         <script src="../../../../javascripts/mermaid-zoom.js"></script>
+      
+        <script src="../../../../_docwalk/qa-widget.js"></script>
       
     
   </body>

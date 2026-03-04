@@ -60,6 +60,8 @@
     
       <link rel="stylesheet" href="../../../../stylesheets/preset.css">
     
+      <link rel="stylesheet" href="../../../../_docwalk/qa-widget.css">
+    
     <script>__md_scope=new URL("../../../..",location),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,a=__md_scope)=>JSON.parse(t.getItem(a.pathname+"."+e)),__md_set=(e,t,a=localStorage,_=__md_scope)=>{try{a.setItem(_.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -10053,7 +10055,11 @@
 
 
 <h1 id="utilspy">utils.py<a class="headerlink" href="#utilspy" title="Permanent link">&para;</a></h1>
-<p>Orchestrates the OpenAPI generation pipeline by exposing functions for generating OpenAPI definitions and validation error messages. Consumed by the OpenAPI layer to provide a standardized API description. Exposes utility functions for working with OpenAPI models and validation error definitions. Defines the validation error definition for OpenAPI validation errors.</p>
+<p><think>
+Okay, let's tackle this. The user wants a JSON summary of the FastAPI OpenAPI utils module. First, I need to understand the module's role. Looking at the imports and functions, it seems to handle generating OpenAPI documentation. The key exports are functions like get_openapi_security_definitions and get_openapi, which are involved in creating the OpenAPI schema.</p>
+<p>The module's architectural role is probably to orchestrate the conversion of FastAPI routes and dependencies into OpenAPI specifications. It connects with other parts of FastAPI, like the routing and dependencies modules. The functions here process security schemes, parameters, request bodies, and generate operation IDs and paths.</p>
+<p>For each symbol, I need a one-sentence summary. For example, get_openapi_security_definitions likely extracts security schemes from dependencies. generate_operation_id probably creates unique IDs for operations based on routes and methods. The get_openapi function is the main entry point that compiles all the information into the OpenAPI document.</p>
+<p>I have to avoid generic phrases and instead be specific about what each function does and how they fit into the system. Make sure the module summary mentions key exports and their role in the broader system, like connecting to the CLI or other layers. Also, check for anti-patterns like "</p>
 <details>
 <summary>Relevant source files</summary>
 
@@ -10577,7 +10583,7 @@ The following files were used as context for this page:
 <li><code>starlette.routing</code> — BaseRoute</li>
 </ul>
 <hr />
-<p><em>Source: <code>fastapi/openapi/utils.py</code> · Last analyzed: 2026-03-03T17:43:40.832Z</em></p>
+<p><em>Source: <code>fastapi/openapi/utils.py</code> · Last analyzed: 2026-03-04T19:02:22.728Z</em></p>
 <div class="admonition tip">
 <p class="admonition-title">Unlock Full Documentation</p>
 <p>This is a preview. Run DocWalk on your own repo for complete API reference across all 2017 modules, deeper AI analysis, and more.</p>
@@ -10688,6 +10694,8 @@ The following files were used as context for this page:
       <script src="../../../../assets/javascripts/bundle.16f8adc2.min.js"></script>
       
         <script src="../../../../javascripts/mermaid-zoom.js"></script>
+      
+        <script src="../../../../_docwalk/qa-widget.js"></script>
       
     
   </body>
